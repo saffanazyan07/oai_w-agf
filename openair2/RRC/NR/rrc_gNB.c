@@ -401,7 +401,7 @@ static void rrc_gNB_generate_RRCSetup_for_RRCReestablishmentRequest(const protoc
   const NR_ServingCellConfigCommon_t *scc=rrc_instance_p->carrier.servingcellconfigcommon;
   const NR_ServingCellConfig_t       *sccd = rrc_instance_p->configuration.scd;
 
-  ue_context_pP = rrc_gNB_create_ue_context(ctxt_pP, rrc_instance_p, 0);
+  ue_context_pP = rrc_gNB_create_ue_context(ctxt_pP->rntiMaybeUEid, rrc_instance_p, 0);
 
   gNB_RRC_UE_t *ue_p = &ue_context_pP->ue_context;
   unsigned char buf[1024];
@@ -1722,7 +1722,7 @@ int nr_rrc_gNB_decode_ccch(protocol_ctxt_t    *const ctxt_pP,
               UE->ul_failure_timer = 20000;
             }
 
-            ue_context_p = rrc_gNB_create_ue_context(ctxt_pP, RC.nrrrc[ctxt_pP->module_id], random_value);
+            ue_context_p = rrc_gNB_create_ue_context(ctxt_pP->rntiMaybeUEid, RC.nrrrc[ctxt_pP->module_id], random_value);
           } else if (NR_InitialUE_Identity_PR_ng_5G_S_TMSI_Part1 == rrcSetupRequest->ue_Identity.present) {
             /* TODO */
             /* <5G-S-TMSI> = <AMF Set ID><AMF Pointer><5G-TMSI> 48-bit */
@@ -1747,11 +1747,7 @@ int nr_rrc_gNB_decode_ccch(protocol_ctxt_t    *const ctxt_pP,
               mac_remove_nr_ue(nrmac, UE->rnti);
 
               /* replace rnti in the context */
-              /* for that, remove the context from the RB tree */
-              RB_REMOVE(rrc_nr_ue_tree_s, &RC.nrrrc[ctxt_pP->module_id]->rrc_ue_head, ue_context_p);
-              /* and insert again, after changing rnti everywhere it has to be changed */
               UE->rnti = ctxt_pP->rntiMaybeUEid;
-              RB_INSERT(rrc_nr_ue_tree_s, &RC.nrrrc[ctxt_pP->module_id]->rrc_ue_head, ue_context_p);
               /* reset timers */
               UE->ul_failure_timer = 0;
               UE->ue_release_timer = 0;
@@ -1761,7 +1757,7 @@ int nr_rrc_gNB_decode_ccch(protocol_ctxt_t    *const ctxt_pP,
             } else {
               LOG_I(NR_RRC, " 5G-S-TMSI-Part1 doesn't exist, setting ng_5G_S_TMSI_Part1 to %p => %ld\n", ue_context_p, s_tmsi_part1);
 
-              ue_context_p = rrc_gNB_create_ue_context(ctxt_pP, RC.nrrrc[ctxt_pP->module_id], s_tmsi_part1);
+              ue_context_p = rrc_gNB_create_ue_context(ctxt_pP->rntiMaybeUEid, RC.nrrrc[ctxt_pP->module_id], s_tmsi_part1);
               if (ue_context_p == NULL) {
                 LOG_E(NR_RRC, "%s:%d:%s: rrc_gNB_get_next_free_ue_context returned NULL\n", __FILE__, __LINE__, __FUNCTION__);
                 return -1;
@@ -1775,7 +1771,7 @@ int nr_rrc_gNB_decode_ccch(protocol_ctxt_t    *const ctxt_pP,
             uint64_t random_value = 0;
             memcpy(((uint8_t *)&random_value) + 3, rrcSetupRequest->ue_Identity.choice.randomValue.buf, rrcSetupRequest->ue_Identity.choice.randomValue.size);
 
-            rrc_gNB_create_ue_context(ctxt_pP, RC.nrrrc[ctxt_pP->module_id], random_value);
+            rrc_gNB_create_ue_context(ctxt_pP->rntiMaybeUEid, RC.nrrrc[ctxt_pP->module_id], random_value);
             LOG_E(NR_RRC, PROTOCOL_NR_RRC_CTXT_UE_FMT " RRCSetupRequest without random UE identity or S-TMSI not supported, let's reject the UE\n", PROTOCOL_NR_RRC_CTXT_UE_ARGS(ctxt_pP));
             rrc_gNB_generate_RRCReject(ctxt_pP, rrc_gNB_get_ue_context(gnb_rrc_inst, ctxt_pP->rntiMaybeUEid));
             break;

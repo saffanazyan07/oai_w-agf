@@ -172,13 +172,13 @@ rrc_gNB_ue_context_t *rrc_gNB_ue_context_5g_s_tmsi_exist(gNB_RRC_INST *rrc_insta
 
 //-----------------------------------------------------------------------------
 // return a new ue context structure if ue_identityP, ctxt_pP->rnti not found in collection
-rrc_gNB_ue_context_t *rrc_gNB_create_ue_context(const protocol_ctxt_t *const ctxt_pP, gNB_RRC_INST *rrc_instance_pP, const uint64_t ue_identityP)
+rrc_gNB_ue_context_t *rrc_gNB_create_ue_context(ue_id_t ue_id, gNB_RRC_INST *rrc_instance_pP, const uint64_t ue_identityP)
 //-----------------------------------------------------------------------------
 {
-  rrc_gNB_ue_context_t *ue_context_p = rrc_gNB_get_ue_context(rrc_instance_pP, ctxt_pP->rntiMaybeUEid);
+  rrc_gNB_ue_context_t *ue_context_p = rrc_gNB_get_ue_context(rrc_instance_pP, ue_id);
 
   if (ue_context_p) {
-    LOG_E(NR_RRC, " Cannot create new UE context, already exist rnti: %lx\n", ctxt_pP->rntiMaybeUEid);
+    LOG_E(NR_RRC, " Cannot create new UE context, already exist rnti: %lx\n", ue_id);
     return ue_context_p;
   }
 
@@ -186,9 +186,9 @@ rrc_gNB_ue_context_t *rrc_gNB_create_ue_context(const protocol_ctxt_t *const ctx
   if (ue_context_p == NULL)
     return NULL;
 
-  ue_context_p->ue_context.rnti = ctxt_pP->rntiMaybeUEid;
+  ue_context_p->ue_context.rnti = ue_id;
   ue_context_p->ue_context.random_ue_identity = ue_identityP;
   RB_INSERT(rrc_nr_ue_tree_s, &rrc_instance_pP->rrc_ue_head, ue_context_p);
-  LOG_D(NR_RRC, " Created new UE context rnti: %lx, random ue id %lx, local uid %u\n", ctxt_pP->rntiMaybeUEid, ue_identityP, ue_context_p->ue_context.gNB_ue_ngap_id);
+  LOG_D(NR_RRC, " Created new UE context rnti: %lx, random ue id %lx, local uid %u\n", ue_id, ue_identityP, ue_context_p->ue_context.gNB_ue_ngap_id);
   return ue_context_p;
 }

@@ -1069,8 +1069,7 @@ int ngap_gNB_handle_paging(uint32_t               assoc_id,
   NGAP_INFO("[SCTP %d] Received Paging taiList For Paging: count %d\n", assoc_id, ie->value.choice.TAIListForPaging.list.count);
 
   for (int i = 0; i < ie->value.choice.TAIListForPaging.list.count; i++) {
-    NGAP_TAIListForPagingItem_t *item_p;
-    item_p = (NGAP_TAIListForPagingItem_t *)ie->value.choice.TAIListForPaging.list.array[i];
+    NGAP_TAIListForPagingItem_t *item_p = ie->value.choice.TAIListForPaging.list.array[i];
     TBCD_TO_MCC_MNC(&(item_p->tAI.pLMNIdentity), msg->plmn_identity[i].mcc, msg->plmn_identity[i].mnc, msg->plmn_identity[i].mnc_digit_length);
     OCTET_STRING_TO_INT16(&(item_p->tAI.tAC), msg->tac[i]);
     msg->tai_size++;
@@ -1141,10 +1140,9 @@ static int ngap_gNB_handle_pdusession_modify_request(uint32_t assoc_id, uint32_t
     ngap_pdusession_modify_resp_t* msg=&NGAP_PDUSESSION_MODIFY_RESP(message_p);
     memset(msg, 0, sizeof(*msg));
     msg->gNB_ue_ngap_id = gnb_ue_ngap_id;
-    for (int nb_of_pdusessions_failed = 0; nb_of_pdusessions_failed < ie->value.choice.PDUSessionResourceModifyListModReq.list.count; nb_of_pdusessions_failed++) {
-      NGAP_PDUSessionResourceModifyItemModReq_t *item_p;
-      item_p = (NGAP_PDUSessionResourceModifyItemModReq_t *)ie->value.choice.PDUSessionResourceModifyListModReq.list.array[nb_of_pdusessions_failed];
-      pdusession_failed_t *tmp = &msg->pdusessions_failed[nb_of_pdusessions_failed];
+    for (int failedSession = 0; failedSession < ie->value.choice.PDUSessionResourceModifyListModReq.list.count; failedSession++) {
+      NGAP_PDUSessionResourceModifyItemModReq_t *item_p = ie->value.choice.PDUSessionResourceModifyListModReq.list.array[failedSession];
+      pdusession_failed_t *tmp = &msg->pdusessions_failed[failedSession];
       tmp->pdusession_id = item_p->pDUSessionID;
       tmp->cause = NGAP_Cause_PR_radioNetwork;
       tmp->cause_value = NGAP_CauseRadioNetwork_unknown_local_UE_NGAP_ID;
@@ -1260,8 +1258,7 @@ int ngap_gNB_handle_pdusession_release_command(uint32_t               assoc_id,
   msg->nb_pdusessions_torelease = ie->value.choice.PDUSessionResourceToReleaseListRelCmd.list.count;
 
   for (i = 0; i < ie->value.choice.PDUSessionResourceToReleaseListRelCmd.list.count; i++) {
-    NGAP_PDUSessionResourceToReleaseItemRelCmd_t *item_p;
-    item_p = ie->value.choice.PDUSessionResourceToReleaseListRelCmd.list.array[i];
+    NGAP_PDUSessionResourceToReleaseItemRelCmd_t *item_p = ie->value.choice.PDUSessionResourceToReleaseListRelCmd.list.array[i];
     msg->pdusession_release_params[i].pdusession_id = item_p->pDUSessionID;
     allocCopy(&msg->pdusession_release_params[i].data, item_p->pDUSessionResourceReleaseCommandTransfer);
   }
@@ -1358,7 +1355,7 @@ ngap_message_decoded_callback ngap_messages_callback[][3] = {
 int ngap_gNB_handle_message(uint32_t assoc_id, int32_t stream, const uint8_t *const data, const uint32_t data_length)
 {
   NGAP_NGAP_PDU_t pdu;
-  int ret;
+  int ret = -1;
   DevAssert(data != NULL);
   memset(&pdu, 0, sizeof(pdu));
 
@@ -1366,25 +1363,19 @@ int ngap_gNB_handle_message(uint32_t assoc_id, int32_t stream, const uint8_t *co
     NGAP_ERROR("Failed to decode PDU\n");
     return -1;
   }
-
+  NGAP_ProcedureCode_t code = pdu.choice.initiatingMessage->procedureCode;
   /* Checking procedure Code and direction of message */
-  if (pdu.choice.initiatingMessage->procedureCode >= sizeof(ngap_messages_callback) / (3 * sizeof(ngap_message_decoded_callback)) || (pdu.present > NGAP_NGAP_PDU_PR_unsuccessfulOutcome)) {
-    NGAP_ERROR("[SCTP %d] Either procedureCode %ld or direction %d exceed expected\n", assoc_id, pdu.choice.initiatingMessage->procedureCode, pdu.present);
+  if (code >= sizeofArray(ngap_messages_callback) || (pdu.present > NGAP_NGAP_PDU_PR_unsuccessfulOutcome)) {
+    NGAP_ERROR("[SCTP %d] Either procedureCode %ld or direction %d exceed expected\n", assoc_id, code, pdu.present);
     ASN_STRUCT_FREE_CONTENTS_ONLY(asn_DEF_NGAP_NGAP_PDU, &pdu);
     return -1;
   }
 
-  /* No handler present.
-   * This can mean not implemented or no procedure for gNB (wrong direction).
-   */
-  if (ngap_messages_callback[pdu.choice.initiatingMessage->procedureCode][pdu.present - 1] == NULL) {
-    NGAP_ERROR("[SCTP %d] No handler for procedureCode %ld in %s\n", assoc_id, pdu.choice.initiatingMessage->procedureCode, ngap_direction2String(pdu.present - 1));
-    ASN_STRUCT_FREE_CONTENTS_ONLY(asn_DEF_NGAP_NGAP_PDU, &pdu);
-    return -1;
-  }
-
+  if (ngap_messages_callback[code][pdu.present - 1] == NULL)
+    NGAP_ERROR("[SCTP %d] No handler for procedureCode %ld in %s\n", assoc_id, code, ngap_direction2String(pdu.present - 1));
   /* Calling the right handler */
-  ret = (*ngap_messages_callback[pdu.choice.initiatingMessage->procedureCode][pdu.present - 1])(assoc_id, stream, &pdu);
+  else
+    ret = (*ngap_messages_callback[code][pdu.present - 1])(assoc_id, stream, &pdu);
   ASN_STRUCT_FREE_CONTENTS_ONLY(asn_DEF_NGAP_NGAP_PDU, &pdu);
   return ret;
 }

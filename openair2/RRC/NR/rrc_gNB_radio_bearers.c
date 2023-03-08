@@ -28,7 +28,6 @@ rrc_pdu_session_param_t *find_pduSession(gNB_RRC_UE_t *ue, int id, bool create)
   for (j = 0; j < ue->nb_of_pdusessions; j++)
     if (id == ue->pduSession[j].param.pdusession_id)
       break;
-  printf("%d XXXX %d\n", j, ue->nb_of_pdusessions);
   if (j == ue->nb_of_pdusessions && create)
     ue->nb_of_pdusessions++;
   else
@@ -45,8 +44,7 @@ NR_DRB_ToAddMod_t *generateDRB(gNB_RRC_UE_t *ue, uint8_t drb_id, rrc_pdu_session
   association->present = NR_DRB_ToAddMod__cnAssociation_PR_sdap_Config;
 
   /* SDAP Configuration */
-  NR_SDAP_Config_t *SDAP_config = CALLOC(1, sizeof(NR_SDAP_Config_t));
-  asn1cCalloc(SDAP_config->mappedQoS_FlowsToAdd, sdapFlows);
+  asn1cCalloc(association->choice.sdap_Config, SDAP_config);
 
   SDAP_config->pdu_Session = pduSession->param.pdusession_id;
   
@@ -59,7 +57,8 @@ NR_DRB_ToAddMod_t *generateDRB(gNB_RRC_UE_t *ue, uint8_t drb_id, rrc_pdu_session
   }
   
   SDAP_config->defaultDRB = true;
-  
+
+  asn1cCalloc(SDAP_config->mappedQoS_FlowsToAdd, sdapFlows);
   for (int qos_flow_index = 0; qos_flow_index < pduSession->param.nb_qos; qos_flow_index++) 
   {
     asn1cSequenceAdd(sdapFlows->list, NR_QFI_t, qfi);
@@ -69,8 +68,6 @@ NR_DRB_ToAddMod_t *generateDRB(gNB_RRC_UE_t *ue, uint8_t drb_id, rrc_pdu_session
     else
       pduSession->param.used_drbs[drb_id - 1] = DRB_ACTIVE;
   }
-
-  association->choice.sdap_Config = SDAP_config;
 
   /* PDCP Configuration */
   asn1cCalloc(DRB_config->pdcp_Config, pdcpConfig);
