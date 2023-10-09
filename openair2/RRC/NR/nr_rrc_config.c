@@ -41,6 +41,8 @@
 
 const uint8_t slotsperframe[5] = {10, 20, 40, 80, 160};
 
+#define NUM_PUCCH2_ALLOC 1
+
 static NR_SearchSpace_t *rrc_searchspace_config(bool is_common, int searchspaceid, int coresetid)
 {
 
@@ -789,7 +791,7 @@ static void config_pucch_resset0(NR_PUCCH_Config_t *pucch_Config, int uid, int c
 
   NR_PUCCH_Resource_t *pucchres0 = calloc(1,sizeof(*pucchres0));
   pucchres0->pucch_ResourceId = *pucchid;
-  pucchres0->startingPRB = 8 + uid;
+  pucchres0->startingPRB = (8 * NUM_PUCCH2_ALLOC) + uid;
   AssertFatal(pucchres0->startingPRB < curr_bwp, "Not enough resources in current BWP (size %d) to allocate uid %d\n", curr_bwp, uid);
   pucchres0->intraSlotFrequencyHopping = NULL;
   pucchres0->secondHopPRB = NULL;
@@ -805,7 +807,9 @@ static void config_pucch_resset0(NR_PUCCH_Config_t *pucch_Config, int uid, int c
 
 
 // PUCCH resource set 1 for configuration with O_uci > 2 bits (currently format2)
-static void config_pucch_resset1(NR_PUCCH_Config_t *pucch_Config, const NR_UE_NR_Capability_t *uecap)
+static void config_pucch_resset1(NR_PUCCH_Config_t *pucch_Config,
+                                 const NR_UE_NR_Capability_t *uecap,
+                                 int uid)
 {
   NR_PUCCH_ResourceSet_t *pucchresset=calloc(1,sizeof(*pucchresset));
   pucchresset->pucch_ResourceSetId = 1;
@@ -821,7 +825,7 @@ static void config_pucch_resset1(NR_PUCCH_Config_t *pucch_Config, const NR_UE_NR
 
   NR_PUCCH_Resource_t *pucchres2 = calloc(1,sizeof(*pucchres2));
   pucchres2->pucch_ResourceId = *pucchressetid;
-  pucchres2->startingPRB = 0;
+  pucchres2->startingPRB = (uid % NUM_PUCCH2_ALLOC) * 8;
   pucchres2->intraSlotFrequencyHopping = NULL;
   pucchres2->secondHopPRB = NULL;
   pucchres2->format.present = NR_PUCCH_Resource__format_PR_format2;
@@ -1296,7 +1300,7 @@ static void config_uplinkBWP(NR_BWP_Uplink_t *ubwp,
   pucch_Config->resourceToAddModList = calloc(1,sizeof(*pucch_Config->resourceToAddModList));
   pucch_Config->resourceToReleaseList = NULL;
   config_pucch_resset0(pucch_Config, uid, curr_bwp, uecap);
-  config_pucch_resset1(pucch_Config, uecap);
+  config_pucch_resset1(pucch_Config, uecap, uid);
   set_pucch_power_config(pucch_Config, configuration->do_CSIRS);
   scheduling_request_config(scc, pucch_Config, ubwp->bwp_Common->genericParameters.subcarrierSpacing);
   set_dl_DataToUL_ACK(pucch_Config, configuration->minRXTXTIME, ubwp->bwp_Common->genericParameters.subcarrierSpacing);
@@ -1347,7 +1351,7 @@ static void set_csi_meas_periodicity(const NR_ServingCellConfigCommon_t *scc, NR
   const int n_slots_period = tdd ? n_slots_frame / get_nb_periods_per_frame(tdd->dl_UL_TransmissionPeriodicity) : n_slots_frame;
   const int ideal_period = MAX_MOBILES_PER_GNB * 2 * n_slots_period / n_ul_slots_period; // 2 reports per UE
   const int first_ul_slot_period = tdd ? get_first_ul_slot(tdd->nrofDownlinkSlots, tdd->nrofDownlinkSymbols, tdd->nrofUplinkSymbols) : 0;
-  const int idx = (uid << 1) + is_rsrp;
+  const int idx = ((uid / NUM_PUCCH2_ALLOC) << 1) + is_rsrp;
   const int offset = first_ul_slot_period + idx % n_ul_slots_period + (idx / n_ul_slots_period) * n_slots_period;
   AssertFatal(offset < 320, "Not enough UL slots to accomodate all possible UEs. Need to rework the implementation\n");
 
@@ -2062,7 +2066,6 @@ static NR_MAC_CellGroupConfig_t *configure_mac_cellgroup(void)
   return mac_CellGroupConfig;
 }
 
-
 static NR_SpCellConfig_t *get_initial_SpCellConfig(int uid,
                                                    const NR_ServingCellConfigCommon_t *scc,
                                                    const NR_ServingCellConfig_t *servingcellconfigdedicated,
@@ -2092,7 +2095,7 @@ static NR_SpCellConfig_t *get_initial_SpCellConfig(int uid,
   pucch_Config->resourceToAddModList = calloc(1, sizeof(*pucch_Config->resourceToAddModList));
   pucch_Config->resourceToReleaseList = NULL;
   config_pucch_resset0(pucch_Config, uid, curr_bwp, NULL);
-  config_pucch_resset1(pucch_Config, NULL);
+  config_pucch_resset1(pucch_Config, NULL, uid);
   set_pucch_power_config(pucch_Config, configuration->do_CSIRS);
 
   initialUplinkBWP->pusch_Config = config_pusch(NULL, scc, NULL);
@@ -2524,11 +2527,6 @@ NR_CellGroupConfig_t *get_default_secondaryCellGroup(const NR_ServingCellConfigC
 
   if (uecap == NULL)
     LOG_E(RRC, "No UE Capabilities available when programming default CellGroup in NSA\n");
-
-  // This assert will never happen in the current implementation because NUMBER_OF_UE_MAX = 4.
-  // However, if in the future NUMBER_OF_UE_MAX is increased, it will be necessary to improve the allocation of SRS resources,
-  // where the startPosition = 2 or 3 and sl160 = 17, 17, 27 ... 157 only give us 30 different allocations.
-  AssertFatal(uid >= 0 && uid < 30, "gNB cannot allocate the SRS resources\n");
 
   uint64_t bitmap = get_ssb_bitmap(servingcellconfigcommon);
   // See comment at the end of this function regarding ServingCellConfig
