@@ -23,10 +23,7 @@
     </rlc-Parameters>
     <mac-Parameters>
         <mac-ParametersXDD-Diff>
-            <logicalChannelSR-DelayTimer><supported/></logicalChannelSR-DelayTimer>
-            <longDRX-Cycle><supported/></longDRX-Cycle>
             <shortDRX-Cycle><supported/></shortDRX-Cycle>
-            <multipleSR-Configurations><supported/></multipleSR-Configurations>
         </mac-ParametersXDD-Diff>
     </mac-Parameters>
     <phy-Parameters>
@@ -857,6 +854,5 @@
                 </eutra-ParametersCommon>
             </eutra>
         </interRAT-Parameters>
-        <inactiveState><supported/></inactiveState>
     </nonCriticalExtension>
 </UE-NR-Capability>
