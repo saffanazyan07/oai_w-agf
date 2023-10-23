@@ -70,7 +70,13 @@ void process_nsa_message(NR_UE_RRC_INST_t *rrc, nsa_message_t nsa_message_type, 
 
 /**\brief Process NR RRC connection reconfiguration via SRB3
    \param rrcReconfiguration  decoded rrc connection reconfiguration*/
-int8_t nr_rrc_ue_process_rrcReconfiguration(const module_id_t module_id, NR_RRCReconfiguration_t *rrcReconfiguration);
+void nr_rrc_ue_process_rrcReconfiguration(const module_id_t module_id,
+                                          int gnb_index,
+                                          NR_RRCReconfiguration_t *rrcReconfiguration);
+
+void nr_rrc_cellgroup_configuration(int gNB_index,
+                                    module_id_t module_id,
+                                    NR_CellGroupConfig_t *cellGroupConfig);
 
 /**\prief Process measurement config from NR RRC connection reconfiguration message
    \param meas_config   measurement configuration*/
