@@ -186,8 +186,6 @@ typedef struct NR_UE_RRC_SRB_INFO_s {
 
 typedef struct NR_UE_RRC_INST_s {
   NR_MeasConfig_t        *meas_config;
-  NR_CellGroupConfig_t   *cell_group_config;
-  NR_ServingCellConfigCommonSIB_t *servingCellConfigCommonSIB;
   NR_RadioBearerConfig_t *radio_bearer_config;
 
   NR_MeasObjectToAddMod_t        *MeasObj[NB_CNX_UE][MAX_MEAS_OBJ];

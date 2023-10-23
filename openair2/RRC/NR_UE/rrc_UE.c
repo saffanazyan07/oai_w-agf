@@ -160,7 +160,7 @@ void nr_rrc_ue_process_rrcReconfiguration(const module_id_t module_id,
                                        cellGroupConfig);
 
         if (!get_softmodem_params()->sa)
-          nr_rrc_mac_config_req_scg(0, 0, cellGroupConfig);
+          nr_rrc_mac_config_req_cg(0, 0, cellGroupConfig);
       }
       if(rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration->measConfig != NULL){
         if(NR_UE_rrc_inst[module_id].meas_config == NULL){
@@ -674,7 +674,6 @@ static int8_t nr_rrc_ue_decode_NR_BCCH_DL_SCH_Message(module_id_t module_id,
         // configure timers and constant
         nr_rrc_set_sib1_timers_and_constants(&rrc->timers_and_constants, sib1);
         // take ServingCellConfigCommon and configure L1/L2
-        rrc->servingCellConfigCommonSIB = sib1->servingCellConfigCommon;
         nr_rrc_mac_config_req_sib1(module_id, 0, sib1->si_SchedulingInfo, sib1->servingCellConfigCommon);
         break;
       case NR_BCCH_DL_SCH_MessageType__c1_PR_systemInformation:
@@ -739,13 +738,6 @@ void nr_rrc_cellgroup_configuration(int gNB_index,
                                     NR_CellGroupConfig_t *cellGroupConfig)
 {
   NR_UE_RRC_INST_t *rrc = &NR_UE_rrc_inst[module_id];
-  if(rrc->cell_group_config == NULL)
-    rrc->cell_group_config = cellGroupConfig;
-  else {
-    ASN_STRUCT_FREE(asn_DEF_NR_CellGroupConfig, rrc->cell_group_config);
-    rrc->cell_group_config = cellGroupConfig;
-  }
-
   NR_UE_Timers_Constants_t *tac = &rrc->timers_and_constants;
 
   NR_SpCellConfig_t *spCellConfig = cellGroupConfig->spCellConfig;
@@ -825,7 +817,7 @@ void nr_rrc_ue_process_masterCellGroup(const protocol_ctxt_t *const ctxt_pP,
                                  cellGroupConfig);
 
   LOG_D(RRC,"Sending CellGroupConfig to MAC\n");
-  nr_rrc_mac_config_req_mcg(ctxt_pP->module_id, 0, cellGroupConfig);
+  nr_rrc_mac_config_req_cg(ctxt_pP->module_id, 0, cellGroupConfig);
 }
 
 static void rrc_ue_generate_RRCSetupComplete(const protocol_ctxt_t *const ctxt_pP,
