@@ -1134,6 +1134,7 @@ void fill_dci_pdu_rel15(const NR_ServingCellConfigCommon_t *scc,
                         int bwp_id,
                         NR_SearchSpace_t *ss,
                         NR_ControlResourceSet_t *coreset,
+                        long pdsch_HARQ_ACK_Codebook,
                         uint16_t cset0_bwp_size)
 {
   NR_CrossCarrierSchedulingConfig_t *crossCarrierSchedulingConfig = NULL; // TODO configure
@@ -1157,6 +1158,7 @@ void fill_dci_pdu_rel15(const NR_ServingCellConfigCommon_t *scc,
       alt_size = nr_dci_size(current_DL_BWP,
                              current_UL_BWP,
                              crossCarrierSchedulingConfig,
+                             pdsch_HARQ_ACK_Codebook,
                              &temp_pdu,
                              NR_UL_DCI_FORMAT_0_0,
                              rnti_type,
@@ -1170,6 +1172,7 @@ void fill_dci_pdu_rel15(const NR_ServingCellConfigCommon_t *scc,
       alt_size = nr_dci_size(current_DL_BWP,
                              current_UL_BWP,
                              crossCarrierSchedulingConfig,
+                             pdsch_HARQ_ACK_Codebook,
                              &temp_pdu,
                              NR_DL_DCI_FORMAT_1_0,
                              rnti_type,
@@ -1186,6 +1189,7 @@ void fill_dci_pdu_rel15(const NR_ServingCellConfigCommon_t *scc,
   int dci_size = nr_dci_size(current_DL_BWP,
                              current_UL_BWP,
                              crossCarrierSchedulingConfig,
+                             pdsch_HARQ_ACK_Codebook,
                              dci_pdu_rel15,
                              dci_format,
                              rnti_type,
@@ -2052,9 +2056,6 @@ void configure_UE_BWP(gNB_MAC_INST *nr_mac,
 
   int target_ss;
 
-  if (CellGroup && CellGroup->physicalCellGroupConfig)
-    DL_BWP->pdsch_HARQ_ACK_Codebook = &CellGroup->physicalCellGroupConfig->pdsch_HARQ_ACK_Codebook;
-
   NR_ServingCellConfig_t *servingCellConfig = NULL;
   if (CellGroup &&
       CellGroup->spCellConfig &&
@@ -2186,6 +2187,9 @@ void configure_UE_BWP(gNB_MAC_INST *nr_mac,
   }
 
   if(UE) {
+
+    if (CellGroup && CellGroup->physicalCellGroupConfig)
+      UE->pdsch_HARQ_ACK_Codebook = CellGroup->physicalCellGroupConfig->pdsch_HARQ_ACK_Codebook;
 
     // Reset required fields in sched_ctrl (e.g. ul_ri and tpmi)
     reset_sched_ctrl(sched_ctrl);
