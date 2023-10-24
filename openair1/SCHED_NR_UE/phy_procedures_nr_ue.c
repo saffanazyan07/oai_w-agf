@@ -686,7 +686,7 @@ static bool nr_ue_dlsch_procedures(PHY_VARS_NR_UE *ue, UE_nr_rxtx_proc_t *proc, 
   if (is_cw0_active != ACTIVE && is_cw1_active != ACTIVE) {
     // don't wait anymore
     const int ack_nack_slot = (proc->nr_slot_rx + dlsch[0].dlsch_config.k1_feedback) % ue->frame_parms.slots_per_frame;
-    send_slot_ind(ue->tx_resume_ind_fifo[ack_nack_slot], proc->nr_slot_rx);
+    send_slot_ind(ue->tx_resume_ind_fifo[ack_nack_slot], ack_nack_slot);
     return false;
   }
 
@@ -828,7 +828,8 @@ static bool nr_ue_dlsch_procedures(PHY_VARS_NR_UE *ue, UE_nr_rxtx_proc_t *proc, 
 
   // DLSCH decoding finished! don't wait anymore
   const int ack_nack_slot = (proc->nr_slot_rx + dlsch[0].dlsch_config.k1_feedback) % ue->frame_parms.slots_per_frame;
-  send_slot_ind(ue->tx_resume_ind_fifo[ack_nack_slot], proc->nr_slot_rx);
+  if (dlsch[0].rnti_type != _SI_RNTI_ && dlsch[0].rnti_type != _RA_RNTI_)
+    send_slot_ind(ue->tx_resume_ind_fifo[ack_nack_slot], ack_nack_slot);
 
   if (ue->phy_sim_dlsch_b)
     memcpy(ue->phy_sim_dlsch_b, p_b, dlsch_bytes);
@@ -1099,9 +1100,11 @@ void pdsch_processing(PHY_VARS_NR_UE *ue,
 
     if (ret_pdsch >= 0)
       nr_ue_dlsch_procedures(ue, proc, dlsch, llr);
-    else
+    else {
       // don't wait anymore
-      send_slot_ind(ue->tx_resume_ind_fifo[(proc->nr_slot_rx + dlsch_config->k1_feedback) % ue->frame_parms.slots_per_frame], proc->nr_slot_rx);
+      int slot = (proc->nr_slot_rx + dlsch[0].dlsch_config.k1_feedback) % ue->frame_parms.slots_per_frame;
+      send_slot_ind(ue->tx_resume_ind_fifo[slot], slot);
+    }
 
     stop_meas(&ue->dlsch_procedures_stat);
     if (cpumeas(CPUMEAS_GETSTATE)) {
