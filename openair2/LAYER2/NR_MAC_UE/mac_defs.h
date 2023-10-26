@@ -427,9 +427,6 @@ typedef struct {
   int                             first_sync_frame;
   bool                            get_sib1;
   bool                            get_otherSI;
-  NR_DRX_Config_t                 *drx_Config;
-  NR_SchedulingRequestConfig_t    *schedulingRequestConfig;
-  NR_RNTI_Value_t                 *cs_RNTI;
   NR_MIB_t                        *mib;
   struct NR_SI_SchedulingInfo *si_SchedulingInfo;
   int si_window_start;

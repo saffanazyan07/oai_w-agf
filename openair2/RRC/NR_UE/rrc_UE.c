@@ -121,16 +121,6 @@ void nr_rrc_ue_process_rrcReconfiguration(const module_id_t module_id,
 {
   switch(rrcReconfiguration->criticalExtensions.present){
     case NR_RRCReconfiguration__criticalExtensions_PR_rrcReconfiguration:
-      if(rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration->radioBearerConfig != NULL){
-        if(NR_UE_rrc_inst[module_id].radio_bearer_config == NULL){
-          NR_UE_rrc_inst[module_id].radio_bearer_config = rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration->radioBearerConfig;                
-        }else{
-          if ( LOG_DEBUGFLAG(DEBUG_ASN1) ) {
-            struct NR_RadioBearerConfig *RadioBearerConfig = rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration->radioBearerConfig;
-            xer_fprint(stdout, &asn_DEF_NR_RadioBearerConfig, (const void *) RadioBearerConfig);
-          }
-        }
-      }
       if(rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup != NULL){
         NR_CellGroupConfig_t *cellGroupConfig = NULL;
         int size = rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration->secondaryCellGroup->size;
@@ -269,11 +259,11 @@ NR_UE_RRC_INST_t* openair_rrc_top_init_ue_nr(char* uecap_file)
       for (int i = 0; i < NB_CNX_UE; i++) {
         memset((void *)&rrc->SInfo[i], 0, sizeof(rrc->SInfo[i]));
         for (int j = 0; j < NR_NUM_SRB; j++)
-          memset((void *)&rrc->Srb[i][j], 0, sizeof(rrc->Srb[i][j]));
+          rrc->Srb[i][j] = RB_NOT_PRESENT;
         for (int j = 0; j < MAX_DRBS_PER_UE; j++)
           rrc->status_DRBs[i][j] = RB_NOT_PRESENT;
         // SRB0 activated by default
-        rrc->Srb[i][0].status = RB_ESTABLISHED;
+        rrc->Srb[i][0] = RB_ESTABLISHED;
       }
       rrc->ra_trigger = RA_NOT_RUNNING;
     }
@@ -659,7 +649,7 @@ static int8_t nr_rrc_ue_decode_NR_BCCH_DL_SCH_Message(module_id_t module_id,
         if(SI_info->sib1)
           ASN_STRUCT_FREE(asn_DEF_NR_SIB1, SI_info->sib1);
         NR_SIB1_t *sib1 = bcch_message->message.choice.c1->choice.systemInformationBlockType1;
-        SI_info->sib1 = sib1;
+        memcpy(SI_info->sib1, sib1, sizeof(NR_SIB1_t));
         if(g_log->log_component[NR_RRC].level >= OAILOG_DEBUG)
           xer_fprint(stdout, &asn_DEF_NR_SIB1, (const void *) SI_info->sib1);
         LOG_A(NR_RRC, "SIB1 decoded\n");
@@ -760,8 +750,8 @@ void nr_rrc_cellgroup_configuration(int gNB_index,
       rrc->rnti = reconfigurationWithSync->newUE_Identity;
       // resume suspended radio bearers
       for (int i = 0; i < NR_NUM_SRB; i++) {
-        if (rrc->Srb[gNB_index][i].status == RB_SUSPENDED)
-          rrc->Srb[gNB_index][i].status = RB_ESTABLISHED;
+        if (rrc->Srb[gNB_index][i] == RB_SUSPENDED)
+          rrc->Srb[gNB_index][i] = RB_ESTABLISHED;
       }
       for (int i = 0; i < MAX_DRBS_PER_UE; i++) {
         if (rrc->status_DRBs[gNB_index][i] == RB_SUSPENDED)
@@ -1133,7 +1123,7 @@ void nr_rrc_ue_process_securityModeCommand(const protocol_ctxt_t *const ctxt_pP,
     uint8_t security_mode = ue_rrc->cipheringAlgorithm | (ue_rrc->integrityProtAlgorithm << 4);
     // configure lower layers to apply SRB integrity protection and ciphering
     for (int i = 1; i < NR_NUM_SRB; i++) {
-      if (ue_rrc->Srb[gNB_index][i].status == RB_ESTABLISHED)
+      if (ue_rrc->Srb[gNB_index][i] == RB_ESTABLISHED)
         nr_pdcp_config_set_security(ctxt_pP->rntiMaybeUEid, i, security_mode, kRRCenc, kRRCint, kUPenc);
     }
   } else {
@@ -1347,8 +1337,8 @@ void nr_rrc_ue_process_securityModeCommand(const protocol_ctxt_t *const ctxt_pP,
    if (radioBearerConfig->srb_ToAddModList != NULL) {
      for (int cnt = 0; cnt < radioBearerConfig->srb_ToAddModList->list.count; cnt++) {
        struct NR_SRB_ToAddMod *srb = radioBearerConfig->srb_ToAddModList->list.array[cnt];
-       NR_UE_RRC_SRB_INFO_t *Srb_info = &ue_rrc->Srb[gNB_index][srb->srb_Identity];
-       if (Srb_info->status == RB_NOT_PRESENT)
+       NR_RB_status_t SRB_status = ue_rrc->Srb[gNB_index][srb->srb_Identity];
+       if (SRB_status == RB_NOT_PRESENT)
          add_srb(ctxt_pP->enb_flag,
                  ctxt_pP->rntiMaybeUEid,
                  radioBearerConfig->srb_ToAddModList->list.array[cnt],
@@ -1362,7 +1352,7 @@ void nr_rrc_ue_process_securityModeCommand(const protocol_ctxt_t *const ctxt_pP,
          if (srb->pdcp_Config && srb->pdcp_Config->t_Reordering)
            nr_pdcp_reconfigure_srb(ctxt_pP->rntiMaybeUEid, srb->srb_Identity, *srb->pdcp_Config->t_Reordering);
        }
-       Srb_info->status = RB_ESTABLISHED;
+       SRB_status = RB_ESTABLISHED;
      }
    }
 
@@ -1759,7 +1749,7 @@ void *rrc_nrue_task(void *args_p)
         /* Transfer data to PDCP */
         PROTOCOL_CTXT_SET_BY_MODULE_ID(&ctxt, ue_mod_id, GNB_FLAG_NO, NR_UE_rrc_inst[ue_mod_id].rnti, 0, 0,0);
         // check if SRB2 is created, if yes request data_req on SRB2
-        rb_id_t srb_id = NR_UE_rrc_inst[ue_mod_id].Srb[0][2].status == RB_ESTABLISHED ? 2 : 1;
+        rb_id_t srb_id = NR_UE_rrc_inst[ue_mod_id].Srb[0][2] == RB_ESTABLISHED ? 2 : 1;
         nr_pdcp_data_req_srb(ctxt.rntiMaybeUEid, srb_id, nr_rrc_mui++, length, buffer, deliver_pdu_srb_rlc, NULL);
         break;
       }

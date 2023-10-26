@@ -180,13 +180,8 @@ typedef enum {
 
 typedef enum { RB_NOT_PRESENT, RB_ESTABLISHED, RB_SUSPENDED } NR_RB_status_t;
 
-typedef struct NR_UE_RRC_SRB_INFO_s {
-  NR_RB_status_t status;
-} NR_UE_RRC_SRB_INFO_t;
-
 typedef struct NR_UE_RRC_INST_s {
   NR_MeasConfig_t        *meas_config;
-  NR_RadioBearerConfig_t *radio_bearer_config;
 
   NR_MeasObjectToAddMod_t        *MeasObj[NB_CNX_UE][MAX_MEAS_OBJ];
   NR_ReportConfigToAddMod_t      *ReportConfig[NB_CNX_UE][MAX_MEAS_CONFIG];
@@ -198,7 +193,7 @@ typedef struct NR_UE_RRC_INST_s {
   char                           *uecap_file;
   rnti_t                         rnti;
 
-  NR_UE_RRC_SRB_INFO_t Srb[NB_CNX_UE][NR_NUM_SRB];
+  NR_RB_status_t Srb[NB_CNX_UE][NR_NUM_SRB];
   NR_RB_status_t status_DRBs[NB_CNX_UE][MAX_DRBS_PER_UE];
   bool active_RLC_entity[NB_CNX_UE][NR_MAX_NUM_LCID];
 
