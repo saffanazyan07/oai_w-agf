@@ -446,6 +446,7 @@ typedef struct {
   NR_SearchSpace_t *ra_SS;
   NR_SearchSpace_t *paging_SS;
   NR_ControlResourceSet_t *BWP_coresets[FAPI_NR_MAX_CORESET_PER_BWP];
+  NR_ControlResourceSet_t *commonControlResourceSet;
   NR_ControlResourceSet_t *coreset0;
   NR_SearchSpace_t *BWP_searchspaces[FAPI_NR_MAX_SS];
   NR_SearchSpace_t *search_space_zero;

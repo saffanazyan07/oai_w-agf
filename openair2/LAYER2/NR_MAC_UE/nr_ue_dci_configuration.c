@@ -88,6 +88,9 @@ void fill_dci_search_candidates(const NR_SearchSpace_t *ss,
 
 NR_ControlResourceSet_t *ue_get_coreset(const NR_UE_MAC_INST_t *mac, const int coreset_id)
 {
+  if (mac->commonControlResourceSet &&
+      mac->commonControlResourceSet->controlResourceSetId == coreset_id)
+    return mac->commonControlResourceSet;
   NR_ControlResourceSet_t *coreset = NULL;
   for (int i = 0; i < FAPI_NR_MAX_CORESET_PER_BWP; i++) {
     if (mac->BWP_coresets[i] != NULL &&
