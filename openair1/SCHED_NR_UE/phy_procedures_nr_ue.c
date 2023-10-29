@@ -646,11 +646,8 @@ void send_slot_ind(notifiedFIFO_t *nf, int slot) {
   }
 }
 
-bool nr_ue_dlsch_procedures(PHY_VARS_NR_UE *ue,
-                            UE_nr_rxtx_proc_t *proc,
-                            NR_UE_DLSCH_t dlsch[2],
-                            int16_t* llr[2]) {
-
+static bool nr_ue_dlsch_procedures(PHY_VARS_NR_UE *ue, UE_nr_rxtx_proc_t *proc, NR_UE_DLSCH_t dlsch[2], int16_t *llr[2])
+{
   if (dlsch[0].active == false) {
     LOG_E(PHY, "DLSCH should be active when calling this function\n");
     return 1;

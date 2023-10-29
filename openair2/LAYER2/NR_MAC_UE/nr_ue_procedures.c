@@ -442,25 +442,13 @@ static int nr_ue_process_dci_ul_00(module_id_t module_id,
     return -1;
   }
 
-  // Get UL config request corresponding slot_tx
-  fapi_nr_ul_config_request_t *ul_config = get_ul_config_request(mac, slot_tx, tda_info.k2);
+  fapi_nr_ul_config_request_pdu_t *pdu = lockGet_ul_config(mac, frame_tx, slot_tx, FAPI_NR_UL_CONFIG_TYPE_PUSCH);
+  if (!pdu)
+    return 0;
 
-  if (!ul_config) {
-    LOG_W(MAC, "ul_config request is NULL. Probably due to unexpected UL DCI in frame.slot %d.%d. Ignoring DCI!\n", frame, slot);
-    return -1;
-  }
-
-  pthread_mutex_lock(&ul_config->mutex_ul_config);
-  AssertFatal(ul_config->number_pdus < FAPI_NR_UL_CONFIG_LIST_NUM,
-              "ul_config->number_pdus %d out of bounds\n",
-              ul_config->number_pdus);
-  nfapi_nr_ue_pusch_pdu_t *pusch_config_pdu = &ul_config->ul_config_list[ul_config->number_pdus].pusch_config_pdu;
-
-  fill_ul_config(ul_config, frame_tx, slot_tx, FAPI_NR_UL_CONFIG_TYPE_PUSCH);
-  pthread_mutex_unlock(&ul_config->mutex_ul_config);
-
-  // Config PUSCH PDU
-  return nr_config_pusch_pdu(mac, &tda_info, pusch_config_pdu, dci, NULL, dci_ind->rnti, NR_UL_DCI_FORMAT_0_0);
+  int ret = nr_config_pusch_pdu(mac, &tda_info, &pdu->pusch_config_pdu, dci, NULL, dci_ind->rnti, NR_UL_DCI_FORMAT_0_0);
+  release_ul_config(pdu, false);
+  return ret;
 }
 
 static int nr_ue_process_dci_ul_01(module_id_t module_id,
@@ -527,26 +515,12 @@ static int nr_ue_process_dci_ul_01(module_id_t module_id,
     return -1;
   }
 
-  // Get UL config request corresponding slot_tx
-  fapi_nr_ul_config_request_t *ul_config = get_ul_config_request(mac, slot_tx, tda_info.k2);
-
-  if (!ul_config) {
-    LOG_W(MAC, "ul_config request is NULL. Probably due to unexpected UL DCI in frame.slot %d.%d. Ignoring DCI!\n", frame, slot);
-    return -1;
-  }
-  ul_config->number_pdus = 0;
-
-  pthread_mutex_lock(&ul_config->mutex_ul_config);
-  AssertFatal(ul_config->number_pdus < FAPI_NR_UL_CONFIG_LIST_NUM,
-              "ul_config->number_pdus %d out of bounds\n",
-              ul_config->number_pdus);
-  nfapi_nr_ue_pusch_pdu_t *pusch_config_pdu = &ul_config->ul_config_list[ul_config->number_pdus].pusch_config_pdu;
-
-  fill_ul_config(ul_config, frame_tx, slot_tx, FAPI_NR_UL_CONFIG_TYPE_PUSCH);
-  pthread_mutex_unlock(&ul_config->mutex_ul_config);
-
-  // Config PUSCH PDU
-  return nr_config_pusch_pdu(mac, &tda_info, pusch_config_pdu, dci, NULL, dci_ind->rnti, NR_UL_DCI_FORMAT_0_1);
+  fapi_nr_ul_config_request_pdu_t *pdu = lockGet_ul_config(mac, frame_tx, slot_tx, FAPI_NR_UL_CONFIG_TYPE_PUSCH);
+  if (!pdu)
+    return 0;
+  int ret = nr_config_pusch_pdu(mac, &tda_info, &pdu->pusch_config_pdu, dci, NULL, dci_ind->rnti, NR_UL_DCI_FORMAT_0_1);
+  release_ul_config(pdu, false);
+  return ret;
 }
 
 static int nr_ue_process_dci_dl_10(module_id_t module_id,
@@ -4158,33 +4132,20 @@ int nr_ue_process_rar(nr_downlink_indication_t *dl_info, int pdu_id)
     ret = nr_ue_pusch_scheduler(mac, is_Msg3, frame, slot, &frame_tx, &slot_tx, tda_info.k2);
 
     if (ret != -1) {
-
-      fapi_nr_ul_config_request_t *ul_config = get_ul_config_request(mac, slot_tx, tda_info.k2);
       uint16_t rnti = mac->crnti;
-
-      if (!ul_config) {
-        LOG_W(MAC, "In %s: ul_config request is NULL. Probably due to unexpected UL DCI in frame.slot %d.%d. Ignoring DCI!\n", __FUNCTION__, frame, slot);
-        return -1;
-      }
-      AssertFatal(ul_config->number_pdus < sizeof(ul_config->ul_config_list) / sizeof(ul_config->ul_config_list[0]),
-                  "Number of PDUS in ul_config = %d > ul_config_list num elements", ul_config->number_pdus);
-
       // Upon successful reception, set the T-CRNTI to the RAR value if the RA preamble is selected among the contention-based RA Preambles
       if (!ra->cfra) {
         ra->t_crnti = rar->TCRNTI_2 + (rar->TCRNTI_1 << 8);
         rnti = ra->t_crnti;
         send_msg3_rrc_request(mod_id, rnti);
       }
-
-      pthread_mutex_lock(&ul_config->mutex_ul_config);
-      AssertFatal(ul_config->number_pdus<FAPI_NR_UL_CONFIG_LIST_NUM, "ul_config->number_pdus %d out of bounds\n",ul_config->number_pdus);
-      nfapi_nr_ue_pusch_pdu_t *pusch_config_pdu = &ul_config->ul_config_list[ul_config->number_pdus].pusch_config_pdu;
-
-      fill_ul_config(ul_config, frame_tx, slot_tx, FAPI_NR_UL_CONFIG_TYPE_PUSCH);
-      pthread_mutex_unlock(&ul_config->mutex_ul_config);
-
-      // Config Msg3 PDU
-      nr_config_pusch_pdu(mac, &tda_info, pusch_config_pdu, NULL, &rar_grant, rnti, NR_DCI_NONE);
+      fapi_nr_ul_config_request_pdu_t *pdu = lockGet_ul_config(mac, frame_tx, slot_tx, FAPI_NR_UL_CONFIG_TYPE_PUSCH);
+      if (pdu) {
+        // Config Msg3 PDU
+        nr_config_pusch_pdu(mac, &tda_info, &pdu->pusch_config_pdu, NULL, &rar_grant, rnti, NR_DCI_NONE);
+        release_ul_config(pdu, false);
+      } else
+        return -1;
     }
 
   } else {

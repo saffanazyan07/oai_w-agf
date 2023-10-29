@@ -425,7 +425,7 @@ typedef struct ssb_list_info {
 } ssb_list_info_t;
 
 /*!\brief Top level UE MAC structure */
-typedef struct {
+typedef struct NR_UE_MAC_INST_s {
   NR_UE_L2_STATE_t state;
   NR_CellGroupConfig_t            *cg;
   int                             servCellIndex;

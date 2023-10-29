@@ -66,6 +66,7 @@ queue_t nr_tx_req_queue;
 queue_t nr_ul_dci_req_queue;
 queue_t nr_ul_tti_req_queue;
 pthread_mutex_t mac_IF_mutex;
+static void save_pdsch_pdu_for_crnti(nfapi_nr_dl_tti_request_t *dl_tti_request);
 
 void nrue_init_standalone_socket(int tx_port, int rx_port)
 {
@@ -906,7 +907,7 @@ static void enqueue_nr_nfapi_msg(void *buffer, ssize_t len, nfapi_p7_message_hea
     return;
 }
 
-void save_pdsch_pdu_for_crnti(nfapi_nr_dl_tti_request_t *dl_tti_request)
+static void save_pdsch_pdu_for_crnti(nfapi_nr_dl_tti_request_t *dl_tti_request)
 {
   int count_sent = 0;
   NR_UE_MAC_INST_t *mac = get_mac_inst(0);
@@ -1032,11 +1033,16 @@ void *nrue_standalone_pnf_task(void *context)
 }
 
 //  L2 Abstraction Layer
-int handle_bcch_bch(module_id_t module_id, int cc_id,
-                    unsigned int gNB_index, void *phy_data, uint8_t *pduP,
-                    unsigned int additional_bits,
-                    uint32_t ssb_index, uint32_t ssb_length,
-                    uint16_t ssb_start_subcarrier, uint16_t cell_id)
+static int handle_bcch_bch(module_id_t module_id,
+                           int cc_id,
+                           unsigned int gNB_index,
+                           void *phy_data,
+                           uint8_t *pduP,
+                           unsigned int additional_bits,
+                           uint32_t ssb_index,
+                           uint32_t ssb_length,
+                           uint16_t ssb_start_subcarrier,
+                           uint16_t cell_id)
 {
   NR_UE_MAC_INST_t *mac = get_mac_inst(module_id);
   mac->mib_ssb = ssb_index;
@@ -1051,19 +1057,28 @@ int handle_bcch_bch(module_id_t module_id, int cc_id,
 }
 
 //  L2 Abstraction Layer
-int handle_bcch_dlsch(module_id_t module_id, int cc_id, unsigned int gNB_index, uint8_t ack_nack, uint8_t *pduP, uint32_t pdu_len)
+static int handle_bcch_dlsch(module_id_t module_id,
+                             int cc_id,
+                             unsigned int gNB_index,
+                             uint8_t ack_nack,
+                             uint8_t *pduP,
+                             uint32_t pdu_len)
 {
   return nr_ue_decode_BCCH_DL_SCH(module_id, cc_id, gNB_index, ack_nack, pduP, pdu_len);
 }
 
 //  L2 Abstraction Layer
-int handle_dci(module_id_t module_id, int cc_id, unsigned int gNB_index, frame_t frame, int slot, fapi_nr_dci_indication_pdu_t *dci){
-
+static int handle_dci(module_id_t module_id,
+                      int cc_id,
+                      unsigned int gNB_index,
+                      frame_t frame,
+                      int slot,
+                      fapi_nr_dci_indication_pdu_t *dci)
+{
   return nr_ue_process_dci_indication_pdu(module_id, cc_id, gNB_index, frame, slot, dci);
-
 }
 
-void handle_ssb_meas(NR_UE_MAC_INST_t *mac, uint8_t ssb_index, int16_t rsrp_dbm)
+static void handle_ssb_meas(NR_UE_MAC_INST_t *mac, uint8_t ssb_index, int16_t rsrp_dbm)
 {
   mac->ssb_measurements.ssb_index = ssb_index;
   mac->ssb_measurements.ssb_rsrp_dBm = rsrp_dbm;
@@ -1071,7 +1086,7 @@ void handle_ssb_meas(NR_UE_MAC_INST_t *mac, uint8_t ssb_index, int16_t rsrp_dbm)
 
 // L2 Abstraction Layer
 // Note: sdu should always be processed because data and timing advance updates are transmitted by the UE
-int8_t handle_dlsch(nr_downlink_indication_t *dl_info, int pdu_id)
+static int8_t handle_dlsch(NR_UE_MAC_INST_t *mac, nr_downlink_indication_t *dl_info, int pdu_id)
 {
   /* L1 assigns harq_pid, but in emulated L1 mode we need to assign
      the harq_pid based on the saved global g_harq_pid. Because we are
@@ -1080,7 +1095,7 @@ int8_t handle_dlsch(nr_downlink_indication_t *dl_info, int pdu_id)
   if (get_softmodem_params()->emulate_l1)
     dl_info->rx_ind->rx_indication_body[pdu_id].pdsch_pdu.harq_pid = g_harq_pid;
 
-  update_harq_status(dl_info->module_id,
+  update_harq_status(mac,
                      dl_info->rx_ind->rx_indication_body[pdu_id].pdsch_pdu.harq_pid,
                      dl_info->rx_ind->rx_indication_body[pdu_id].pdsch_pdu.ack_nack);
   if(dl_info->rx_ind->rx_indication_body[pdu_id].pdsch_pdu.ack_nack)
@@ -1089,7 +1104,7 @@ int8_t handle_dlsch(nr_downlink_indication_t *dl_info, int pdu_id)
   return 0;
 }
 
-void handle_rlm(rlm_t rlm_result, int frame, module_id_t module_id)
+static void handle_rlm(rlm_t rlm_result, int frame, module_id_t module_id)
 {
   if (rlm_result == RLM_no_monitoring)
     return;
@@ -1097,15 +1112,17 @@ void handle_rlm(rlm_t rlm_result, int frame, module_id_t module_id)
   nr_mac_rrc_sync_ind(module_id, frame, is_sync);
 }
 
-int8_t handle_csirs_measurements(module_id_t module_id, frame_t frame, int slot, fapi_nr_csirs_measurements_t *csirs_measurements)
+static int8_t handle_csirs_measurements(module_id_t module_id,
+                                        frame_t frame,
+                                        int slot,
+                                        fapi_nr_csirs_measurements_t *csirs_measurements)
 {
   handle_rlm(csirs_measurements->radiolink_monitoring, frame, module_id);
   return nr_ue_process_csirs_measurements(module_id, frame, slot, csirs_measurements);
 }
 
-void update_harq_status(module_id_t module_id, uint8_t harq_pid, uint8_t ack_nack) {
-
-  NR_UE_MAC_INST_t *mac = get_mac_inst(module_id);
+void update_harq_status(NR_UE_MAC_INST_t *mac, uint8_t harq_pid, uint8_t ack_nack)
+{
   NR_UE_HARQ_STATUS_t *current_harq = &mac->dl_harq_info[harq_pid];
 
   if (current_harq->active) {
@@ -1152,8 +1169,7 @@ int nr_ue_dl_indication(nr_downlink_indication_t *dl_info)
     if (dl_info && dl_info->dci_ind && dl_info->dci_ind->number_of_dcis) {
       LOG_T(MAC,"[L2][IF MODULE][DL INDICATION][DCI_IND]\n");
       for (int i = 0; i < dl_info->dci_ind->number_of_dcis; i++) {
-        LOG_T(MAC,">>>NR_IF_Module i=%d, dl_info->dci_ind->number_of_dcis=%d\n",i,dl_info->dci_ind->number_of_dcis);
-        nr_scheduled_response_t scheduled_response;
+        LOG_T(MAC, ">>>NR_IF_Module i=%d, dl_info->dci_ind->number_of_dcis=%d\n", i, dl_info->dci_ind->number_of_dcis);
         int8_t ret = handle_dci(dl_info->module_id,
                                 dl_info->cc_id,
                                 dl_info->gNB_index,
@@ -1174,10 +1190,13 @@ int nr_ue_dl_indication(nr_downlink_indication_t *dl_info)
         LOG_T(NR_MAC, "Setting harq_pid = %d and dci_index = %d (based on format)\n", g_harq_pid, dci_index->dci_format);
 
         ret_mask |= (ret << FAPI_NR_DCI_IND);
-        AssertFatal( nr_ue_if_module_inst[module_id] != NULL, "IF module is NULL!\n" );
-        AssertFatal( nr_ue_if_module_inst[module_id]->scheduled_response != NULL, "scheduled_response is NULL!\n" );
+        AssertFatal(nr_ue_if_module_inst[module_id] != NULL, "IF module is NULL!\n");
         fapi_nr_dl_config_request_t *dl_config = get_dl_config_request(mac, dl_info->slot);
-        fill_scheduled_response(&scheduled_response, dl_config, NULL, NULL, dl_info->module_id, dl_info->cc_id, dl_info->frame, dl_info->slot, dl_info->phy_data);
+        nr_scheduled_response_t scheduled_response = {.dl_config = dl_config,
+                                                      .mac = mac,
+                                                      .module = dl_info->module_id,
+                                                      .carrier = dl_info->cc_id,
+                                                      .phy_data = dl_info->phy_data};
         nr_ue_if_module_inst[module_id]->scheduled_response(&scheduled_response);
         memset(def_dci_pdu_rel15, 0, sizeof(*def_dci_pdu_rel15));
       }
@@ -1219,10 +1238,10 @@ int nr_ue_dl_indication(nr_downlink_indication_t *dl_info)
                                            rx_indication_body.pdsch_pdu.pdu_length)) << FAPI_NR_RX_PDU_TYPE_SIB;
             break;
           case FAPI_NR_RX_PDU_TYPE_DLSCH:
-            ret_mask |= (handle_dlsch(dl_info, i)) << FAPI_NR_RX_PDU_TYPE_DLSCH;
+            ret_mask |= (handle_dlsch(mac, dl_info, i)) << FAPI_NR_RX_PDU_TYPE_DLSCH;
             break;
           case FAPI_NR_RX_PDU_TYPE_RAR:
-            ret_mask |= (handle_dlsch(dl_info, i)) << FAPI_NR_RX_PDU_TYPE_RAR;
+            ret_mask |= (handle_dlsch(mac, dl_info, i)) << FAPI_NR_RX_PDU_TYPE_RAR;
             if (!dl_info->rx_ind->rx_indication_body[i].pdsch_pdu.ack_nack)
               LOG_W(PHY, "Received a RAR-Msg2 but LDPC decode failed\n");
             else
@@ -1273,20 +1292,6 @@ int nr_ue_if_module_kill(uint32_t module_id) {
   if (nr_ue_if_module_inst[module_id] != NULL){
     free(nr_ue_if_module_inst[module_id]);
   }
-  return 0;
-}
-
-int nr_ue_dcireq(nr_dcireq_t *dcireq) {
-
-  fapi_nr_dl_config_request_t *dl_config = &dcireq->dl_config_req;
-  NR_UE_MAC_INST_t *UE_mac = get_mac_inst(0);
-  dl_config->sfn = dcireq->frame;
-  dl_config->slot = dcireq->slot;
-
-  LOG_T(PHY, "Entering UE DCI configuration frame %d slot %d \n", dcireq->frame, dcireq->slot);
-
-  ue_dci_configuration(UE_mac, dl_config, dcireq->frame, dcireq->slot);
-
   return 0;
 }
 
