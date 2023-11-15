@@ -649,7 +649,9 @@ int nr_config_pusch_pdu(NR_UE_MAC_INST_t *mac,
     }
 
     /* NDI */
-    pusch_config_pdu->pusch_data.new_data_indicator = dci->ndi;
+    pusch_config_pdu->pusch_data.new_data_indicator = (dci->ndi != mac->UL_ndi[dci->harq_pid]) || mac->first_ul_tx[dci->harq_pid] ? 1 : 0;
+    mac->UL_ndi[dci->harq_pid] = dci->ndi;
+    mac->first_ul_tx[dci->harq_pid] = 0;
     /* RV */
     pusch_config_pdu->pusch_data.rv_index = dci->rv;
     /* HARQ_PROCESS_NUMBER */
@@ -1033,37 +1035,29 @@ void nr_ue_ul_scheduler(nr_uplink_indication_t *ul_info)
       uint8_t *ulsch_input_buffer = ulsch_input_buffer_array[tx_req.number_of_pdus];
       if (ulcfg_pdu->pdu_type == FAPI_NR_UL_CONFIG_TYPE_PUSCH) {
         int mac_pdu_exist = 0;
-        nfapi_nr_ue_pusch_data_t *pusch_data = &ulcfg_pdu->pusch_config_pdu.pusch_data;
-        uint16_t TBS_bytes = pusch_data->tb_size;
-        LOG_D(NR_MAC,
-              "harq_id %d, NDI %d NDI_DCI %d, TBS_bytes %d (ra_state %d)\n",
-              pusch_data->harq_process_id,
-              mac->UL_ndi[pusch_data->harq_process_id],
-              pusch_data->new_data_indicator,
-              TBS_bytes,
-              ra->ra_state);
+          uint16_t TBS_bytes = ulcfg_pdu->pusch_config_pdu.pusch_data.tb_size;
+          LOG_D(NR_MAC,"harq_id %d, new_data_indicator %d, TBS_bytes %d (ra_state %d)\n",
+                ulcfg_pdu->pusch_config_pdu.pusch_data.harq_process_id,
+                ulcfg_pdu->pusch_config_pdu.pusch_data.new_data_indicator,
+                TBS_bytes,ra->ra_state);
         if (ra->ra_state == WAIT_RAR && !ra->cfra) {
           nr_get_msg3_payload(mod_id);
           memcpy(ulsch_input_buffer, mac->CCCH_pdu.payload, TBS_bytes);
           for (int k = 0; k < TBS_bytes; k++) {
             LOG_D(NR_MAC, "(%i): 0x%x\n", k, ulsch_input_buffer[k]);
           }
-          LOG_D(NR_MAC, "Flipping NDI for harq_id %d (Msg3)\n", pusch_data->new_data_indicator);
-          mac->UL_ndi[pusch_data->harq_process_id] = pusch_data->new_data_indicator;
-          mac->first_ul_tx[pusch_data->harq_process_id] = 0;
           mac_pdu_exist = 1;
         } else {
-          if ((mac->UL_ndi[pusch_data->harq_process_id] != pusch_data->new_data_indicator
-               || mac->first_ul_tx[pusch_data->harq_process_id] == 1)
-              && (mac->state == UE_CONNECTED || (ra->ra_state == WAIT_RAR && ra->cfra))) {
+
+            if (ulcfg_pdu->pusch_config_pdu.pusch_data.new_data_indicator &&
+                (mac->state == UE_CONNECTED ||
+                (ra->ra_state == WAIT_RAR && ra->cfra))){
+
             // Getting IP traffic to be transmitted
             nr_ue_get_sdu(mod_id, cc_id, frame_tx, slot_tx, gNB_index, ulsch_input_buffer, TBS_bytes);
             mac_pdu_exist = 1;
           }
 
-          LOG_D(NR_MAC, "Flipping NDI for harq_id %d\n", pusch_data->new_data_indicator);
-          mac->UL_ndi[pusch_data->harq_process_id] = pusch_data->new_data_indicator;
-          mac->first_ul_tx[pusch_data->harq_process_id] = 0;
         }
 
         // Config UL TX PDU
