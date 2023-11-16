@@ -641,7 +641,7 @@ void clean_UE_harq(PHY_VARS_NR_UE *UE)
     ul_harq_process->tx_status = NEW_TRANSMISSION_HARQ;
     ul_harq_process->status = SCH_IDLE;
     ul_harq_process->round = 0;
-    ul_harq_process->first_tx = 1;
+    //ul_harq_process->first_tx = 1;
   }
 }
 
