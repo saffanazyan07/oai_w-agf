@@ -1030,6 +1030,7 @@ void nr_ue_ul_scheduler(nr_uplink_indication_t *ul_info)
   if (ulcfg_pdu) {
     while (ulcfg_pdu->pdu_type != FAPI_NR_END) {
       uint8_t *ulsch_input_buffer = ulsch_input_buffer_array[tx_req.number_of_pdus];
+      LOG_I(NR_MAC,"slot %d, processing UL request type: %d\n", slot_tx, ulcfg_pdu->pdu_type);
       if (ulcfg_pdu->pdu_type == FAPI_NR_UL_CONFIG_TYPE_PUSCH) {
         int mac_pdu_exist = 0;
           uint16_t TBS_bytes = ulcfg_pdu->pusch_config_pdu.pusch_data.tb_size;
@@ -2102,6 +2103,8 @@ void nr_ue_pucch_scheduler(module_id_t module_idP, frame_t frameP, int slotP, vo
       mac->nr_ue_emul_l1.num_csi_reports = pucch[j].n_csi;
       fapi_nr_ul_config_request_pdu_t *pdu = lockGet_ul_config(mac, frameP, slotP, FAPI_NR_UL_CONFIG_TYPE_PUCCH);
       mac->nr_ue_emul_l1.active_uci_sfn_slot = NFAPI_SFNSLOT2HEX(frameP, slotP);
+      if (mac->crnti != rnti=mac->ra.t_crnti)
+	abort();
       nr_ue_configure_pucch(mac,
                             slotP,
                             mac->crnti, // FIXME not sure this is valid for all pucch instances
