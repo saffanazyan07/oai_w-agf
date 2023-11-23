@@ -2828,14 +2828,8 @@ static uint8_t unpack_nr_param_response(uint8_t **ppReadPackedMsg, uint8_t *end,
   };
   // print ppReadPackedMsg
   uint8_t *ptr = *ppReadPackedMsg;
-  printf("\n Read message unpack_param_response: ");
 
-  while (ptr < end) {
-    printf(" %02x ", *ptr);
-    ptr++;
-  }
 
-  printf("\n");
   return (pull8(ppReadPackedMsg, &pNfapiMsg->error_code, end) && pull8(ppReadPackedMsg, &pNfapiMsg->num_tlv, end)
           && unpack_nr_tlv_list(unpack_fns,
                                 sizeof(unpack_fns) / sizeof(unpack_tlv_t),
@@ -3064,6 +3058,9 @@ static uint8_t unpack_config_request(uint8_t **ppReadPackedMsg, uint8_t *end, vo
 
 static uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end, void *msg, nfapi_p4_p5_codec_config_t *config)
 {
+  for (uint8_t *p = *ppReadPackedMsg; p < end; ++p)
+    printf("%02x ", *p);
+  printf("\n");
   // Helper vars for indexed TLVs
   int prach_root_seq_idx = 0;
   int unused_root_seq_idx = 0;
@@ -3285,12 +3282,17 @@ static uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end,
             }
             break;
           default:
+            /* unpack based on unpack_fns table above, this is a normal case */
+            printf("*** have tag %x, idx %ld\n", generic_tl.tag, idx);
+            assert(idx <= sizeof(unpack_fns) / sizeof(unpack_fns[0]));
             result = (*unpack_fns[idx].unpack_func)(tl, ppReadPackedMsg, end);
             break;
         }
 
-        if (result == 0)
+        if (result == 0) {
+          printf("return after tag %x idx %ld\n", generic_tl.tag, idx);
           return 0;
+        }
 
         // check if the length was right;
         if (tl->length != (((*ppReadPackedMsg)) - pStartOfValue))
@@ -3717,14 +3719,7 @@ int nfapi_nr_p5_message_unpack(void *pMessageBuf,
   }
 
   uint8_t *ptr = pReadPackedMessage;
-  printf("\n Read NR message unpack: ");
 
-  while (ptr < end) {
-    printf(" %02x ", *ptr);
-    ptr++;
-  }
-
-  printf("\n");
   // clean the supplied buffer for - tag value blanking
   (void)memset(pUnpackedBuf, 0, unpackedBufLen);
 
