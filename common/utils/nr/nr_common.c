@@ -883,6 +883,11 @@ bool is_nr_timer_active(NR_timer_t timer)
   return timer.active;
 }
 
+bool is_nr_timer_configured(NR_timer_t timer)
+{
+  return (timer.target > 0);
+}
+
 bool nr_timer_tick(NR_timer_t *timer)
 {
   bool expired = false;
@@ -898,6 +903,11 @@ bool nr_timer_tick(NR_timer_t *timer)
 bool nr_timer_expired(NR_timer_t timer)
 {
   return (timer.counter >= timer.target);
+}
+
+uint32_t nr_timer_get_counter(NR_timer_t timer)
+{
+  return timer.counter;
 }
 
 void nr_timer_setup(NR_timer_t *timer, const uint32_t target, const uint32_t step)

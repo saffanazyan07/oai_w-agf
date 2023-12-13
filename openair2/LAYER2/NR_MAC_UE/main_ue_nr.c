@@ -79,18 +79,23 @@ void nr_ue_init_mac(module_id_t module_idP)
 void nr_ue_mac_default_configs(NR_UE_MAC_INST_t *mac)
 {
   // default values as defined in 38.331 sec 9.2.2
-  mac->scheduling_info.retxBSR_Timer = NR_BSR_Config__retxBSR_Timer_sf10240;
-  mac->scheduling_info.periodicBSR_Timer = NR_BSR_Config__periodicBSR_Timer_infinity;
+  // numerology known only in SA
+  // (NSA and similar modes get configuration at beginning so applied before sync anyway)
+  if (get_softmodem_params()->sa) {
+    int subframes_per_slot = nr_slots_per_frame[get_softmodem_params()->numerology] / 10;
+    // default value 80sf, step 1 slot
+    nr_timer_setup(&mac->scheduling_info.retxBSR_Timer, 80 * subframes_per_slot, 1);
+  }
   mac->scheduling_info.SR_COUNTER = 0;
   mac->scheduling_info.SR_pending = 0;
-  mac->scheduling_info.sr_ProhibitTimer = 0;
-  mac->scheduling_info.sr_ProhibitTimer_Running = 0;
+  memset(&mac->scheduling_info.sr_ProhibitTimer, 0, sizeof(mac->scheduling_info.sr_ProhibitTimer));
+
   mac->scheduling_info.sr_id = -1; // invalid init value
 
-  // set init value 0xFFFF, make sure periodic timer and retx time counters are NOT active, after bsr transmission set the value
-  // configured by the NW.
-  mac->scheduling_info.periodicBSR_SF = MAC_UE_BSR_TIMER_NOT_RUNNING;
-  mac->scheduling_info.retxBSR_SF = MAC_UE_BSR_TIMER_NOT_RUNNING;
+  memset(&mac->scheduling_info.periodicPHR_Timer, 0, sizeof(mac->scheduling_info.periodicPHR_Timer));
+  memset(&mac->scheduling_info.prohibitPHR_Timer, 0, sizeof(mac->scheduling_info.prohibitPHR_Timer));
+  memset(&mac->scheduling_info.bj_Timer, 0, sizeof(mac->scheduling_info.bj_Timer));
+  memset(&mac->scheduling_info.periodicBSR_Timer, 0, sizeof(mac->scheduling_info.periodicBSR_Timer));
   mac->BSR_reporting_active = BSR_TRIGGER_NONE;
 
   for (int i = 0; i < NR_MAX_NUM_LCID; i++) {

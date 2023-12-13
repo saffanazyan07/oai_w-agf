@@ -158,6 +158,18 @@ bool nr_timer_expired(NR_timer_t timer);
  * @return Indication if the timer is active or not
  */
 bool is_nr_timer_active(NR_timer_t timer);
+/**
+ * @brief To check if a timer is configured
+ * @param timer Timer to be checked
+ * @return Indication if the timer is configured or not
+ */
+bool is_nr_timer_configured(NR_timer_t timer);
+/**
+ * @brief To check the time elapsed in timer
+ * @param timer Timer to be checked
+ * @return Timer counter
+ */
+uint32_t nr_timer_get_counter(NR_timer_t timer);
 
 extern const nr_bandentry_t nr_bandtable[];
 

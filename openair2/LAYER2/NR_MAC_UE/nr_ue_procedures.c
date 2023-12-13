@@ -2426,13 +2426,9 @@ int8_t nr_ue_get_SR(module_id_t module_idP, frame_t frameP, slot_t slot)
           si->SR_pending); // todo
     si->SR_COUNTER++;
 
-    // start the sr-prohibittimer : rel 9 and above
-    if (si->sr_ProhibitTimer > 0) { // timer configured
-      si->sr_ProhibitTimer--;
-      si->sr_ProhibitTimer_Running = 1;
-    } else {
-      si->sr_ProhibitTimer_Running = 0;
-    }
+    // start the sr-prohibittimer
+    if (is_nr_timer_configured(si->sr_ProhibitTimer))
+      nr_timer_start(&si->sr_ProhibitTimer);
     //mac->ul_active =1;
     return (1);   //instruct phy to signal SR
   } else {

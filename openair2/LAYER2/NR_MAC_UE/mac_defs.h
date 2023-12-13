@@ -71,9 +71,6 @@
 #define MAX_NUM_BWP_UE 5
 #define NUM_SLOT_FRAME 10
 
-/*!\brief value for indicating BSR Timer is not running */
-#define NR_MAC_UE_BSR_TIMER_NOT_RUNNING   (0xFFFF)
-
 // ================================================
 // SSB to RO mapping private defines and structures
 // ================================================
@@ -206,33 +203,21 @@ typedef struct {
   uint8_t  SR_pending;
   /// SR_COUNTER as defined in 38.321
   uint16_t SR_COUNTER;
-  /// retxBSR-Timer, default value is sf2560
-  uint16_t retxBSR_Timer;
-  /// retxBSR_SF, number of subframe before triggering a regular BSR
-  uint16_t retxBSR_SF;
-  /// periodicBSR-Timer, default to infinity
-  uint16_t periodicBSR_Timer;
-  /// periodicBSR_SF, number of subframe before triggering a periodic BSR
-  uint16_t periodicBSR_SF;
+  /// retxBSR-Timer, default value is sf80
+  NR_timer_t retxBSR_Timer;
+  /// periodicBSR-Timer, default is sf10
+  NR_timer_t periodicBSR_Timer;
+  // time elapsed since Bj was last incremented
+  NR_timer_t bj_Timer;
   /// default value is 0: not configured
-  uint16_t sr_ProhibitTimer;
-  /// sr ProhibitTime running
-  uint8_t sr_ProhibitTimer_Running;
+  NR_timer_t sr_ProhibitTimer;
   // Maximum number of SR transmissions
   uint32_t sr_TransMax;
   int sr_id;
   ///timer before triggering a periodic PHR
-  uint16_t periodicPHR_Timer;
+  NR_timer_t periodicPHR_Timer;
   ///timer before triggering a prohibit PHR
-  uint16_t prohibitPHR_Timer;
-  ///DL Pathloss change value
-  uint16_t PathlossChange;
-  ///number of subframe before triggering a periodic PHR
-  int16_t periodicPHR_SF;
-  ///number of subframe before triggering a prohibit PHR
-  int16_t prohibitPHR_SF;
-  ///DL Pathloss Change in db
-  uint16_t PathlossChange_db;
+  NR_timer_t prohibitPHR_Timer;
   /// default value is false
   uint16_t extendedBSR_Sizes_r10;
   /// default value is false

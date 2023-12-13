@@ -93,6 +93,17 @@ fapi_nr_ul_config_request_pdu_t *lockGet_ul_config(NR_UE_MAC_INST_t *mac, frame_
 void update_mac_timers(NR_UE_MAC_INST_t *mac)
 {
   nr_timer_tick(&mac->ra.contention_resolution_timer);
+  nr_timer_tick(&mac->scheduling_info.retxBSR_Timer);
+  bool periodicBSR_exp = nr_timer_tick(&mac->scheduling_info.periodicBSR_Timer);
+  if (periodicBSR_exp) {
+    // Trigger BSR Periodic
+    mac->BSR_reporting_active |= NR_BSR_TRIGGER_PERIODIC;
+    LOG_D(NR_MAC, "[UE %d] MAC BSR Triggered PeriodicBSR Timer expiry\n", mac->ue_id);
+  }
+  nr_timer_tick(&mac->scheduling_info.sr_ProhibitTimer);
+  nr_timer_tick(&mac->scheduling_info.periodicPHR_Timer);
+  nr_timer_tick(&mac->scheduling_info.prohibitPHR_Timer);
+  nr_timer_tick(&mac->scheduling_info.bj_Timer);
 }
 
 void remove_ul_config_last_item(fapi_nr_ul_config_request_pdu_t *pdu)
@@ -1099,6 +1110,7 @@ void nr_ue_ul_scheduler(nr_uplink_indication_t *ul_info)
     mac->if_module->scheduled_response(&scheduled_response);
   }
 
+  bool bj_updated = false;
   // update Bj for all active lcids before LCP procedure
   LOG_D(NR_MAC, "====================[Frame %d][Slot %d]Logical Channel Prioritization===========\n", frame_tx, slot_tx);
   for (nr_lcordered_info_t *lc_bearer = mac->lc_ordered_info; lc_bearer->logicalChannelConfig_ordered != NULL; lc_bearer++) {
@@ -1113,30 +1125,25 @@ void nr_ue_ul_scheduler(nr_uplink_indication_t *ul_info)
       measure Bj
       increment the value of Bj by product PBR  * T
     */
-    int T = 1; // time elapsed since Bj was last incremented
+    // time elapsed since Bj was last incremented
+    int T_slots = nr_timer_get_counter(mac->scheduling_info.bj_Timer);
+    int mu = mac->current_UL_BWP->scs;
+    int T = T_slots * 10 / nr_slots_per_frame[mu]; // in ms
     int32_t bj = sched_lc->Bj;
-    bj += nr_get_pbr(lcconfig->ul_SpecificParameters->prioritisedBitRate) * T;
+    bj += ((nr_get_pbr(lcconfig->ul_SpecificParameters->prioritisedBitRate) / 1000) * T); // PBR in B/s
     if (lcconfig->ul_SpecificParameters->prioritisedBitRate
         == NR_LogicalChannelConfig__ul_SpecificParameters__prioritisedBitRate_infinity) {
       bj = nr_get_pbr(lcconfig->ul_SpecificParameters->prioritisedBitRate);
     }
-
     // bj > max bucket size, set bj to max bucket size, as in ts38.321 5.4.3.1 Logical Channel Prioritization
     sched_lc->Bj = min(bj, bucketSize_max);
+    bj_updated = true;
   }
+
+  if (bj_updated)
+    nr_timer_start(&mac->scheduling_info.bj_Timer);
 
   // Call BSR procedure as described in Section 5.4.5 in 38.321
-
-  // First check ReTxBSR Timer because it is always configured
-  // Decrement ReTxBSR Timer if it is running and not null
-  if ((mac->scheduling_info.retxBSR_SF != MAC_UE_BSR_TIMER_NOT_RUNNING) && (mac->scheduling_info.retxBSR_SF != 0)) {
-    mac->scheduling_info.retxBSR_SF--;
-  }
-
-  // Decrement Periodic Timer if it is running and not null
-  if ((mac->scheduling_info.periodicBSR_SF != MAC_UE_BSR_TIMER_NOT_RUNNING) && (mac->scheduling_info.periodicBSR_SF != 0)) {
-    mac->scheduling_info.periodicBSR_SF--;
-  }
 
   //Check whether Regular BSR is triggered
   if (nr_update_bsr(mod_id, frame_tx, slot_tx, gNB_index) == true) {
@@ -1270,8 +1277,9 @@ bool nr_update_bsr(module_id_t module_idP, frame_t frameP, slot_t slotP, uint8_t
     }
 
     // Trigger Regular BSR if ReTxBSR Timer has expired and UE has data for transmission
-    if (mac->scheduling_info.retxBSR_SF == 0) {
+    if (nr_timer_expired(mac->scheduling_info.retxBSR_Timer)) {
       bsr_regular_triggered = true;
+      nr_timer_stop(&mac->scheduling_info.retxBSR_Timer);
 
       if ((mac->BSR_reporting_active & NR_BSR_TRIGGER_REGULAR) == 0) {
         LOG_I(NR_MAC, "[UE %d] PDCCH Tick : MAC BSR Triggered ReTxBSR Timer expiry at frame %d slot %d\n",
@@ -1323,123 +1331,57 @@ nr_locate_BsrIndexByBufferSize(const uint32_t *table, int size, int value) {
   }
 }
 
-int nr_get_sf_periodicBSRTimer(uint8_t sf_offset) {
+int nr_get_sf_periodicBSRTimer(uint8_t sf_offset)
+{
   switch (sf_offset) {
     case NR_BSR_Config__periodicBSR_Timer_sf1:
       return 1;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf5:
       return 5;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf10:
       return 10;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf16:
       return 16;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf20:
       return 20;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf32:
       return 32;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf40:
       return 40;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf64:
       return 64;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf80:
       return 80;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf128:
       return 128;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf160:
       return 160;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf320:
       return 320;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf640:
       return 640;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf1280:
       return 1280;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_sf2560:
       return 2560;
       break;
-
     case NR_BSR_Config__periodicBSR_Timer_infinity:
     default:
-      return 0xFFFF;
-      break;
-  }
-}
-
-int nr_get_sf_retxBSRTimer(uint8_t sf_offset) {
-  switch (sf_offset) {
-    case NR_BSR_Config__retxBSR_Timer_sf10:
-      return 10;
-      break;
-
-    case NR_BSR_Config__retxBSR_Timer_sf20:
-      return 20;
-      break;
-
-    case NR_BSR_Config__retxBSR_Timer_sf40:
-      return 40;
-      break;
-
-    case NR_BSR_Config__retxBSR_Timer_sf80:
-      return 80;
-      break;
-
-    case NR_BSR_Config__retxBSR_Timer_sf160:
-      return 160;
-      break;
-
-    case NR_BSR_Config__retxBSR_Timer_sf320:
-      return 320;
-      break;
-
-    case NR_BSR_Config__retxBSR_Timer_sf640:
-      return 640;
-      break;
-
-    case NR_BSR_Config__retxBSR_Timer_sf1280:
-      return 1280;
-      break;
-
-    case NR_BSR_Config__retxBSR_Timer_sf2560:
-      return 2560;
-      break;
-
-    case NR_BSR_Config__retxBSR_Timer_sf5120:
-      return 5120;
-      break;
-
-    case NR_BSR_Config__retxBSR_Timer_sf10240:
-      return 10240;
-      break;
-
-    default:
-      return -1;
+      return UINT_MAX;
       break;
   }
 }
@@ -2670,22 +2612,7 @@ int nr_ue_get_sdu_mac_ce_pre(module_id_t module_idP,
   }
 
   //Restart ReTxBSR Timer at new grant indication (38.321)
-  if (mac->scheduling_info.retxBSR_SF != MAC_UE_BSR_TIMER_NOT_RUNNING) {
-    mac->scheduling_info.retxBSR_SF = nr_get_sf_retxBSRTimer(mac->scheduling_info.retxBSR_Timer);
-  }
-
-  // periodicBSR-Timer expires, trigger BSR
-  if ((mac->scheduling_info.periodicBSR_Timer != NR_BSR_Config__periodicBSR_Timer_infinity)
-      && (mac->scheduling_info.periodicBSR_SF == 0)) {
-    // Trigger BSR Periodic
-    mac->BSR_reporting_active |= NR_BSR_TRIGGER_PERIODIC;
-    LOG_D(NR_MAC,
-          "[UE %d] MAC BSR Triggered PeriodicBSR Timer expiry at frame%d subframe %d TBS=%d\n",
-          module_idP,
-          frameP,
-          subframe,
-          buflen);
-  }
+  nr_timer_start(&mac->scheduling_info.retxBSR_Timer);
 
   //Compute BSR Length if Regular or Periodic BSR is triggered
   //WARNING: if BSR long is computed, it may be changed to BSR short during or after multiplexing if there remains less than 1 LCGROUP with data after Tx
@@ -2887,13 +2814,13 @@ void nr_ue_get_sdu_mac_ce_post(module_id_t module_idP,
           mac_ce_p->bsr_header_len,
           buflen);
     // Reset ReTx BSR Timer
-    mac->scheduling_info.retxBSR_SF = nr_get_sf_retxBSRTimer(mac->scheduling_info.retxBSR_Timer);
-    LOG_D(NR_MAC, "[UE %d] MAC ReTx BSR Timer Reset =%d\n", module_idP, mac->scheduling_info.retxBSR_SF);
+    nr_timer_start(&mac->scheduling_info.retxBSR_Timer);
+    LOG_D(NR_MAC, "[UE %d] MAC ReTx BSR Timer Reset\n", module_idP);
 
     // Reset Periodic Timer except when BSR is truncated
-    if ((mac_ce_p->bsr_t == NULL) && (mac->scheduling_info.periodicBSR_Timer != NR_BSR_Config__periodicBSR_Timer_infinity)) {
-      mac->scheduling_info.periodicBSR_SF = nr_get_sf_periodicBSRTimer(mac->scheduling_info.periodicBSR_Timer);
-      LOG_D(NR_MAC, "[UE %d] MAC Periodic BSR Timer Reset =%d\n", module_idP, mac->scheduling_info.periodicBSR_SF);
+    if ((mac_ce_p->bsr_t == NULL) && (mac->scheduling_info.periodicBSR_Timer.target != UINT_MAX)) {
+      nr_timer_start(&mac->scheduling_info.periodicBSR_Timer);
+      LOG_D(NR_MAC, "[UE %d] MAC Periodic BSR Timer Reset\n", module_idP);
     }
 
     // Reset BSR Trigger flags

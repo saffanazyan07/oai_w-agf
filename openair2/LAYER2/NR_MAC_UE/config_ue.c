@@ -1506,8 +1506,7 @@ static void configure_maccellgroup(NR_UE_MAC_INST_t *mac, const NR_MAC_CellGroup
       for (int i = 0; i < src->schedulingRequestToReleaseList->list.count; i++) {
         if (*src->schedulingRequestToReleaseList->list.array[i] == si->sr_id) {
           si->SR_COUNTER = 0;
-          si->sr_ProhibitTimer = 0;
-          si->sr_ProhibitTimer_Running = 0;
+          memset(&si->sr_ProhibitTimer, 0, sizeof(si->sr_ProhibitTimer));
           si->sr_id = -1; // invalid init value
         }
         else
@@ -1528,8 +1527,13 @@ static void configure_maccellgroup(NR_UE_MAC_INST_t *mac, const NR_MAC_CellGroup
     }
   }
   if (mcg->bsr_Config) {
-    si->periodicBSR_Timer = mcg->bsr_Config->periodicBSR_Timer;
-    si->retxBSR_Timer = mcg->bsr_Config->retxBSR_Timer;
+    long mu = mac->current_UL_BWP->scs;
+    int subframes_per_slot = nr_slots_per_frame[mu] / 10;
+    nr_timer_setup(&mac->scheduling_info.retxBSR_Timer,
+                   subframes_per_slot * nr_get_sf_periodicBSRTimer(mcg->bsr_Config->periodicBSR_Timer),
+                   1);
+    int retx_sf = 10 * (1 << mcg->bsr_Config->retxBSR_Timer);
+    nr_timer_setup(&si->retxBSR_Timer, subframes_per_slot * retx_sf, 1);
     if (mcg->bsr_Config->logicalChannelSR_DelayTimer)
       LOG_E(NR_MAC, "Handling of logicalChannelSR_DelayTimer not implemented\n");
   }
@@ -1936,9 +1940,6 @@ void nr_rrc_mac_config_req_cg(module_id_t module_id,
   AssertFatal(cell_group_config, "CellGroupConfig should not be NULL\n");
   NR_UE_MAC_INST_t *mac = get_mac_inst(module_id);
 
-  if (cell_group_config->mac_CellGroupConfig)
-    configure_maccellgroup(mac, cell_group_config->mac_CellGroupConfig);
-
   if (cell_group_config->physicalCellGroupConfig)
     configure_physicalcellgroup(mac, cell_group_config->physicalCellGroupConfig);
 
@@ -1964,6 +1965,9 @@ void nr_rrc_mac_config_req_cg(module_id_t module_id,
   // Only if RACH is configured for current BWP
   if (mac->current_UL_BWP->rach_ConfigCommon)
     build_ssb_to_ro_map(mac);
+
+  if (cell_group_config->mac_CellGroupConfig)
+    configure_maccellgroup(mac, cell_group_config->mac_CellGroupConfig);
 
   if (!mac->dl_config_request || !mac->ul_config_request)
     ue_init_config_request(mac, mac->current_DL_BWP->scs);
