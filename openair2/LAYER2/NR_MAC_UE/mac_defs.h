@@ -321,10 +321,8 @@ typedef struct {
   /// RA Msg3 size in bytes
   uint8_t Msg3_size;
 
-  /// Random-access Contention Resolution Timer active flag
-  uint8_t RA_contention_resolution_timer_active;
-  int RA_contention_resolution_target_frame;
-  int RA_contention_resolution_target_slot;
+  /// Random-access Contention Resolution Timer
+  NR_timer_t contention_resolution_timer;
   /// Transmitted UE Contention Resolution Identifier
   uint8_t cont_res_id[6];
 
