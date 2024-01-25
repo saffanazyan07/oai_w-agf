@@ -65,6 +65,7 @@ void nr_ue_init_mac(NR_UE_MAC_INST_t *mac)
   mac->servCellIndex = 0;
   mac->harq_ACK_SpatialBundlingPUCCH = false;
   mac->harq_ACK_SpatialBundlingPUSCH = false;
+  mac->bwp_released_before_setup = false;
   mac->uecap_maxMIMO_PDSCH_layers = 0;
   mac->uecap_maxMIMO_PUSCH_layers_cb = 0;
   mac->uecap_maxMIMO_PUSCH_layers_nocb = 0;
@@ -227,6 +228,9 @@ void release_mac_configuration(NR_UE_MAC_INST_t *mac,
 
   mac->current_DL_BWP = NULL;
   mac->current_UL_BWP = NULL;
+
+  if (cause == RRC_SETUP_REESTAB_RESUME)
+    mac->bwp_released_before_setup = true;
 
   // in case of re-establishment we don't need to release initial BWP config common
   int first_bwp_rel = 0; // first BWP to release

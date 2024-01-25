@@ -1354,15 +1354,15 @@ static void configure_common_BWP_ul(NR_UE_MAC_INST_t *mac, int bwp_id, NR_BWP_Up
   }
 }
 
-void nr_rrc_mac_config_req_reset(module_id_t module_id,
-                                 NR_UE_MAC_reset_cause_t cause)
+void nr_rrc_mac_config_req_reset(module_id_t module_id, NR_UE_MAC_reset_cause_t cause)
 {
   NR_UE_MAC_INST_t *mac = get_mac_inst(module_id);
   if (cause == GO_TO_IDLE) {
     reset_ra(&mac->ra);
     nr_ue_init_mac(mac);
   } else {
-    reset_mac_inst(mac);
+    if (cause != RRC_SETUP_REESTAB_RESUME)
+      reset_mac_inst(mac);
   }
 
   nr_ue_mac_default_configs(mac);
@@ -1373,7 +1373,7 @@ void nr_rrc_mac_config_req_reset(module_id_t module_id,
 
   // Sending to PHY a request to resync
   // with no target cell ID
-  if (cause != DETACH) {
+  if (cause != DETACH && cause != RRC_SETUP_REESTAB_RESUME) {
     mac->synch_request.Mod_id = module_id;
     mac->synch_request.CC_id = 0;
     mac->synch_request.synch_req.target_Nid_cell = -1;
@@ -1996,6 +1996,21 @@ void nr_rrc_mac_config_req_cg(module_id_t module_id,
       configure_servingcell_info(&mac->sc_info, scd);
       configure_BWPs(mac, scd);
     }
+  }
+
+  if (mac->bwp_released_before_setup) {
+    // if we are doing RRC Setup after re-establishment we cleared BWP
+    // if there was no switching to a BWP > 0 in configure_BWPs
+    // we need to set initial BWP as current BWP
+    if (!mac->current_DL_BWP) {
+      mac->current_DL_BWP = get_dl_bwp_structure(mac, 0, false);
+      AssertFatal(mac->current_DL_BWP, "Couldn't find DL-BWP0\n");
+    }
+    if (!mac->current_UL_BWP) {
+      mac->current_UL_BWP = get_ul_bwp_structure(mac, 0, false);
+      AssertFatal(mac->current_UL_BWP, "Couldn't find DL-BWP0\n");
+    }
+    mac->bwp_released_before_setup = false;
   }
 
   configure_logicalChannelBearer(mac,

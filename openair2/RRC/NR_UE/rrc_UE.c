@@ -899,7 +899,51 @@ static void nr_rrc_process_rrcsetup(NR_UE_RRC_INST_t *rrc,
 {
   // if the RRCSetup is received in response to an RRCReestablishmentRequest
   // or RRCResumeRequest or RRCResumeRequest1
-  // TODO none of the procedures implemented yet
+  if (rrc->ra_trigger == RRC_CONNECTION_REESTABLISHMENT || rrc->ra_trigger == RRC_RESUME_REQUEST) {
+    LOG_W(NR_RRC, "[UE %ld] Recived RRC Setup in response to %s request\n",
+          rrc->ue_id, rrc->ra_trigger == RRC_CONNECTION_REESTABLISHMENT ? "re-establishment" : "resume");
+
+    // discard any stored UE Inactive AS context and suspendConfig
+    // TODO
+
+    // discard any current AS security context including
+    // K_RRCenc key, the K_RRCint key, the K_UPint key and the K_UPenc key
+    // TODO only kgnb is stored
+    memset(rrc->kgnb, 0, sizeof(rrc->kgnb));
+    rrc->as_security_activated = false;
+
+    // release radio resources for all established RBs except SRB0,
+    // including release of the RLC entities, of the associated PDCP entities and of SDAP
+    for (int i = 1; i <= MAX_DRBS_PER_UE; i++) {
+      if (get_DRB_status(rrc, i) != RB_NOT_PRESENT) {
+        set_DRB_status(rrc, i, RB_NOT_PRESENT);
+        nr_pdcp_release_drb(rrc->ue_id, i);
+      }
+    }
+    for (int i = 1; i < NR_NUM_SRB; i++) {
+      if (rrc->Srb[i] != RB_NOT_PRESENT) {
+        rrc->Srb[i] = RB_NOT_PRESENT;
+        nr_pdcp_release_srb(rrc->ue_id, i);
+      }
+    }
+    for (int i = 0; i < NR_MAX_NUM_LCID; i++) {
+      if (rrc->active_RLC_entity[i]) {
+        rrc->active_RLC_entity[i] = false;
+        nr_rlc_release_entity(rrc->ue_id, i);
+      }
+    }
+    // release the RRC configuration except for the default L1 parameter values,
+    // default MAC Cell Group configuration and CCCH configuration
+    // TODO to be completed
+    NR_UE_MAC_reset_cause_t cause = RRC_SETUP_REESTAB_RESUME;
+    nr_rrc_mac_config_req_reset(rrc->ue_id, cause);
+
+    // indicate to upper layers fallback of the RRC connection
+    // TODO
+
+    // stop timer T380, if running
+    // TODO not implemented yet
+  }
 
   // perform the cell group configuration procedure in accordance with the received masterCellGroup
   nr_rrc_ue_process_masterCellGroup(rrc,
@@ -924,6 +968,9 @@ static void nr_rrc_process_rrcsetup(NR_UE_RRC_INST_t *rrc,
   // if the RRCSetup is received in response to an RRCResumeRequest, RRCResumeRequest1 or RRCSetupRequest
   // enter RRC_CONNECTED
   rrc->nrRrcState = RRC_STATE_CONNECTED_NR;
+
+  // resetting the RA trigger state after receiving MSG4 with RRCSetup
+  rrc->ra_trigger = RA_NOT_RUNNING;
 
   // set the content of RRCSetupComplete message
   // TODO procedues described in 5.3.3.4 seems more complex than what we actualy do

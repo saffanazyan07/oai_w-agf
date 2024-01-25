@@ -169,7 +169,8 @@ typedef enum {
   GO_TO_IDLE,
   DETACH,
   T300_EXPIRY,
-  RE_ESTABLISHMENT
+  RE_ESTABLISHMENT,
+  RRC_SETUP_REESTAB_RESUME
 } NR_UE_MAC_reset_cause_t;
 
 typedef enum {
@@ -472,6 +473,7 @@ typedef struct NR_UE_MAC_INST_s {
   NR_SearchSpace_t *search_space_zero;
   NR_UE_DL_BWP_t *current_DL_BWP;
   NR_UE_UL_BWP_t *current_UL_BWP;
+  bool bwp_released_before_setup;
 
   bool harq_ACK_SpatialBundlingPUCCH;
   bool harq_ACK_SpatialBundlingPUSCH;
