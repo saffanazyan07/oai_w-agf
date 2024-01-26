@@ -1393,6 +1393,18 @@ void nr_rrc_mac_config_req_reset(module_id_t module_id,
   }
 }
 
+static void config_SI_schedulinginfo(NR_UE_MAC_INST_t *mac, NR_SI_SchedulingInfo_t *si_SchedulingInfo)
+{
+  if (si_SchedulingInfo) {
+    if (!mac->si_SchedulingInfo)
+      mac->si_SchedulingInfo = calloc(1, sizeof(*mac->si_SchedulingInfo));
+    mac->si_SchedulingInfo->si_WindowLength = si_SchedulingInfo->si_WindowLength;
+    mac->si_SchedulingInfo->schedulingInfoList = si_SchedulingInfo->schedulingInfoList;
+  }
+  else  // Need R (release if NULL)
+    asn1cFreeStruc(asn_DEF_NR_SI_SchedulingInfo, mac->si_SchedulingInfo);
+}
+
 void nr_rrc_mac_config_req_sib1(module_id_t module_id,
                                 int cc_idP,
                                 NR_SI_SchedulingInfo_t *si_SchedulingInfo,
@@ -1402,7 +1414,7 @@ void nr_rrc_mac_config_req_sib1(module_id_t module_id,
   AssertFatal(scc, "SIB1 SCC should not be NULL\n");
 
   UPDATE_MAC_IE(mac->tdd_UL_DL_ConfigurationCommon, scc->tdd_UL_DL_ConfigurationCommon, NR_TDD_UL_DL_ConfigCommon_t);
-  UPDATE_MAC_IE(mac->si_SchedulingInfo, si_SchedulingInfo, NR_SI_SchedulingInfo_t);
+  config_SI_schedulinginfo(mac, si_SchedulingInfo);
 
   config_common_ue_sa(mac, scc, module_id, cc_idP);
   configure_common_BWP_dl(mac,
