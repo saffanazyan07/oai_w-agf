@@ -131,8 +131,8 @@ static int nr_process_mac_pdu(instance_t module_idP,
 #endif
 
   while (!done && pdu_len > 0){
-    uint16_t mac_len=0;
-    uint16_t mac_subheader_len=sizeof(NR_MAC_SUBHEADER_FIXED);
+    uint mac_len=0;
+    uint mac_subheader_len=sizeof(NR_MAC_SUBHEADER_FIXED);
     uint8_t rx_lcid = ((NR_MAC_SUBHEADER_FIXED *)pduP)->LCID;
 
     LOG_D(NR_MAC, "In %s: received UL-SCH sub-PDU with LCID 0x%x in %d.%d (remaining PDU length %d)\n", __func__, rx_lcid, frameP, slot, pdu_len);

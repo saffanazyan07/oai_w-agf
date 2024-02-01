@@ -317,7 +317,7 @@ UE_MODE_t get_ue_mode(uint8_t Mod_id,
   return(PHY_vars_UE_g[Mod_id][CC_id]->UE_mode[eNB_index]);
 }
 
-void process_timing_advance_rar(PHY_VARS_UE *ue,
+static void process_timing_advance_rar(PHY_VARS_UE *ue,
                                 UE_rxtx_proc_t *proc,
                                 uint16_t timing_advance) {
   ue->timing_advance = timing_advance*4;

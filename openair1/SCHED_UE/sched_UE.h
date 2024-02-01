@@ -176,11 +176,6 @@ uint32_t pdcch_alloc2ul_frame(LTE_DL_FRAME_PARMS *frame_parms,uint32_t frame, ui
 
 uint16_t get_Np(uint8_t N_RB_DL,uint8_t nCCE,uint8_t plus1);
 
-
-
-void process_timing_advance(module_id_t Mod_id,uint8_t CC_id,int16_t timing_advance);
-void process_timing_advance_rar(PHY_VARS_UE *phy_vars_ue,UE_rxtx_proc_t *proc,uint16_t timing_advance);
-
 unsigned int get_tx_amp(int power_dBm, int power_max_dBm, int N_RB_UL, int nb_rb);
 
 void phy_reset_ue(module_id_t Mod_id,uint8_t CC_id,uint8_t eNB_index);

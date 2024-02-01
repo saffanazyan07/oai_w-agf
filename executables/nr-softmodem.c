@@ -108,8 +108,6 @@ static int wait_for_sync = 0;
 unsigned int mmapped_dma=0;
 int single_thread_flag=1;
 
-int8_t threequarter_fs=0;
-
 uint64_t downlink_frequency[MAX_NUM_CCs][4];
 int32_t uplink_frequency_offset[MAX_NUM_CCs][4];
 
@@ -648,7 +646,7 @@ int main( int argc, char **argv ) {
     exit(-1);
   }
 
-  openair0_cfg[0].threequarter_fs = threequarter_fs;
+  openair0_cfg[0].threequarter_fs = get_softmodem_params()->threequarter_fs;
 
   if (get_softmodem_params()->do_ra)
     AssertFatal(get_softmodem_params()->phy_test == 0,"RA and phy_test are mutually exclusive\n");

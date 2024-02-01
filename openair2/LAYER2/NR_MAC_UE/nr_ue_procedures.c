@@ -3552,217 +3552,202 @@ void nr_ue_process_mac_pdu(nr_downlink_indication_t *dl_info,
   module_id_t module_idP = dl_info->module_id;
   frame_t frameP         = dl_info->frame;
   int slot               = dl_info->slot;
-  uint8_t *pduP          = (dl_info->rx_ind->rx_indication_body + pdu_id)->pdsch_pdu.pdu;
-  int32_t pdu_len        = (int32_t)(dl_info->rx_ind->rx_indication_body + pdu_id)->pdsch_pdu.pdu_length;
   uint8_t gNB_index      = dl_info->gNB_index;
   uint8_t CC_id          = dl_info->cc_id;
-  uint8_t done           = 0;
   NR_UE_MAC_INST_t *mac = get_mac_inst(module_idP);
   RA_config_t *ra = &mac->ra;
 
-  if (!pduP){
+
+  fapi_nr_rx_indication_body_t* pdu= dl_info->rx_ind->rx_indication_body;
+  uint8_t *pduP= pdu[pdu_id].pdsch_pdu.pdu;
+  uint8_t *pduEnd=pduP+pdu[pdu_id].pdsch_pdu.pdu_length;
+  if (!pduP)
     return;
-  }
-
-  LOG_D(MAC, "In %s [%d.%d]: processing PDU %d (with length %d) of %d total number of PDUs...\n", __FUNCTION__, frameP, slot, pdu_id, pdu_len, dl_info->rx_ind->number_pdus);
-
-  while (!done && pdu_len > 0){
-    uint16_t mac_len = 0x0000;
-    uint16_t mac_subheader_len = 0x0001; //  default to fixed-length subheader = 1-oct
-    uint8_t rx_lcid = ((NR_MAC_SUBHEADER_FIXED *)pduP)->LCID;
-
-    LOG_D(MAC, "[UE] LCID %d, PDU length %d\n", rx_lcid, pdu_len);
-    bool ret;
+  
+  LOG_D(MAC, "In %s [%d.%d]: processing PDU %d (with length %ld) of %d total number of PDUs...\n", __FUNCTION__, frameP, slot, pdu_id, pduP-pduEnd, dl_info->rx_ind->number_pdus);
+  
+  while (pduP < pduEnd){
+    uint mac_len = 0;
+    uint mac_subheader_len = 0; //  default to fixed-length subheader = 1-oct
+    uint rx_lcid = ((NR_MAC_SUBHEADER_FIXED *)pduP)->LCID;
+    LOG_D(MAC, "[UE] LCID %d\n", rx_lcid);
     switch(rx_lcid){
       //  MAC CE
-      case DL_SCH_LCID_CCCH:
-        //  MSG4 RRC Setup 38.331
-        //  variable length
-        ret=get_mac_len(pduP, pdu_len, &mac_len, &mac_subheader_len);
-        AssertFatal(ret, "The mac_len (%d) has an invalid size. PDU len = %d! \n",
-                    mac_len, pdu_len);
+    case DL_SCH_LCID_CCCH:
+      //  MSG4 RRC Setup 38.331
+      //  variable length
+      if (!get_mac_len(pduP, pduEnd-pduP, &mac_len, &mac_subheader_len)) {
+	LOG_W(NR_MAC, "The mac_len (%d) has an invalid size\n",mac_len);
+	pduP=pduEnd;
+	break;
+      }
+      
+      // Check if it is a valid CCCH message, we get all 00's messages very often
+      int i = 0;
+      for(i=0; i<mac_subheader_len+mac_len; i++) 
+	if(pduP[i] != 0) 
+	  break;
+      if (i == mac_subheader_len+mac_len) {
+	LOG_I(NR_MAC, "%s() Invalid CCCH message!, pdu_len: %ld\n", __func__, pduEnd-pduP);
+	pduP=pduEnd;
+	break;
+      }
 
-        // Check if it is a valid CCCH message, we get all 00's messages very often
-        int i = 0;
-        for(i=0; i<(mac_subheader_len+mac_len); i++) {
-          if(pduP[i] != 0) {
-            break;
-          }
-        }
-        if (i == (mac_subheader_len+mac_len)) {
-          LOG_D(NR_MAC, "%s() Invalid CCCH message!, pdu_len: %d\n", __func__, pdu_len);
-          done = 1;
-          break;
-        }
-
-        if (mac_len > 0) {
-          LOG_D(NR_MAC,"DL_SCH_LCID_CCCH (e.g. RRCSetup) with payload len %d\n", mac_len);
-          for (int i = 0; i < mac_subheader_len; i++) {
-            LOG_D(NR_MAC, "MAC header %d: 0x%x\n", i, pduP[i]);
-          }
-          for (int i = 0; i < mac_len; i++) {
-            LOG_D(NR_MAC, "%d: 0x%x\n", i, pduP[mac_subheader_len + i]);
-          }
-
-          mac_rlc_data_ind(module_idP,
-                           mac->ue_id,
-                           module_idP,
-                           frameP,
-                           ENB_FLAG_NO,
-                           MBMS_FLAG_NO,
-                           0,
-                           (char *)(pduP + mac_subheader_len),
-                           mac_len,
-                           1,
-                           NULL);
-        }
-        break;
-      case DL_SCH_LCID_TCI_STATE_ACT_UE_SPEC_PDSCH:
-      case DL_SCH_LCID_APERIODIC_CSI_TRI_STATE_SUBSEL:
-      case DL_SCH_LCID_SP_CSI_RS_CSI_IM_RES_SET_ACT:
-      case DL_SCH_LCID_SP_SRS_ACTIVATION:
-
-        //  38.321 Ch6.1.3.14
-        //  varialbe length
-        get_mac_len(pduP, pdu_len, &mac_len, &mac_subheader_len);
-        break;
-
-      case DL_SCH_LCID_RECOMMENDED_BITRATE:
-        //  38.321 Ch6.1.3.20
-        mac_len = 2;
-        break;
-      case DL_SCH_LCID_SP_ZP_CSI_RS_RES_SET_ACT:
-        //  38.321 Ch6.1.3.19
-        mac_len = 2;
-        break;
-      case DL_SCH_LCID_PUCCH_SPATIAL_RELATION_ACT:
-        //  38.321 Ch6.1.3.18
-        mac_len = 3;
-        break;
-      case DL_SCH_LCID_SP_CSI_REP_PUCCH_ACT:
-        //  38.321 Ch6.1.3.16
-        mac_len = 2;
-        break;
-      case DL_SCH_LCID_TCI_STATE_IND_UE_SPEC_PDCCH:
-        //  38.321 Ch6.1.3.15
-        mac_len = 2;
-        break;
-      case DL_SCH_LCID_DUPLICATION_ACT:
-        //  38.321 Ch6.1.3.11
-        mac_len = 1;
-        break;
-      case DL_SCH_LCID_SCell_ACT_4_OCT:
-        //  38.321 Ch6.1.3.10
-        mac_len = 4;
-        break;
-      case DL_SCH_LCID_SCell_ACT_1_OCT:
-        //  38.321 Ch6.1.3.10
-        mac_len = 1;
-        break;
-      case DL_SCH_LCID_L_DRX:
-        //  38.321 Ch6.1.3.6
-        //  fixed length but not yet specify.
-        mac_len = 0;
-        break;
-      case DL_SCH_LCID_DRX:
-        //  38.321 Ch6.1.3.5
-        //  fixed length but not yet specify.
-        mac_len = 0;
-        break;
-      case DL_SCH_LCID_TA_COMMAND:
-        //  38.321 Ch6.1.3.4
-        mac_len = 1;
-
-        /*uint8_t ta_command = ((NR_MAC_CE_TA *)pduP)[1].TA_COMMAND;
-          uint8_t tag_id = ((NR_MAC_CE_TA *)pduP)[1].TAGID;*/
-
-        const int ta = ((NR_MAC_CE_TA *)pduP)[1].TA_COMMAND;
-        const int tag = ((NR_MAC_CE_TA *)pduP)[1].TAGID;
-
-        NR_UL_TIME_ALIGNMENT_t *ul_time_alignment = &mac->ul_time_alignment;
-        ul_time_alignment->ta_total += ta - 31;
-        ul_time_alignment->tag_id = tag;
-        ul_time_alignment->ta_command = ta;
-        ul_time_alignment->frame = frameP;
-        ul_time_alignment->slot = slot;
-        ul_time_alignment->ta_apply = true;
-        /*
-        #ifdef DEBUG_HEADER_PARSING
-        LOG_D(MAC, "[UE] CE %d : UE Timing Advance : %d\n", i, pduP[1]);
-        #endif
-        */
-
-        if (ta == 31)
-          LOG_D(NR_MAC, "[%d.%d] Received TA_COMMAND %u TAGID %u CC_id %d TA total %d\n", frameP, slot, ta, tag, CC_id, ul_time_alignment->ta_total);
-        else
-          LOG_I(NR_MAC, "[%d.%d] Received TA_COMMAND %u TAGID %u CC_id %d TA total %d\n", frameP, slot, ta, tag, CC_id, ul_time_alignment->ta_total);
-
-        break;
-      case DL_SCH_LCID_CON_RES_ID:
-        //  Clause 5.1.5 and 6.1.3.3 of 3GPP TS 38.321 version 16.2.1 Release 16
-        // MAC Header: 1 byte (R/R/LCID)
-        // MAC SDU: 6 bytes (UE Contention Resolution Identity)
-        mac_len = 6;
-
-        if(ra->ra_state == WAIT_CONTENTION_RESOLUTION) {
-          LOG_I(MAC, "[UE %d][RAPROC] Frame %d : received contention resolution identity: 0x%02x%02x%02x%02x%02x%02x Terminating RA procedure\n",
-                module_idP, frameP, pduP[1], pduP[2], pduP[3], pduP[4], pduP[5], pduP[6]);
-
-          bool ra_success = true;
-	  if (!IS_SOFTMODEM_IQPLAYER) { // Control is bypassed when replaying IQs (BMC)
-	    for(int i = 0; i<mac_len; i++) {
-	      if(ra->cont_res_id[i] != pduP[i+1]) {
-		ra_success = false;
-		break;
-	      }
+      if (mac_len > 0) {
+	log_dump(NR_MAC,pduP, mac_subheader_len +mac_len, LOG_DUMP_CHAR,
+		 "DL_SCH_LCID_CCCH (e.g. RRCSetup) payload");
+	mac_rlc_data_ind(module_idP,
+			 mac->ue_id,
+			 module_idP,
+			 frameP,
+			 ENB_FLAG_NO,
+			 MBMS_FLAG_NO,
+			 0,
+			 (char *)(pduP + mac_subheader_len),
+			 mac_len,
+			 1,
+			 NULL);
+      }
+      break;
+    case DL_SCH_LCID_TCI_STATE_ACT_UE_SPEC_PDSCH:
+    case DL_SCH_LCID_APERIODIC_CSI_TRI_STATE_SUBSEL:
+    case DL_SCH_LCID_SP_CSI_RS_CSI_IM_RES_SET_ACT:
+    case DL_SCH_LCID_SP_SRS_ACTIVATION:
+      
+      //  38.321 Ch6.1.3.14
+      //  varialbe length
+      get_mac_len(pduP, pduEnd-pduP, &mac_len, &mac_subheader_len);
+      break;
+      
+    case DL_SCH_LCID_RECOMMENDED_BITRATE:
+      //  38.321 Ch6.1.3.20
+      mac_len = 2;
+      break;
+    case DL_SCH_LCID_SP_ZP_CSI_RS_RES_SET_ACT:
+      //  38.321 Ch6.1.3.19
+      mac_len = 2;
+      break;
+    case DL_SCH_LCID_PUCCH_SPATIAL_RELATION_ACT:
+      //  38.321 Ch6.1.3.18
+      mac_len = 3;
+      break;
+    case DL_SCH_LCID_SP_CSI_REP_PUCCH_ACT:
+      //  38.321 Ch6.1.3.16
+      mac_len = 2;
+      break;
+    case DL_SCH_LCID_TCI_STATE_IND_UE_SPEC_PDCCH:
+      //  38.321 Ch6.1.3.15
+      mac_len = 2;
+      break;
+    case DL_SCH_LCID_DUPLICATION_ACT:
+      //  38.321 Ch6.1.3.11
+      mac_len = 1;
+      break;
+    case DL_SCH_LCID_SCell_ACT_4_OCT:
+      //  38.321 Ch6.1.3.10
+      mac_len = 4;
+      break;
+    case DL_SCH_LCID_SCell_ACT_1_OCT:
+      //  38.321 Ch6.1.3.10
+      mac_len = 1;
+      break;
+    case DL_SCH_LCID_L_DRX:
+      //  38.321 Ch6.1.3.6
+      //  fixed length but not yet specify.
+      mac_len = 0;
+      break;
+    case DL_SCH_LCID_DRX:
+      //  38.321 Ch6.1.3.5
+      //  fixed length but not yet specify.
+      mac_len = 0;
+      break;
+    case DL_SCH_LCID_TA_COMMAND:
+      //  38.321 Ch6.1.3.4
+      mac_len = 1;
+      const NR_MAC_CE_TA ta=*(NR_MAC_CE_TA *)(pduP+1);
+      
+      NR_UL_TIME_ALIGNMENT_t *ul_time_alignment = &mac->ul_time_alignment;
+      ul_time_alignment->ta_total += ta.TA_COMMAND - 31;
+      ul_time_alignment->tag_id = ta.TAGID;
+      ul_time_alignment->ta_command = ta.TA_COMMAND;
+      ul_time_alignment->frame = frameP;
+      ul_time_alignment->slot = slot;
+      ul_time_alignment->ta_apply = true;
+      
+      if (ta.TA_COMMAND == 31)
+	LOG_D(NR_MAC, "[%d.%d] Received TA_COMMAND %u TAGID %u CC_id %d TA total %d\n", frameP, slot, ta.TA_COMMAND, ta.TAGID, CC_id, ul_time_alignment->ta_total);
+      else
+	LOG_I(NR_MAC, "[%d.%d] Received TA_COMMAND %u TAGID %u CC_id %d TA total %d\n", frameP, slot, ta.TA_COMMAND, ta.TAGID, CC_id, ul_time_alignment->ta_total);
+      
+      break;
+    case DL_SCH_LCID_CON_RES_ID:
+      //  Clause 5.1.5 and 6.1.3.3 of 3GPP TS 38.321 version 16.2.1 Release 16
+      // MAC Header: 1 byte (R/R/LCID)
+      // MAC SDU: 6 bytes (UE Contention Resolution Identity)
+      mac_len = 6;
+      
+      if(ra->ra_state == WAIT_CONTENTION_RESOLUTION) {
+	LOG_I(MAC, "[UE %d][RAPROC] Frame %d : received contention resolution identity: 0x%02x%02x%02x%02x%02x%02x Terminating RA procedure\n",
+	      module_idP, frameP, pduP[1], pduP[2], pduP[3], pduP[4], pduP[5], pduP[6]);
+	
+	bool ra_success = true;
+	if (!IS_SOFTMODEM_IQPLAYER) { // Control is bypassed when replaying IQs (BMC)
+	  for(int i = 0; i<mac_len; i++) {
+	    if(ra->cont_res_id[i] != pduP[i+1]) {
+	      ra_success = false;
+	      break;
 	    }
 	  }
-
-          if ( (ra->RA_active == 1) && ra_success) {
-            nr_ra_succeeded(module_idP, gNB_index, frameP, slot);
-          } else if (!ra_success){
-            // TODO: Handle failure of RA procedure @ MAC layer
-            //  nr_ra_failed(module_idP, CC_id, prach_resources, frameP, slot); // prach_resources is a PHY structure
-            ra->ra_state = RA_UE_IDLE;
-            ra->RA_active = 0;
-          }
-        }
-        break;
-      case DL_SCH_LCID_PADDING:
-        done = 1;
-        //  end of MAC PDU, can ignore the rest.
-        break;
-        //  MAC SDU
-      case DL_SCH_LCID_DCCH:
-        //  check if LCID is valid at current time.
-      case DL_SCH_LCID_DCCH1:
-        //  check if LCID is valid at current time.
-      case DL_SCH_LCID_DTCH ... (DL_SCH_LCID_DTCH + 28):
-        if (!get_mac_len(pduP, pdu_len, &mac_len, &mac_subheader_len))
-          return;
-        LOG_D(NR_MAC, "%4d.%2d : DLSCH -> LCID %d %d bytes\n", frameP, slot, rx_lcid, mac_len);
-
-        mac_rlc_data_ind(module_idP,
-                         mac->ue_id,
-                         gNB_index,
-                         frameP,
-                         ENB_FLAG_NO,
-                         MBMS_FLAG_NO,
-                         rx_lcid,
-                         (char *)(pduP + mac_subheader_len),
-                         mac_len,
-                         1,
-                         NULL);
-        break;
-      default:
-        LOG_W(MAC, "unknown lcid %02x\n", rx_lcid);
-        break;
+	}
+	
+	if ( (ra->RA_active == 1) && ra_success) {
+	  nr_ra_succeeded(module_idP, gNB_index, frameP, slot);
+	} else if (!ra_success){
+	  // TODO: Handle failure of RA procedure @ MAC layer
+	  //  nr_ra_failed(module_idP, CC_id, prach_resources, frameP, slot); // prach_resources is a PHY structure
+	  ra->ra_state = RA_UE_IDLE;
+	  ra->RA_active = 0;
+	}
       }
-      pduP += ( mac_subheader_len + mac_len );
-      pdu_len -= ( mac_subheader_len + mac_len );
-      if (pdu_len < 0)
-        LOG_E(MAC, "[UE %d][%d.%d] nr_ue_process_mac_pdu, residual mac pdu length %d < 0!\n", module_idP, frameP, slot, pdu_len);
+      break;
+    case DL_SCH_LCID_PADDING:
+      pduP=pduEnd;
+      //  end of MAC PDU, can ignore the rest.
+      break;
+      //  MAC SDU
+    case DL_SCH_LCID_DCCH:
+      //  check if LCID is valid at current time.
+    case DL_SCH_LCID_DCCH1:
+      //  check if LCID is valid at current time.
+    case DL_SCH_LCID_DTCH ... (DL_SCH_LCID_DTCH + 28):
+      if (!get_mac_len(pduP, pduEnd-pduP, &mac_len, &mac_subheader_len)) {
+	LOG_W(NR_MAC,"Error in  nr_ue_process_mac_pdu LCID\n");
+	return;
+      }
+      LOG_D(NR_MAC, "%4d.%2d : DLSCH -> LCID %d %d bytes\n", frameP, slot, rx_lcid, mac_len);
+      
+      mac_rlc_data_ind(module_idP,
+		       mac->ue_id,
+		       gNB_index,
+		       frameP,
+		       ENB_FLAG_NO,
+		       MBMS_FLAG_NO,
+		       rx_lcid,
+		       (char *)(pduP + mac_subheader_len),
+		       mac_len,
+		       1,
+		       NULL);
+      break;
+    default:
+      LOG_W(MAC, "unknown lcid %02x\n", rx_lcid);
+      pduP = pduEnd;
+      break;
     }
+    if(pduP != pduEnd)
+      pduP += mac_subheader_len + mac_len;
+    if (pduP > pduEnd)
+      LOG_E(MAC, "[UE %d][%d.%d] nr_ue_process_mac_pdu, residual < 0!\n", module_idP, frameP, slot);
+  }
 }
 
 /**
@@ -3989,10 +3974,10 @@ static void nr_ue_process_rar(nr_downlink_indication_t *dl_info, int pdu_id)
   int slot_tx              = 0;
   int ret                  = 0;
   NR_RA_HEADER_RAPID *rarh = (NR_RA_HEADER_RAPID *) dlsch_buffer; // RAR subheader pointer
-  NR_MAC_RAR *rar          = (NR_MAC_RAR *) (dlsch_buffer + 1);   // RAR subPDU pointer
+  NR_MAC_RAR *rar          = (NR_MAC_RAR *) (rarh+1);   // RAR subPDU pointer
   uint8_t preamble_index   = ra->ra_PreambleIndex;
 
-  LOG_D(NR_MAC, "In %s:[%d.%d]: [UE %d][RAPROC] invoking MAC for received RAR (current preamble %d)\n", __FUNCTION__, frame, slot, mod_id, preamble_index);
+  LOG_D(NR_MAC, "[%d.%d]: [UE %d][RAPROC] invoking MAC for received RAR (current preamble %d)\n", frame, slot, mod_id, preamble_index);
 
   while (1) {
     n_subheaders++;
@@ -4000,10 +3985,11 @@ static void nr_ue_process_rar(nr_downlink_indication_t *dl_info, int pdu_id)
       n_subPDUs++;
       LOG_I(NR_MAC, "[UE %d][RAPROC] Got RAPID RAR subPDU\n", mod_id);
     } else {
-      ra->RA_backoff_indicator = table_7_2_1[((NR_RA_HEADER_BI *)rarh)->BI];
+      NR_RA_HEADER_BI *raBI=(NR_RA_HEADER_BI *)rarh;
+      ra->RA_backoff_indicator = table_7_2_1[raBI->BI];
       ra->RA_BI_found = 1;
       LOG_I(NR_MAC, "[UE %d][RAPROC] Got BI RAR subPDU %d ms\n", mod_id, ra->RA_backoff_indicator);
-      if ( ((NR_RA_HEADER_BI *)rarh)->E == 1) {
+      if ( raBI->E == 1) {
         rarh += sizeof(NR_RA_HEADER_BI);
         continue;
       } else {
@@ -4040,17 +4026,13 @@ static void nr_ue_process_rar(nr_downlink_indication_t *dl_info, int pdu_id)
   }
 
   #ifdef DEBUG_RAR
-  LOG_D(MAC, "[DEBUG_RAR] (%d,%d) number of RAR subheader %d; number of RAR pyloads %d\n", frame, slot, n_subheaders, n_subPDUs);
-  LOG_D(MAC, "[DEBUG_RAR] Received RAR (%02x|%02x.%02x.%02x.%02x.%02x.%02x) for preamble %d/%d\n", *(uint8_t *) rarh, rar[0], rar[1], rar[2], rar[3], rar[4], rar[5], rarh->RAPID, preamble_index);
+  LOG_D(NR_MAC, "[DEBUG_RAR] (%d,%d) number of RAR subheader %d; number of RAR pyloads %d\n", frame, slot, n_subheaders, n_subPDUs);
+  LOG_D(NR_MAC, "[DEBUG_RAR] Received RAR (%02x|%02x.%02x.%02x.%02x.%02x.%02x) for preamble %d/%d\n", *(uint8_t *) rarh, rar[0], rar[1], rar[2], rar[3], rar[4], rar[5], rarh->RAPID, preamble_index);
   #endif
 
   if (ra->RA_RAPID_found) {
     RAR_grant_t rar_grant;
-
     unsigned char tpc_command;
-#ifdef DEBUG_RAR
-    unsigned char csi_req;
-#endif
 
     // TA command
     NR_UL_TIME_ALIGNMENT_t *ul_time_alignment = &mac->ul_time_alignment;
@@ -4058,50 +4040,19 @@ static void nr_ue_process_rar(nr_downlink_indication_t *dl_info, int pdu_id)
     ul_time_alignment->ta_command = 31 + ta;
     ul_time_alignment->ta_total = ta;
     ul_time_alignment->ta_apply = true;
-    LOG_W(MAC, "received TA command %d\n", 31 + ta);
-#ifdef DEBUG_RAR
-    // CSI
-    csi_req = (unsigned char) (rar->UL_GRANT_4 & 0x01);
-#endif
+    LOG_I(MAC, "received absolute TA command in RAR %d\n", ta);
 
     // TPC
     tpc_command = (unsigned char) ((rar->UL_GRANT_4 >> 1) & 0x07);
-    switch (tpc_command){
-      case 0:
-        ra->Msg3_TPC = -6;
-        break;
-      case 1:
-        ra->Msg3_TPC = -4;
-        break;
-      case 2:
-        ra->Msg3_TPC = -2;
-        break;
-      case 3:
-        ra->Msg3_TPC = 0;
-        break;
-      case 4:
-        ra->Msg3_TPC = 2;
-        break;
-      case 5:
-        ra->Msg3_TPC = 4;
-        break;
-      case 6:
-        ra->Msg3_TPC = 6;
-        break;
-      case 7:
-        ra->Msg3_TPC = 8;
-        break;
-      default:
-        LOG_E(NR_PHY, "RAR impossible msg3 TPC\n");
-    }
-    // MCS
-    rar_grant.mcs = (unsigned char) (rar->UL_GRANT_4 >> 4);
+    ra->Msg3_TPC=(const int []){-6,-4,-2,0,2,4,6,8}[tpc_command];
+     // MCS
+    rar_grant.mcs = rar->UL_GRANT_4 >> 4;
     // time alloc
-    rar_grant.Msg3_t_alloc = (unsigned char) (rar->UL_GRANT_3 & 0x0f);
+    rar_grant.Msg3_t_alloc = rar->UL_GRANT_3 & 0x0f;
     // frequency alloc
-    rar_grant.Msg3_f_alloc = (uint16_t) ((rar->UL_GRANT_3 >> 4) | (rar->UL_GRANT_2 << 4) | ((rar->UL_GRANT_1 & 0x03) << 12));
+    rar_grant.Msg3_f_alloc = (rar->UL_GRANT_3 >> 4) | (rar->UL_GRANT_2 << 4) | ((uint16_t)(rar->UL_GRANT_1 & 0x03) << 12);
     // frequency hopping
-    rar_grant.freq_hopping = (unsigned char) (rar->UL_GRANT_1 >> 2);
+    rar_grant.freq_hopping = rar->UL_GRANT_1 >> 2;
 
 #ifdef DEBUG_RAR
     LOG_I(NR_MAC, "rarh->E = 0x%x\n", rarh->E);

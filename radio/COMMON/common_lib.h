@@ -287,7 +287,7 @@ typedef struct openair0_config {
   //! the sample rate for transmit.
   double tx_sample_rate;
   //! check for threequarter sampling rate
-  int8_t threequarter_fs;
+  int threequarter_fs;
   //! Flag to indicate this configuration is for NR
   int nr_flag;
   //! NR band number

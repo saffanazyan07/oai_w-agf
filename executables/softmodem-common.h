@@ -85,7 +85,7 @@ extern "C"
 #define CONFIG_HLP_ULMCS         "Set the maximum uplink MCS\n"
 
 #define CONFIG_HLP_UE            "Set the lte softmodem as a UE\n"
-#define CONFIG_HLP_TQFS          "Apply three-quarter of sampling frequency, 23.04 Msps to reduce the data rate on USB/PCIe transfers (only valid for 20 MHz)\n"
+#define CONFIG_HLP_TQFS          "Apply three-quarter of sampling frequency, (example 23.04 Msps for LTE 20MHz) to reduce the data rate on USB/PCIe transfers (only valid for some bandwidths)\n"
 #define CONFIG_HLP_TPORT         "tracer port\n"
 #define CONFIG_HLP_NOTWAIT       "don't wait for tracer, start immediately\n"
 #define CONFIG_HLP_TNOFORK       "to ease debugging with gdb\n"
@@ -111,6 +111,8 @@ extern "C"
 #define CONFIG_HLP_NID2          "Set NID2 value in Sidelink\n"
 #define CONFIG_HLP_NOITTI        "Do not start itti threads, call queue processing in place, inside the caller thread"
 #define CONFIG_HLP_LDPC_OFFLOAD  "Enable LDPC offload to AMD Xilinx T2 telco card\n"
+#define CONFIG_HLP_TADV          "Set RF board timing_advance to compensate fix delay inside the RF board between Rx and Tx timestamps (RF board internal issues)\n"
+
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*                                            command line parameters common to eNodeB and UE                                                          */
@@ -195,6 +197,8 @@ extern int usrp_tx_thread;
   {"nid2",                  CONFIG_HLP_NID2,          0,              .iptr=&NID2,                            .defintval=1,             TYPE_INT,    0},  \
   {"no-itti-threads",       CONFIG_HLP_NOITTI,        PARAMFLAG_BOOL, .iptr=&softmodem_params.no_itti,        .defintval=0,             TYPE_INT,    0},  \
   {"ldpc-offload-enable",   CONFIG_HLP_LDPC_OFFLOAD,  PARAMFLAG_BOOL, .iptr=&LDPC_OFFLOAD_FLAG,               .defstrval=0,             TYPE_INT,    0},  \
+  {"A" ,                    CONFIG_HLP_TADV,          0,             .iptr=&softmodem_params.hw_timing_advance,.defintval=0,            TYPE_INT,   0},  \
+  {"E" ,                    CONFIG_HLP_TQFS,          PARAMFLAG_BOOL, .iptr=&softmodem_params.threequarter_fs, .defintval=0,            TYPE_INT,    0}, \
 }
 // clang-format on
 
@@ -237,6 +241,8 @@ extern int usrp_tx_thread;
                {"MONOLITHIC", "PNF", "VNF","UE_STUB_PNF","UE_STUB_OFFNET","STANDALONE_PNF"}, \
                {NFAPI_MONOLITHIC, NFAPI_MODE_PNF, NFAPI_MODE_VNF,NFAPI_UE_STUB_PNF,NFAPI_UE_STUB_OFFNET,NFAPI_MODE_STANDALONE_PNF}, \
                6 } }, \
+    { .s5 = { NULL } },                     \
+    { .s5 = { NULL } },                     \
     { .s5 = { NULL } },                     \
     { .s5 = { NULL } },                     \
     { .s5 = { NULL } },                     \
@@ -358,6 +364,7 @@ typedef struct {
   int            nid2;
   int no_itti;
   int ldpc_offload_flag;
+  int threequarter_fs;
 } softmodem_params_t;
 
 extern uint64_t get_softmodem_optmask(void);
