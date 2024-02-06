@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <assert.h>
 
 #include <nfapi_interface.h>
 #include <nfapi.h>
@@ -3395,6 +3396,7 @@ static uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end,
         }
       } else {
         NFAPI_TRACE(NFAPI_TRACE_ERROR, "Unknown TAG value: 0x%04x\n", generic_tl.tag);
+        assert(0);
         if (++numBadTags > MAX_BAD_TAG) {
           NFAPI_TRACE(NFAPI_TRACE_ERROR, "Supplied message has had too many bad tags\n");
           return 0;
