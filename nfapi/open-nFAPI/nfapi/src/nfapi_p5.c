@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <assert.h>
 
 #include <nfapi_interface.h>
 #include <nfapi.h>
@@ -1838,6 +1839,19 @@ static uint8_t pack_nr_config_request(void *msg, uint8_t **ppWritePackedMsg, uin
   retval &=
       pack_nr_tlv(NFAPI_NR_CONFIG_TDD_PERIOD_TAG, &(pNfapiMsg->tdd_table.tdd_period), ppWritePackedMsg, end, &pack_uint8_tlv_value);
   numTLVs++;
+
+  assert(6 == pNfapiMsg->tdd_table.tdd_period.value);
+  for (int i = 0; i < 20; i++) {
+    for (int k = 0; k < 14; k++) {
+      pack_nr_tlv(NFAPI_NR_CONFIG_SLOT_CONFIG_TAG,
+                  &pNfapiMsg->tdd_table.max_tdd_periodicity_list[i].max_num_of_symbol_per_slot_list[k].slot_config,
+                  ppWritePackedMsg,
+                  end,
+                  &pack_uint8_tlv_value);
+      numTLVs++;
+    }
+  }
+  // probably near here
   // END TDD Table
 
   // START Measurement Config
@@ -3336,6 +3350,7 @@ static uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end,
         }
       } else {
         NFAPI_TRACE(NFAPI_TRACE_ERROR, "Unknown TAG value: 0x%04x\n", generic_tl.tag);
+        assert(0);
         if (++numBadTags > MAX_BAD_TAG) {
           NFAPI_TRACE(NFAPI_TRACE_ERROR, "Supplied message has had too many bad tags\n");
           return 0;
