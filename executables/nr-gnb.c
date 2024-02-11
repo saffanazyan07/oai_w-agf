@@ -225,18 +225,6 @@ void rx_func(void *param)
   clock_gettime(CLOCK_MONOTONIC,&info->gNB->rt_L1_profiling.start_L1_RX[rt_prof_idx]);
   start_meas(&softmodem_stats_rxtx_sf);
 
-  // *******************************************************************
-
-  if (NFAPI_MODE == NFAPI_MODE_PNF) {
-    // I am a PNF and I need to let nFAPI know that we have a (sub)frame tick
-    //LOG_D(PHY, "oai_nfapi_slot_ind(frame:%u, slot:%d) ********\n", frame_rx, slot_rx);
-    start_meas(&nfapi_meas);
-    handle_nr_slot_ind(frame_rx, slot_rx);
-    stop_meas(&nfapi_meas);
-
-  }
-  // ****************************************
-
   // RX processing
   int rx_slot_type = nr_slot_select(cfg, frame_rx, slot_rx);
   if (rx_slot_type == NR_UPLINK_SLOT || rx_slot_type == NR_MIXED_SLOT) {
