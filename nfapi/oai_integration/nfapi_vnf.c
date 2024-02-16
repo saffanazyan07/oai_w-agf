@@ -242,6 +242,7 @@ void oai_enb_init(void) {
 void oai_create_gnb(void) {
   int bodge_counter=0;
 
+  /*
   if (RC.gNB == NULL) {
     RC.gNB = (PHY_VARS_gNB **) calloc(1, sizeof(PHY_VARS_gNB *));
     LOG_D(PHY,"gNB L1 structure RC.gNB allocated @ %p\n",RC.gNB);
@@ -279,6 +280,7 @@ void oai_create_gnb(void) {
     NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() Waiting for gNB to become configured (by RRC/PHY) - need to wait otherwise NFAPI messages won't contain correct values\n", __FUNCTION__);
     usleep(50000);
   } while(gNB->configured != 1);
+  */
 
   NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() gNB is now configured\n", __FUNCTION__);
 }
