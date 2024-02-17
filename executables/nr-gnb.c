@@ -172,9 +172,6 @@ static void tx_func(void *param)
     ru_tx_func((void *)&syncMsgRU);
     stop_meas(&info->gNB->phy_proc_tx);
   }
-  /* this thread is done with the sched_info, decrease the reference counter */
-  LOG_D(NR_PHY, "Calling deref_sched_response for id %d (tx_func) in %d.%d\n", info->sched_response_id, frame_tx, slot_tx);
-  deref_sched_response(info->sched_response_id);
 }
 
 

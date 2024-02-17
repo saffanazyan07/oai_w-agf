@@ -398,9 +398,8 @@ static void run_scheduler_monolithic(module_id_t module_id, int CC_id, int frame
   NR_IF_Module_t *ifi = nr_if_inst[module_id];
   // gNB_MAC_INST     *mac        = RC.nrmac[module_id];
 
-  NR_Sched_Rsp_t *sched_info;
+  NR_Sched_Rsp_t *sched_info = allocate_sched_response();
   LOG_D(NR_MAC, "Calling scheduler for %d.%d\n", frame, slot);
-  sched_info = allocate_sched_response();
 
   // clear UL DCI prior to handling ULSCH
   sched_info->UL_dci_req.numPdus = 0;
