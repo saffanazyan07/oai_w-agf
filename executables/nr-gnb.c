@@ -172,6 +172,8 @@ static void tx_func(void *param)
     ru_tx_func((void *)&syncMsgRU);
     stop_meas(&info->gNB->phy_proc_tx);
   }
+  info->num_pdsch_slot = 0;
+  info->num_dl_pdcch = 0;
 }
 
 
