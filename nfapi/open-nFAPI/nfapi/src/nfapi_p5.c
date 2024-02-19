@@ -3194,7 +3194,7 @@ static uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end,
                 &pNfapiMsg->prach_config.num_prach_fd_occasions_list[prach_root_seq_idx].prach_root_sequence_index,
                 ppReadPackedMsg,
                 end);
-            prach_root_seq_idx++;
+            //prach_root_seq_idx++;
             break;
           case NFAPI_NR_CONFIG_K1_TAG:
             pNfapiMsg->prach_config.num_prach_fd_occasions_list[prach_root_seq_idx].k1.tl.tag = generic_tl.tag;
