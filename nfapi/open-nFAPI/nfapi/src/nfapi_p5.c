@@ -1586,6 +1586,60 @@ static uint8_t pack_config_request(void *msg, uint8_t **ppWritePackedMsg, uint8_
                   &pack_uint8_tlv_value));
 }
 
+#define PRINT_TLV(pref, tlv) { printf("%s t %d l %d v %d\n", pref, (tlv)->tl.tag, (tlv)->tl.length, (tlv)->value); }
+
+static void dump_nr_config_request(nfapi_nr_config_request_scf_t *config)
+{
+  nfapi_nr_carrier_config_t *cc = &config->carrier_config;
+  printf("carrier_config\n");
+  PRINT_TLV("  bw", &cc->dl_bandwidth);
+  PRINT_TLV("  freq", &cc->dl_frequency);
+  PRINT_TLV("  dl_k0[0]", &cc->dl_k0[0]);
+  PRINT_TLV("  dl_k0[1]", &cc->dl_k0[1]);
+  PRINT_TLV("  dl_k0[2]", &cc->dl_k0[2]);
+  PRINT_TLV("  dl_k0[3]", &cc->dl_k0[3]);
+  PRINT_TLV("  dl_k0[4]", &cc->dl_k0[4]);
+  PRINT_TLV("  dl_grid_size[0]", &cc->dl_grid_size[0]);
+  PRINT_TLV("  dl_grid_size[1]", &cc->dl_grid_size[1]);
+  PRINT_TLV("  dl_grid_size[2]", &cc->dl_grid_size[2]);
+  PRINT_TLV("  dl_grid_size[3]", &cc->dl_grid_size[3]);
+  PRINT_TLV("  dl_grid_size[4]", &cc->dl_grid_size[4]);
+  PRINT_TLV("  num_tx_ant", &cc->num_tx_ant);
+  PRINT_TLV("  uplink_bandwidth", &cc->uplink_bandwidth);
+  PRINT_TLV("  uplink_frequency", &cc->uplink_frequency);
+  PRINT_TLV("  ul_k0[0]", &cc->ul_k0[0]);
+  PRINT_TLV("  ul_k0[1]", &cc->ul_k0[1]);
+  PRINT_TLV("  ul_k0[2]", &cc->ul_k0[2]);
+  PRINT_TLV("  ul_k0[3]", &cc->ul_k0[3]);
+  PRINT_TLV("  ul_k0[4]", &cc->ul_k0[4]);
+  PRINT_TLV("  ul_grid_size[0]", &cc->ul_grid_size[0]);
+  PRINT_TLV("  ul_grid_size[1]", &cc->ul_grid_size[1]);
+  PRINT_TLV("  ul_grid_size[2]", &cc->ul_grid_size[2]);
+  PRINT_TLV("  ul_grid_size[3]", &cc->ul_grid_size[3]);
+  PRINT_TLV("  ul_grid_size[4]", &cc->ul_grid_size[4]);
+  PRINT_TLV("  num_rx_ant", &cc->num_rx_ant);
+  PRINT_TLV("  frequency_shift_7p5khz", &cc->frequency_shift_7p5khz);
+
+  nfapi_nr_prach_config_t *pc = &config->prach_config;
+  printf("prach_config\n");
+  PRINT_TLV("  prach_sequence_length", &pc->prach_sequence_length);
+  PRINT_TLV("  prach_sub_c_spacing", &pc->prach_sub_c_spacing);
+  PRINT_TLV("  restricted_set_config", &pc->restricted_set_config);
+  PRINT_TLV("  num_prach_fd_occasions", &pc->num_prach_fd_occasions);
+  PRINT_TLV("  prach_ConfigurationIndex", &pc->prach_ConfigurationIndex);
+  for (int i = 0; i < pc->num_prach_fd_occasions.value; ++i) {
+    nfapi_nr_num_prach_fd_occasions_t *pfdo = &pc->num_prach_fd_occasions_list[i];
+    PRINT_TLV("    prach_root_sequence_index", &pfdo->prach_root_sequence_index);
+    PRINT_TLV("    num_root_sequences", &pfdo->num_root_sequences);
+    PRINT_TLV("    k1", &pfdo->k1);
+    PRINT_TLV("    prach_zero_corr_conf", &pfdo->prach_zero_corr_conf);
+    PRINT_TLV("    num_unused_root_sequences", &pfdo->num_unused_root_sequences);
+  };
+
+  PRINT_TLV("  ssb_per_rach", &pc->ssb_per_rach);
+  PRINT_TLV("  prach_multiple_carriers_in_a_band", &pc->prach_multiple_carriers_in_a_band);
+}
+
 static uint8_t pack_nr_config_request(void *msg, uint8_t **ppWritePackedMsg, uint8_t *end, nfapi_p4_p5_codec_config_t *config)
 {
   uint8_t *pNumTLVFields = (uint8_t *)*ppWritePackedMsg;
@@ -2041,6 +2095,7 @@ static uint8_t pack_nr_p5_message_body(nfapi_p4_p5_message_header_t *header, uin
       break;
 
     case NFAPI_NR_PHY_MSG_TYPE_CONFIG_REQUEST:
+      dump_nr_config_request((nfapi_nr_config_request_scf_t*) header);
       result = pack_nr_config_request(header, ppWritePackedMsg, end, config);
       break;
 
@@ -3797,6 +3852,7 @@ int nfapi_nr_p5_message_unpack(void *pMessageBuf,
 
     case NFAPI_NR_PHY_MSG_TYPE_CONFIG_REQUEST:
       result = unpack_nr_config_request(&pReadPackedMessage, end, pMessageHeader, config);
+      dump_nr_config_request((nfapi_nr_config_request_scf_t*) pMessageHeader);
       break;
 
     case NFAPI_NR_PHY_MSG_TYPE_CONFIG_RESPONSE:
