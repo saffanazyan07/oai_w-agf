@@ -545,6 +545,14 @@ uint8_t unpackarray(uint8_t **ppReadPackedMsg, void *array, uint16_t array_eleme
   return 1;
 }
 
+static void print_dci_bytes_inverted(uint8_t dci[], uint8_t dci_byte_len)
+{
+  printf("inverted :");
+  for (int i = 0; i < dci_byte_len; ++i)
+    printf("%02x ", dci[i]);
+  printf("\n");
+}
+
 uint32_t pack_dci_payload(uint8_t payload[], uint16_t payloadSizeBits, uint8_t **out, uint8_t *end)
 {
   // Helper vars for DCI Payload
@@ -587,6 +595,14 @@ uint32_t unpack_dci_payload(uint8_t payload[], uint16_t payloadSizeBits, uint8_t
   }
   */
   return pullresult;
+}
+
+void dump_dci_payload(uint8_t payload[], uint16_t payloadSizeBits)
+{
+  uint8_t dci_byte_len = (payloadSizeBits + 7) / 8;
+  for (int i = 0; i < dci_byte_len; ++i)
+    printf("%02x ", payload[i]);
+  printf("\n");
 }
 
 uint32_t pack_vendor_extension_tlv(nfapi_tl_t *ve, uint8_t **ppWritePackedMsg, uint8_t *end, nfapi_p4_p5_codec_config_t *config) {

@@ -1906,6 +1906,49 @@ static uint8_t pack_hi_dci0_request_body_value(void *tlv, uint8_t **ppWritePacke
   return 1;
 }
 
+void dump_ul_dci_pdu_list_value(nfapi_nr_ul_dci_request_pdus_t *r)
+{
+  printf("PDUType %d\n", r->PDUType);
+  printf("PDUSize %d\n", r->PDUSize);
+  nfapi_nr_dl_tti_pdcch_pdu_rel15_t *p = &r->pdcch_pdu.pdcch_pdu_rel15;
+  printf("BWPSize %d\n", p->BWPSize);
+  printf("BWPStart %d\n", p->BWPStart);
+  printf("SubcarrierSpacing %d\n", p->SubcarrierSpacing);
+  printf("CyclicPrefix %d\n", p->CyclicPrefix);
+  printf("StartSymbolIndex %d\n", p->StartSymbolIndex);
+  printf("DurationSymbols %d\n", p->DurationSymbols);
+  printf("FreqDomainResource %d %d %d %d %d %d\n",
+         p->FreqDomainResource[0],
+         p->FreqDomainResource[1],
+         p->FreqDomainResource[2],
+         p->FreqDomainResource[3],
+         p->FreqDomainResource[4],
+         p->FreqDomainResource[5]);
+  printf("CceRegMappingType %d\n", p->CceRegMappingType);
+  printf("RegBundleSize %d\n", p->RegBundleSize);
+  printf("InterleaverSize %d\n", p->InterleaverSize);
+  printf("CoreSetType %d\n", p->CoreSetType);
+  printf("ShiftIndex %d\n", p->ShiftIndex);
+  printf("precoderGranularity %d\n", p->precoderGranularity);
+  printf("numDlDci %d\n", p->numDlDci);
+  for (int i = 0; i < p->numDlDci; ++i) {
+    nfapi_nr_dl_dci_pdu_t *dci = &p->dci_pdu[i];
+    printf("RNTI %d\n", dci->RNTI);
+    printf("ScramblingId %d\n", dci->ScramblingId);
+    printf("ScramblingRNTI %d\n", dci->ScramblingRNTI);
+    printf("CceIndex %d\n", dci->CceIndex);
+    printf("AggregationLevel %d\n", dci->AggregationLevel);
+  //nfapi_nr_tx_precoding_and_beamforming_t precodingAndBeamforming;
+    printf("beta_PDCCH_1_0 %d\n", dci->beta_PDCCH_1_0);
+    printf("powerControlOffsetSS %d\n", dci->powerControlOffsetSS);
+    printf("PayloadSizeBits %d\n", dci->PayloadSizeBits);
+    printf(" ***** DCI payload: ");
+    dump_dci_payload(dci->Payload, dci->PayloadSizeBits);
+  }
+  //nfapi_nr_dl_dci_pdu_t dci_pdu[MAX_DCI_CORESET];
+
+}
+
 static uint8_t pack_ul_dci_pdu_list_value(void *tlv, uint8_t **ppWritePackedMsg, uint8_t *end)
 {
   nfapi_nr_ul_dci_request_pdus_t *value = (nfapi_nr_ul_dci_request_pdus_t *)tlv;
