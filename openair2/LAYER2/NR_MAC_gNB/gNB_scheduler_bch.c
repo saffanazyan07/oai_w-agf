@@ -602,7 +602,7 @@ void schedule_nr_sib1(module_id_t module_idP,
 
       nfapi_nr_dl_tti_request_body_t *dl_req = &DL_req->dl_tti_request_body;
       int pdu_index = gNB_mac->pdu_index[0]++;
-      LOG_I(NR_MAC, "%s() %4d.%2d\n", __func__, frameP, slotP);
+      LOG_D(NR_MAC, "%s() %4d.%2d\n", __func__, frameP, slotP);
       nr_fill_nfapi_dl_sib1_pdu(module_idP, dl_req, pdu_index, type0_PDCCH_CSS_config, TBS, tda_info.startSymbolIndex, tda_info.nrOfSymbols);
 
       const int ntx_req = TX_req->Number_of_PDUs;
