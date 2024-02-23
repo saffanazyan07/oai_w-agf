@@ -215,6 +215,7 @@ typedef enum {
   GNB_APP,
   NR_RRC,
   NR_MAC,
+  NR_DCI,
   NR_PHY,
   LOADER,
   ASN1,
@@ -223,8 +224,7 @@ typedef enum {
   ITTI,
   UTIL,
   MAX_LOG_PREDEF_COMPONENTS,
-}
-comp_name_t;
+} comp_name_t;
 
 #define MAX_LOG_DYNALLOC_COMPONENTS 20
 #define MAX_LOG_COMPONENTS (MAX_LOG_PREDEF_COMPONENTS + MAX_LOG_DYNALLOC_COMPONENTS)
