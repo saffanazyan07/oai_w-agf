@@ -685,6 +685,7 @@ typedef struct {
   bool expect_reconfiguration;
   NR_CellGroupConfig_t *reconfigCellGroup;
   bool apply_cellgroup;
+  bool reestablishment_ongoing;
   NR_UE_NR_Capability_t *capability;
   // UE selected beam index
   uint8_t UE_beam_index;

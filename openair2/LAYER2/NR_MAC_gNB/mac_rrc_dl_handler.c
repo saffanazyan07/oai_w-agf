@@ -653,6 +653,21 @@ void ue_context_release_command(const f1ap_ue_context_release_cmd_t *cmd)
   NR_SCHED_UNLOCK(&mac->sched_lock);
 }
 
+static void nr_mac_trigger_reestablishment_srb2_drbs(const NR_UE_info_t *UE)
+{
+  /* reestablish SRB2 */
+  int srb_id = 2;
+  nr_rlc_reestablish_entity(UE->rnti, get_lcid_from_srbid(srb_id));
+
+  /* reestablish all DRBs */
+  const NR_UE_sched_ctrl_t *sched_ctrl = &UE->UE_sched_ctrl;
+  /* start at 2, which should be the first DRB */
+  for (int lc = 2; lc < sched_ctrl->dl_lc_num; ++lc) {
+    int lcid = sched_ctrl->dl_lc_ids[lc];
+    nr_rlc_reestablish_entity(UE->rnti, lcid);
+  }
+}
+
 void dl_rrc_message_transfer(const f1ap_dl_rrc_message_t *dl_rrc)
 {
   LOG_D(NR_MAC,
@@ -687,6 +702,10 @@ void dl_rrc_message_transfer(const f1ap_dl_rrc_message_t *dl_rrc)
     nr_mac_enable_ue_rrc_processing_timer(mac, UE, /* apply_cellGroup = */ true);
     NR_SCHED_UNLOCK(&mac->sched_lock);
     UE->expect_reconfiguration = false;
+    if (UE->reestablishment_ongoing) {
+      nr_mac_trigger_reestablishment_srb2_drbs(UE);
+      UE->reestablishment_ongoing = false;
+    }
   }
 
   if (dl_rrc->old_gNB_DU_ue_id != NULL) {
@@ -709,13 +728,14 @@ void dl_rrc_message_transfer(const f1ap_dl_rrc_message_t *dl_rrc)
     UE->uid = oldUE->uid;
     oldUE->uid = temp_uid;
     configure_UE_BWP(mac, scc, sched_ctrl, NULL, UE, -1, -1);
+    UE->reestablishment_ongoing = true;
 
     nr_mac_prepare_cellgroup_update(mac, UE, oldUE->CellGroup);
     oldUE->CellGroup = NULL;
     mac_remove_nr_ue(mac, *dl_rrc->old_gNB_DU_ue_id);
     pthread_mutex_unlock(&mac->sched_lock);
     nr_rlc_remove_ue(dl_rrc->gNB_DU_ue_id);
-    nr_rlc_update_id(*dl_rrc->old_gNB_DU_ue_id, dl_rrc->gNB_DU_ue_id);
+    nr_rlc_reestablish_srb1(*dl_rrc->old_gNB_DU_ue_id, dl_rrc->gNB_DU_ue_id);
     instance_t f1inst = get_f1_gtp_instance();
     if (f1inst >= 0) // we actually use F1-U
       gtpv1u_update_ue_id(f1inst, *dl_rrc->old_gNB_DU_ue_id, dl_rrc->gNB_DU_ue_id);

@@ -47,7 +47,7 @@ void nr_rlc_add_drb(int ue_id, int drb_id, const NR_RLC_BearerConfig_t *rlc_Bear
 logical_chan_id_t nr_rlc_get_lcid_from_rb(int ue_id, bool is_srb, int rb_id);
 void nr_rlc_reestablish_entity(int ue_id, int lc_id);
 void nr_rlc_remove_ue(int ue_id);
-bool nr_rlc_update_id(int from_id, int to_id);
+bool nr_rlc_reestablish_srb1(int from_id, int to_id);
 
 /* test function for CI to trigger reestablishments */
 void nr_rlc_test_trigger_reestablishment(int ue_id);

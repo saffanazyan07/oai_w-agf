@@ -1057,7 +1057,7 @@ rlc_op_status_t rrc_rlc_remove_ue (const protocol_ctxt_t* const x)
   return RLC_OP_STATUS_OK;
 }
 
-bool nr_rlc_update_id(int from_id, int to_id)
+bool nr_rlc_reestablish_srb1(int from_id, int to_id)
 {
   nr_rlc_manager_lock(nr_rlc_ue_manager);
   nr_rlc_ue_t *ue = nr_rlc_manager_get_ue(nr_rlc_ue_manager, from_id);
@@ -1067,13 +1067,8 @@ bool nr_rlc_update_id(int from_id, int to_id)
     return false;
   }
   ue->ue_id = to_id;
-  LOG_I(RLC, "Update old UE ID %d context to ID %d\n", from_id, to_id);
-  for (int i = 0; i < sizeof(ue->srb) / sizeof(ue->srb[0]); ++i)
-    if (ue->srb[i])
-      ue->srb[i]->reestablishment(ue->srb[i]);
-  for (int i = 0; i < sizeof(ue->drb) / sizeof(ue->drb[0]); ++i)
-    if (ue->drb[i])
-      ue->drb[i]->reestablishment(ue->drb[i]);
+  LOG_W(RLC, "Update old UE ID %d context to ID %d\n", from_id, to_id);
+  ue->srb[0]->reestablishment(ue->srb[0]); /* Is this guaranteed to be SRB1? */
   nr_rlc_manager_unlock(nr_rlc_ue_manager);
   return true;
 }
