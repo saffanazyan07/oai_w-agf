@@ -6042,6 +6042,7 @@ static uint8_t unpack_tx_data_request(uint8_t **ppReadPackedMsg, uint8_t *end, v
 
       return 0;
     }
+    LOG_I(NFAPI_PNF,"[t4-3] unpack_tx_data_pdu_list_value\n");
   }
 
   return 1;
@@ -8541,8 +8542,12 @@ int nfapi_nr_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *
 			break;
 		case NFAPI_NR_PHY_MSG_TYPE_TX_DATA_REQUEST:
 			if (check_nr_unpack_length(NFAPI_NR_PHY_MSG_TYPE_TX_DATA_REQUEST, unpackedBufLen))
-				result = unpack_tx_data_request(&pReadPackedMessage,  end, pMessageHeader, config);
-			break;
+      {
+        LOG_I(NFAPI_PNF,"[t4-2] check_nr_unpack_length\n");
+        result = unpack_tx_data_request(&pReadPackedMessage,  end, pMessageHeader, config);
+        LOG_I(NFAPI_PNF,"[t4-4] unpack_tx_data_request\n");
+      }
+      break;
 		case NFAPI_NR_PHY_MSG_TYPE_UL_DCI_REQUEST:
 			if (check_nr_unpack_length(NFAPI_NR_PHY_MSG_TYPE_UL_DCI_REQUEST, unpackedBufLen))
 				result = unpack_ul_dci_request(&pReadPackedMessage,  end, pMessageHeader, config);
