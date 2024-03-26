@@ -8501,7 +8501,8 @@ int nfapi_nr_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *
   LOG_I(UDP_,"[t4-1-1] will clean the supplied buffer [NTUST] quick\n");
 
 	// clean the supplied buffer for - tag value blanking
-	(void)memset(pUnpackedBuf, 0, unpackedBufLen);
+	// (void)memset(pUnpackedBuf, 0, unpackedBufLen);
+  pUnpackedBuf = alloca(unpackedBufLen); // [NTUST] quick reset ptr value
   LOG_I(UDP_,"[t4-1-2] will process the header\n");
 
 	// process the header
