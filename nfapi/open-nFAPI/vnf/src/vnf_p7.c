@@ -27,6 +27,7 @@
 #include <assert.h>
 
 #include "vnf_p7.h"
+#include <common/utils/LOG/log.h>
 
 #ifdef NDEBUG
 #  warning assert is disabled
