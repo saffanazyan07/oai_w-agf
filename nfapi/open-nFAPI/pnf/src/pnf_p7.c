@@ -991,18 +991,18 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 			// pnf_phy_ul_tti_req()
 			(pnf_p7->_public.ul_tti_req_fn)(NULL, &(pnf_p7->_public), tx_slot_buffer->ul_tti_req);
 		}
-		if(tx_slot_buffer->tx_data_req != 0){
-			LOG_I(NFAPI_PNF, "Get address: %p\n",&(pnf_p7->slot_buffer[buffer_index_tx].tx_data_req));
-			LOG_I(NFAPI_PNF, "[%d]tx_slot_buffer.tx_data_req.SFN: %d ; *current* sfn_tx: %d\n",buffer_index_tx, tx_slot_buffer->tx_data_req.SFN,sfn_tx);
-			LOG_I(NFAPI_PNF, "[%d]tx_slot_buffer.tx_data_req.Slot: %d ; *current* slot_tx: %d\n",buffer_index_tx, tx_slot_buffer->tx_data_req.Slot,slot_tx);
-		}
-		if(tx_slot_buffer->tx_data_req != 0 && tx_slot_buffer->tx_data_req.SFN == sfn_tx && tx_slot_buffer->tx_data_req.Slot == slot_tx)
+
+		LOG_I(NFAPI_PNF, "Get address: %p\n",&(pnf_p7->slot_buffer[buffer_index_tx].tx_data_req));
+		LOG_I(NFAPI_PNF, "[%d]tx_slot_buffer.tx_data_req.SFN: %d ; *current* sfn_tx: %d\n",buffer_index_tx, tx_slot_buffer->tx_data_req.SFN,sfn_tx);
+		LOG_I(NFAPI_PNF, "[%d]tx_slot_buffer.tx_data_req.Slot: %d ; *current* slot_tx: %d\n",buffer_index_tx, tx_slot_buffer->tx_data_req.Slot,slot_tx);
+
+		if(tx_slot_buffer->tx_data_req.SFN == sfn_tx && tx_slot_buffer->tx_data_req.Slot == slot_tx)
 		{
 				
 			DevAssert(pnf_p7->_public.tx_data_req_fn != NULL);
 			LOG_I(PHY, "Process tx_data SFN/slot %d.%d buffer index: %d \n",sfn_tx,slot_tx,buffer_index_tx);	
 			// pnf_phy_tx_data_req()
-			(pnf_p7->_public.tx_data_req_fn)(&(pnf_p7->_public), tx_slot_buffer->tx_data_req);
+			(pnf_p7->_public.tx_data_req_fn)(&(pnf_p7->_public), &tx_slot_buffer->tx_data_req);
 		}
 		 
 
@@ -1023,11 +1023,7 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 			LOG_D(PHY,"SFN/slot %d.%d Buffer index : %d freed \n",sfn_tx,slot_tx,buffer_index_tx);
 		}
 
-		if(tx_slot_buffer->tx_data_req != 0)
-		{
-			//deallocate_nfapi_tx_data_request(tx_slot_buffer->tx_data_req, pnf_p7);
-			tx_slot_buffer->tx_data_req = 0;
-		}
+		//deallocate_nfapi_tx_data_request(tx_slot_buffer->tx_data_req, pnf_p7);
 
 		if(tx_slot_buffer->ul_dci_req != 0)
 		{
