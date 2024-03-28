@@ -990,7 +990,7 @@ int nfapi_vnf_p7_ul_dci_req(nfapi_vnf_p7_config_t* config, nfapi_nr_ul_dci_reque
  *  may be released after this function call has returned or at a later pointer
  */
 int nfapi_vnf_p7_tx_req(nfapi_vnf_p7_config_t* config, nfapi_tx_request_t* req);
-int nfapi_vnf_p7_tx_data_req(nfapi_vnf_p7_config_t* config, nfapi_nr_tx_data_request_t* req);
+int nfapi_vnf_p7_tx_data_req(nfapi_vnf_p7_config_t* config, nfapi_nr_tx_data_request_t req);
 /*! Send the LBT_DL_CONFIG.requst
  *  \param config A pointer to the vnf p7 configuration
  *  \param req A data structure for the decoded LBT_DL_CONFIG.request.
