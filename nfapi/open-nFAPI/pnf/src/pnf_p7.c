@@ -1966,6 +1966,7 @@ void pnf_handle_hi_dci0_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 static void cp_nr_tx_data_req(nfapi_nr_tx_data_request_t *dst, const nfapi_nr_tx_data_request_t *src)
 {
 	// TODO copy only what is necessary
+	
 }
 
 void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
@@ -1973,7 +1974,7 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 	//NFAPI_TRACE(NFAPI_TRACE_INFO, "TX.req Received\n");
 	nfapi_nr_tx_data_request_t req;
 	// nfapi_nr_tx_data_request_t* req = allocate_nfapi_tx_data_request(pnf_p7);
-	LOG_I(NFAPI_PNF,"[t4-1] Address of req: %p, size: %d\n", (void*)req, sizeof(nfapi_nr_tx_data_request_t));
+	LOG_I(NFAPI_PNF,"[t4-1] Address of req: %p, size: %d\n", &req, sizeof(nfapi_nr_tx_data_request_t));
 	if(req == NULL)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to allocate nfapi_tx_request structure\n");
@@ -1989,9 +1990,9 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 			return;
 		}
 
-		if(is_nr_p7_request_in_window(req->SFN, req->Slot,"tx_request", pnf_p7))
+		if(is_nr_p7_request_in_window(req.SFN, req.Slot,"tx_request", pnf_p7))
 		{
-			uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req->SFN,req->Slot);
+			uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req.SFN,req.Slot);
 			uint8_t buffer_index = sfn_slot_dec % 20;
 
                         struct timespec t;
@@ -2018,7 +2019,7 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
 			cp_nr_tx_data_req(&pnf_p7->slot_buffer[buffer_index].tx_data_req, &req);
 			// pnf_p7->slot_buffer[buffer_index].tx_data_req = req;
-			LOG_I(NFAPI_PNF,"[t5] Fill tx_data in buf[%d] , %d/%d\n",buffer_index,req->SFN,req->Slot);
+			LOG_I(NFAPI_PNF,"[t5] Fill tx_data in buf[%d] , %d/%d\n",buffer_index,req.SFN,req.Slot);
 
 			pnf_p7->stats.tx_data_ontime++;
 		}

@@ -1226,7 +1226,7 @@ NR_Sched_Rsp_t g_sched_resp;
 void gNB_dlsch_ulsch_scheduler(module_id_t module_idP, frame_t frame, sub_frame_t slot, NR_Sched_Rsp_t* sched_info);
 int oai_nfapi_dl_tti_req(nfapi_nr_dl_tti_request_t *dl_config_req);
 int oai_nfapi_ul_tti_req(nfapi_nr_ul_tti_request_t *ul_tti_req);
-int oai_nfapi_tx_data_req(nfapi_nr_tx_data_request_t* tx_data_req);
+int oai_nfapi_tx_data_req(nfapi_nr_tx_data_request_t tx_data_req);
 int oai_nfapi_ul_dci_req(nfapi_nr_ul_dci_request_t* ul_dci_req);
 
 int trigger_scheduler(nfapi_nr_slot_indication_scf_t *slot_ind)
