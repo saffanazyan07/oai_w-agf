@@ -283,22 +283,6 @@ nfapi_tx_request_t* allocate_nfapi_tx_request(pnf_p7_t* pnf_p7)
 	return pnf_p7_malloc(pnf_p7, sizeof(nfapi_tx_request_t));
 }
 
-//TODO: Check if deallocate_nfapi_tx_data_request defn is proper
-// void deallocate_nfapi_tx_data_request(nfapi_nr_tx_data_request_t req, pnf_p7_t* pnf_p7) 
-// {
-// /*
-// 	if(pnf_p7->_public.codec_config.deallocate)
-// 	{
-// 		(pnf_p7->_public.codec_config.deallocate)(req->pdu_list);
-// 	}
-// 	else
-// 	{
-// 		free(req->pdu_list);
-// 	}
-// */
-// 	pnf_p7_free(pnf_p7, req);
-// }
-
 void deallocate_nfapi_tx_request(nfapi_tx_request_t* req, pnf_p7_t* pnf_p7) 
 { 
 	int i = 0;
@@ -1023,7 +1007,6 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 			LOG_D(PHY,"SFN/slot %d.%d Buffer index : %d freed \n",sfn_tx,slot_tx,buffer_index_tx);
 		}
 
-		//deallocate_nfapi_tx_data_request(tx_slot_buffer->tx_data_req, pnf_p7);
 
 		if(tx_slot_buffer->ul_dci_req != 0)
 		{
@@ -1996,16 +1979,6 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
                             NFAPI_SFNSF2DEC(req->sfn_sf),
                             req->tx_request_body.number_of_pdus);
 #endif
-
-			if(pnf_p7->slot_buffer[buffer_index].tx_data_req != 0)
-			{
-				//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] Freeing tx_req at index %d (%d/%d)", 
-				//			pMyPhyInfo->sfnSf, bufferIdx,
-				//			SFNSF2SFN(dreq->sfn_sf), SFNSF2SF(dreq->sfn_sf));
-
-				// deallocate_nfapi_tx_data_request(pnf_p7->slot_buffer[buffer_index].tx_data_req, pnf_p7);
-			}
-
 			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
 			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
 			cp_nr_tx_data_req(&pnf_p7->slot_buffer[buffer_index].tx_data_req, &req);
