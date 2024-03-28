@@ -830,7 +830,7 @@ void send_dummy_slot(pnf_p7_t* pnf_p7, uint16_t sfn, uint16_t slot)
 
   //NFAPI_TRACE(NFAPI_TRACE_INFO, "%s(sfn_sf:%d) t:%ld.%09ld\n", __FUNCTION__, NFAPI_SFNSF2DEC(sfn_sf), t.tv_sec, t.tv_nsec);
 
-	if(pnf_p7->_public.tx_data_req_fn && pnf_p7->_public.dummy_slot.tx_data_req)
+	if(pnf_p7->_public.tx_data_req_fn && &(pnf_p7->_public.dummy_slot.tx_data_req))
 	{
 		pnf_p7->_public.dummy_slot.tx_data_req.SFN = sfn;
 		pnf_p7->_public.dummy_slot.tx_data_req.Slot = slot;
