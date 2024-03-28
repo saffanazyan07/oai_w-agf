@@ -1044,7 +1044,6 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 		//reset slot buffer 
 
 		if ( rx_slot_buffer->dl_tti_req == 0 &&
-			 rx_slot_buffer->tx_data_req == 0 && 
 			 rx_slot_buffer->ul_tti_req == 0)
 		{
 			memset(&(pnf_p7->slot_buffer[buffer_index_rx]), 0, sizeof(nfapi_pnf_p7_slot_buffer_t));
@@ -1972,11 +1971,6 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 	// nfapi_nr_tx_data_request_t* req = allocate_nfapi_tx_data_request(pnf_p7);
 	LOG_I(NFAPI_PNF,"[t4-1] \n");
 	// LOG_I(NFAPI_PNF,"[t4-1] Address of req: %p, size: %d\n", &req, sizeof(nfapi_nr_tx_data_request_t));
-	if(req == NULL)
-	{
-		NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to allocate nfapi_tx_request structure\n");
-		return;
-	}
 	
 	int unpack_result = nfapi_nr_p7_message_unpack(pRecvMsg, recvMsgLen, &req, sizeof(nfapi_nr_tx_data_request_t), &pnf_p7->_public.codec_config);
 	if(unpack_result == 0)
