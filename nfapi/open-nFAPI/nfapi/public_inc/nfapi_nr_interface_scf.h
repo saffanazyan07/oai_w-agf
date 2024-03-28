@@ -1478,7 +1478,8 @@ typedef struct {
 
 } nfapi_nr_pdu_t;
 
-#define NFAPI_NR_MAX_TX_REQUEST_PDUS 16
+// origin 16
+#define NFAPI_NR_MAX_TX_REQUEST_PDUS 1
 typedef struct
 {
   nfapi_p7_message_header_t header;
