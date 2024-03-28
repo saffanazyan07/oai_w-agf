@@ -183,14 +183,14 @@ void nr_schedule_ul_tti_req(PHY_VARS_gNB *gNB, nfapi_nr_ul_tti_request_t *UL_tti
   }
 }
 
-void nr_schedule_tx_req(PHY_VARS_gNB *gNB, nfapi_nr_tx_data_request_t *TX_req)
+void nr_schedule_tx_req(PHY_VARS_gNB *gNB, nfapi_nr_tx_data_request_t TX_req)
 {
   DevAssert(gNB != NULL);
-  DevAssert(TX_req != NULL);
+  // DevAssert(TX_req != NULL);
   processingData_L1tx_t *msgTx = gNB->msgDataTx;
 
-  for (int idx = 0; idx < TX_req->Number_of_PDUs; ++idx) {
-    uint8_t *sdu = (uint8_t *)TX_req->pdu_list[idx].TLVs[0].value.direct;
+  for (int idx = 0; idx < TX_req.Number_of_PDUs; ++idx) {
+    uint8_t *sdu = (uint8_t *)TX_req.pdu_list[idx].TLVs[0].value.direct;
     nr_fill_dlsch_tx_req(msgTx, idx, sdu);
   }
 }
@@ -238,7 +238,7 @@ void nr_schedule_response(NR_Sched_Rsp_t *Sched_INFO)
     nr_schedule_ul_tti_req(gNB, &Sched_INFO->UL_tti_req);
 
   if (is_dl) {
-    nr_schedule_tx_req(gNB, &Sched_INFO->TX_req);
+    nr_schedule_tx_req(gNB, Sched_INFO->TX_req);
 
     nr_schedule_ul_dci_req(gNB, &Sched_INFO->UL_dci_req);
   }

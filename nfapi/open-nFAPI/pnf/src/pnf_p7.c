@@ -814,7 +814,7 @@ void send_dummy_slot(pnf_p7_t* pnf_p7, uint16_t sfn, uint16_t slot)
 		pnf_p7->_public.dummy_slot.tx_data_req.SFN = sfn;
 		pnf_p7->_public.dummy_slot.tx_data_req.Slot = slot;
 		//NFAPI_TRACE(NFAPI_TRACE_INFO, "Dummy tx_req - enter\n");
-		(pnf_p7->_public.tx_data_req_fn)(&pnf_p7->_public, &pnf_p7->_public.dummy_slot.tx_data_req);
+		(pnf_p7->_public.tx_data_req_fn)(&pnf_p7->_public, pnf_p7->_public.dummy_slot.tx_data_req);
 		//NFAPI_TRACE(NFAPI_TRACE_INFO, "Dummy tx_req - exit\n");
 	}
 	if(pnf_p7->_public.dl_tti_req_fn && pnf_p7->_public.dummy_slot.dl_tti_req)
@@ -971,17 +971,17 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 			(pnf_p7->_public.ul_tti_req_fn)(NULL, &(pnf_p7->_public), tx_slot_buffer->ul_tti_req);
 		}
 
-		LOG_I(NFAPI_PNF, "Get address: %p\n",&(pnf_p7->slot_buffer[buffer_index_tx].tx_data_req));
-		LOG_I(NFAPI_PNF, "[%d]tx_slot_buffer.tx_data_req.SFN: %d ; *current* sfn_tx: %d\n",buffer_index_tx, tx_slot_buffer->tx_data_req.SFN,sfn_tx);
-		LOG_I(NFAPI_PNF, "[%d]tx_slot_buffer.tx_data_req.Slot: %d ; *current* slot_tx: %d\n",buffer_index_tx, tx_slot_buffer->tx_data_req.Slot,slot_tx);
 
 		if(tx_slot_buffer->tx_data_req.SFN == sfn_tx && tx_slot_buffer->tx_data_req.Slot == slot_tx)
 		{
+			LOG_I(NFAPI_PNF, "Get address: %p\n",&(pnf_p7->slot_buffer[buffer_index_tx].tx_data_req));
+			LOG_I(NFAPI_PNF, "[%d]tx_slot_buffer.tx_data_req.SFN: %d ; *current* sfn_tx: %d\n",buffer_index_tx, tx_slot_buffer->tx_data_req.SFN,sfn_tx);
+			LOG_I(NFAPI_PNF, "[%d]tx_slot_buffer.tx_data_req.Slot: %d ; *current* slot_tx: %d\n",buffer_index_tx, tx_slot_buffer->tx_data_req.Slot,slot_tx);
 				
 			DevAssert(pnf_p7->_public.tx_data_req_fn != NULL);
 			LOG_I(PHY, "Process tx_data SFN/slot %d.%d buffer index: %d \n",sfn_tx,slot_tx,buffer_index_tx);	
 			// pnf_phy_tx_data_req()
-			(pnf_p7->_public.tx_data_req_fn)(&(pnf_p7->_public), &tx_slot_buffer->tx_data_req);
+			(pnf_p7->_public.tx_data_req_fn)(&(pnf_p7->_public), tx_slot_buffer->tx_data_req);
 		}
 		 
 
@@ -2004,13 +2004,6 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
                         struct timespec t;
                         clock_gettime(CLOCK_MONOTONIC, &t);
 
-                        //NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() %ld.%09ld POPULATE TX_DATA_REQ sfn_sf:%d buffer_index:%d\n", __FUNCTION__, t.tv_sec, t.tv_nsec, sfn_slot_dec, buffer_index);
-#if 0
-                        if (0 && NFAPI_SFNSF2DEC(req->sfn_sf)%100==0) NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() TX_REQ.req sfn_sf:%d pdus:%d - TX_REQ is within window\n",
-                            __FUNCTION__,
-                            NFAPI_SFNSF2DEC(req->sfn_sf),
-                            req->tx_request_body.number_of_pdus);
-#endif
 			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
 			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
 			cp_nr_tx_data_req(&pnf_p7->slot_buffer[buffer_index].tx_data_req, &req);
