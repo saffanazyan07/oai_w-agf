@@ -1974,7 +1974,8 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 	//NFAPI_TRACE(NFAPI_TRACE_INFO, "TX.req Received\n");
 	nfapi_nr_tx_data_request_t req;
 	// nfapi_nr_tx_data_request_t* req = allocate_nfapi_tx_data_request(pnf_p7);
-	LOG_I(NFAPI_PNF,"[t4-1] Address of req: %p, size: %d\n", &req, sizeof(nfapi_nr_tx_data_request_t));
+	LOG_I(NFAPI_PNF,"[t4-1] \n");
+	// LOG_I(NFAPI_PNF,"[t4-1] Address of req: %p, size: %d\n", &req, sizeof(nfapi_nr_tx_data_request_t));
 	if(req == NULL)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to allocate nfapi_tx_request structure\n");
@@ -2025,7 +2026,7 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 		}
 		else
 		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() TX_DATA_REQUEST Request is outside of window REQ:SFN_SLOT:%d CURR:SFN_SLOT:%d\n", __FUNCTION__, NFAPI_SFNSLOT2DEC(req->SFN,req->Slot), NFAPI_SFNSLOT2DEC(pnf_p7->sfn,pnf_p7->slot));
+			NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() TX_DATA_REQUEST Request is outside of window REQ:SFN_SLOT:%d CURR:SFN_SLOT:%d\n", __FUNCTION__, NFAPI_SFNSLOT2DEC(req.SFN,req.Slot), NFAPI_SFNSLOT2DEC(pnf_p7->sfn,pnf_p7->slot));
 			if(pnf_p7->_public.timing_info_mode_aperiodic)
 			{
 				pnf_p7->timing_info_aperiodic_send = 1;
