@@ -8499,12 +8499,12 @@ int nfapi_nr_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 unpack supplied message buffer is too small %d, %d\n", messageBufLen, unpackedBufLen);
 		return -1;
 	}
-  LOG_I(UDP_,"[t4-1-1] will clean the supplied buffer [NTUST] quick\n");
+  // LOG_I(UDP_,"[t4-1-1] will clean the supplied buffer\n");
 
 	// clean the supplied buffer for - tag value blanking
 	// (void)memset(pUnpackedBuf, 0, unpackedBufLen);
   // pUnpackedBuf = alloca(unpackedBufLen); // [NTUST] quick reset ptr value
-  LOG_I(UDP_,"[t4-1-2] will process the header\n");
+  LOG_I(UDP_,"[t4-1-1] will process the header\n");
 
 	// process the header
 	if(!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) &&
@@ -8539,7 +8539,7 @@ int nfapi_nr_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *
     NFAPI_NR_PHY_MSG_TYPE_UL_DCI_REQUEST= 0X83,
     NFAPI_NR_PHY_MSG_TYPE_TX_DATA_REQUEST=0X84,
   */
-  LOG_I(UDP_,"[t4-1-3] p7 unpack type:%x\n",pMessageHeader->message_id);
+  LOG_I(UDP_,"[t4-1-2] p7 unpack type:%x\n",pMessageHeader->message_id);
 	// look for the specific message
 	switch (pMessageHeader->message_id)
 	{
