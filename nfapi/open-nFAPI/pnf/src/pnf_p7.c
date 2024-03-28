@@ -273,10 +273,10 @@ void deallocate_nfapi_hi_dci0_request(nfapi_hi_dci0_request_t* req, pnf_p7_t* pn
 	pnf_p7_free(pnf_p7, req);
 }
 
-nfapi_nr_tx_data_request_t* allocate_nfapi_tx_data_request(pnf_p7_t* pnf_p7) 
-{ 
-	return pnf_p7_malloc(pnf_p7, sizeof(nfapi_nr_tx_data_request_t));
-}
+// nfapi_nr_tx_data_request_t* allocate_nfapi_tx_data_request(pnf_p7_t* pnf_p7) 
+// { 
+// 	return pnf_p7_malloc(pnf_p7, sizeof(nfapi_nr_tx_data_request_t));
+// }
 
 nfapi_tx_request_t* allocate_nfapi_tx_request(pnf_p7_t* pnf_p7) 
 { 
@@ -284,20 +284,20 @@ nfapi_tx_request_t* allocate_nfapi_tx_request(pnf_p7_t* pnf_p7)
 }
 
 //TODO: Check if deallocate_nfapi_tx_data_request defn is proper
-void deallocate_nfapi_tx_data_request(nfapi_nr_tx_data_request_t* req, pnf_p7_t* pnf_p7) 
-{
-/*
-	if(pnf_p7->_public.codec_config.deallocate)
-	{
-		(pnf_p7->_public.codec_config.deallocate)(req->pdu_list);
-	}
-	else
-	{
-		free(req->pdu_list);
-	}
-*/
-	pnf_p7_free(pnf_p7, req);
-}
+// void deallocate_nfapi_tx_data_request(nfapi_nr_tx_data_request_t req, pnf_p7_t* pnf_p7) 
+// {
+// /*
+// 	if(pnf_p7->_public.codec_config.deallocate)
+// 	{
+// 		(pnf_p7->_public.codec_config.deallocate)(req->pdu_list);
+// 	}
+// 	else
+// 	{
+// 		free(req->pdu_list);
+// 	}
+// */
+// 	pnf_p7_free(pnf_p7, req);
+// }
 
 void deallocate_nfapi_tx_request(nfapi_tx_request_t* req, pnf_p7_t* pnf_p7) 
 { 
