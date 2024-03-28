@@ -835,7 +835,7 @@ void send_dummy_slot(pnf_p7_t* pnf_p7, uint16_t sfn, uint16_t slot)
 		pnf_p7->_public.dummy_slot.tx_data_req.SFN = sfn;
 		pnf_p7->_public.dummy_slot.tx_data_req.Slot = slot;
 		//NFAPI_TRACE(NFAPI_TRACE_INFO, "Dummy tx_req - enter\n");
-		(pnf_p7->_public.tx_data_req_fn)(&pnf_p7->_public, pnf_p7->_public.dummy_slot.tx_data_req);
+		(pnf_p7->_public.tx_data_req_fn)(&pnf_p7->_public, &pnf_p7->_public.dummy_slot.tx_data_req);
 		//NFAPI_TRACE(NFAPI_TRACE_INFO, "Dummy tx_req - exit\n");
 	}
 	if(pnf_p7->_public.dl_tti_req_fn && pnf_p7->_public.dummy_slot.dl_tti_req)
