@@ -1245,7 +1245,7 @@ int trigger_scheduler(nfapi_nr_slot_indication_scf_t *slot_ind)
     oai_nfapi_ul_tti_req(&g_sched_resp.UL_tti_req);
 
   if (g_sched_resp.TX_req.Number_of_PDUs > 0)
-    oai_nfapi_tx_data_req(&g_sched_resp.TX_req);
+    oai_nfapi_tx_data_req(g_sched_resp.TX_req);
 
   if (g_sched_resp.UL_dci_req.numPdus > 0)
     oai_nfapi_ul_dci_req(&g_sched_resp.UL_dci_req);
@@ -1958,7 +1958,7 @@ int oai_nfapi_tx_data_req(nfapi_nr_tx_data_request_t tx_data_req)
   tx_data_req.header.phy_id = 1; // HACK TODO FIXME - need to pass this around!!!!
   tx_data_req.header.message_id = NFAPI_NR_PHY_MSG_TYPE_TX_DATA_REQUEST;
   //LOG_D(PHY, "[VNF] %s() TX_REQ sfn_sf:%d number_of_pdus:%d\n", __FUNCTION__, NFAPI_SFNSF2DEC(tx_req->sfn_sf), tx_req->tx_request_body.number_of_pdus);
-  int retval = nfapi_vnf_p7_tx_data_req(p7_config, &tx_data_req);
+  int retval = nfapi_vnf_p7_tx_data_req(p7_config, tx_data_req);
 
   if (retval!=0) {
     LOG_E(PHY, "%s() Problem sending retval:%d\n", __FUNCTION__, retval);

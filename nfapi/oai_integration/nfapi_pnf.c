@@ -1272,7 +1272,7 @@ int pnf_phy_tx_data_req(nfapi_pnf_p7_config_t *pnf_p7, nfapi_nr_tx_data_request_
   DevAssert(RC.gNB != NULL && RC.gNB[0] != NULL);
   PHY_VARS_gNB *gNB = RC.gNB[0]; // phy_inst?
 
-  nr_schedule_tx_req(gNB, &req);
+  nr_schedule_tx_req(gNB, req);
 
   return 0;
 }
