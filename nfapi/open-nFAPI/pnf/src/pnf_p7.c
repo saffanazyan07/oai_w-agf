@@ -1413,7 +1413,7 @@ uint8_t is_nr_p7_request_in_window(uint16_t sfn,uint16_t slot, const char* name,
 		in_window = 1;
 		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
 	}
-	else if(current_sfn_slot_dec + NFAPI_MAX_SFNSLOTDEC <= recv_sfn_slot_dec + timing_window){ //checking for wrap
+	else if(current_sfn_slot_dec <= recv_sfn_slot_dec + NFAPI_MAX_SFNSLOTDEC + timing_window){ //checking for wrap
 		in_window = 1;
 		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
 	}
@@ -2014,7 +2014,7 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 		}
 		else
 		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() TX_DATA_REQUEST Request is outside of window REQ:SFN_SLOT:%d CURR:SFN_SLOT:%d\n", __FUNCTION__, NFAPI_SFNSLOT2DEC(req.SFN,req.Slot), NFAPI_SFNSLOT2DEC(pnf_p7->sfn,pnf_p7->slot));
+			NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() TX_DATA_REQUEST Request is outside of window REQ:SFN_SLOT:%d CURR:SFN_SLOT:%d,(%d,%d)\n", __FUNCTION__, NFAPI_SFNSLOT2DEC(req.SFN,req.Slot), NFAPI_SFNSLOT2DEC(pnf_p7->sfn,pnf_p7->slot),pnf_p7->sfn,pnf_p7->slot);
 			if(pnf_p7->_public.timing_info_mode_aperiodic)
 			{
 				pnf_p7->timing_info_aperiodic_send = 1;
