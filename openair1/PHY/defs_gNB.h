@@ -73,8 +73,10 @@ typedef enum {
 typedef struct {
   /// Nfapi DLSCH PDU
   nfapi_nr_dl_tti_pdsch_pdu pdsch_pdu;
-  /// pointer to pdu from MAC interface (this is "a" in 36.212)
-  uint8_t *pdu;
+  /// length of PDU to encode
+  uint32_t sdu_len;
+  /// sdu from MAC interface (this is "a" in 36.212)
+  uint8_t sdu[65536];
   /// Pointer to the payload
   uint8_t *b;
   /// Pointers to transport block segments
