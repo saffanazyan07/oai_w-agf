@@ -1266,8 +1266,8 @@ int pnf_phy_dl_config_req(L1_rxtx_proc_t *proc, nfapi_pnf_p7_config_t *pnf_p7, n
 }
 
 
-extern void nr_schedule_tx_req(PHY_VARS_gNB *gNB, nfapi_nr_tx_data_request_t TX_req);
-int pnf_phy_tx_data_req(nfapi_pnf_p7_config_t *pnf_p7, nfapi_nr_tx_data_request_t req)
+extern void nr_schedule_tx_req(PHY_VARS_gNB *gNB, nfapi_nr_tx_data_request_t *TX_req);
+int pnf_phy_tx_data_req(nfapi_pnf_p7_config_t *pnf_p7, nfapi_nr_tx_data_request_t *req)
 {
   DevAssert(RC.gNB != NULL && RC.gNB[0] != NULL);
   PHY_VARS_gNB *gNB = RC.gNB[0]; // phy_inst?
