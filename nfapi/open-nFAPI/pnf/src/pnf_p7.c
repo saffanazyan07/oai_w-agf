@@ -1938,44 +1938,20 @@ void pnf_handle_hi_dci0_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 
 static void cp_nr_tx_data_req(nfapi_nr_tx_data_request_t *dst, const nfapi_nr_tx_data_request_t *src)
 {
-	// TODO copy only what is necessary
-	LOG_I(NFAPI_PNF,"Number_of_PDUs:%d\n",src->Number_of_PDUs);
-	  if (dst == NULL || src == NULL) {
-        // Handle invalid input parameters
-        return;
-    }
-    
-    // Copy the header
+    // TODO copy only what is necessary
+    LOG_I(NFAPI_PNF,"Number_of_PDUs:%d\n",src->Number_of_PDUs);
     dst->header = src->header;
-    
-    // Copy other fields
     dst->SFN = src->SFN;
     dst->Slot = src->Slot;
     dst->Number_of_PDUs = src->Number_of_PDUs;
-
-    // Iterate over each PDU in the source array and copy it to the destination array
-    for (int i = 0; i < src->Number_of_PDUs && i < NFAPI_NR_MAX_TX_REQUEST_PDUS; ++i) {
-        // Copy PDU length and index
+    for (int i = 0; i < dst->Number_of_PDUs; ++i) {
         dst->pdu_list[i].PDU_length = src->pdu_list[i].PDU_length;
         dst->pdu_list[i].PDU_index = src->pdu_list[i].PDU_index;
         dst->pdu_list[i].num_TLV = src->pdu_list[i].num_TLV;
-        
-        // Iterate over each TLV in the source array and copy it to the destination array
-        for (int j = 0; j < src->pdu_list[i].num_TLV && j < NFAPI_NR_MAX_TX_REQUEST_TLV; ++j) {
-            // Copy TLV tag and length
-            dst->pdu_list[i].TLVs[j].tag = src->pdu_list[i].TLVs[j].tag;
-            dst->pdu_list[i].TLVs[j].length = src->pdu_list[i].TLVs[j].length;
-            
-            // Copy TLV value
-            if (src->pdu_list[i].TLVs[j].tag == 0) {
-                // If tag is 0, copy the payload directly
-                for (int k = 0; k < src->pdu_list[i].TLVs[j].length; ++k) {
-                    dst->pdu_list[i].TLVs[j].value.direct[k] = src->pdu_list[i].TLVs[j].value.direct[k];
-                }
-            } else {
-                // If tag is 1, copy the pointer to payload
-                dst->pdu_list[i].TLVs[j].value.ptr = src->pdu_list[i].TLVs[j].value.ptr;
-            }
+        for (int j = 0; j < dst->pdu_list[i].num_TLV; ++j) {
+        dst->pdu_list[i].TLVs[j].tag = src->pdu_list[i].TLVs[j].tag;
+        dst->pdu_list[i].TLVs[j].length = src->pdu_list[i].TLVs[j].length;
+        memcpy(dst->pdu_list[i].TLVs[j].value.direct, src->pdu_list[i].TLVs[j].value.direct, dst->pdu_list[i].TLVs[j].length);
         }
     }
 }
