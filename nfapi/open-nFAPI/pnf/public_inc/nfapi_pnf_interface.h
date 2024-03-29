@@ -686,7 +686,7 @@ typedef struct nfapi_pnf_p7_config
 	 * will 'keep' the pointers until they are transmitted the callee should set the pointers in the req to 0
 	 * and then use the p7 codec config free function to release the pdu's when appropriate. 
 	 */
-	int (*tx_data_req_fn)(nfapi_pnf_p7_config_t* config, nfapi_nr_tx_data_request_t req);
+	int (*tx_data_req_fn)(nfapi_pnf_p7_config_t* config, nfapi_nr_tx_data_request_t* req);
 	int (*tx_req)(nfapi_pnf_p7_config_t* config, nfapi_tx_request_t* req);
 	
 	/*! A callback for the LBT_DL_CONFIG.request
