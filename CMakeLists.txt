@@ -161,7 +161,7 @@ add_definitions("-DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAV
 set(commonOpts "-pipe -fPIC -Wall -fno-strict-aliasing")
 # GNU C/C++ Compiler might throw many warnings without packed-bitfield-compat, see man page
 # also, we need -rdynamic to incorporate all symbols in shared objects, again, see man page
-if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set(commonOpts "${commonOpts} -Wno-packed-bitfield-compat -rdynamic")
 endif()
 
