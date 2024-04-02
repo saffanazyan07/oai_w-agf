@@ -56,10 +56,10 @@ void nr_fill_dlsch_dl_tti_req(processingData_L1tx_t *msgTx, nfapi_nr_dl_tti_pdsc
               msgTx->num_pdsch_slot);
   msgTx->num_pdsch_slot++;
   LOG_I(PHY,"msgTx->num_pdsch_slot++\n");
-  harq->pdu = NULL;
+  harq->sdu_len = 0;
 }
 
-void nr_fill_dlsch_tx_req(processingData_L1tx_t *msgTx, int idx, uint8_t *sdu)
+void nr_fill_dlsch_tx_req(processingData_L1tx_t *msgTx, int idx, uint8_t *sdu, uint16_t sdu_len)
 {
   AssertFatal(sdu != NULL, "sdu is null\n");
 
@@ -69,5 +69,6 @@ void nr_fill_dlsch_tx_req(processingData_L1tx_t *msgTx, int idx, uint8_t *sdu)
   NR_DL_gNB_HARQ_t *harq = &dlsch->harq_process;
   nfapi_nr_dl_tti_pdsch_pdu *pdsch = &harq->pdsch_pdu;
   AssertFatal(pdsch->pdsch_pdu_rel15.pduIndex == idx, "PDSCH PDU index %d does not match %d\n", pdsch->pdsch_pdu_rel15.pduIndex, idx);
-  harq->pdu = sdu;
+  harq->sdu_len = sdu_len;
+  memcpy(harq->sdu, sdu, sdu_len);
 }
