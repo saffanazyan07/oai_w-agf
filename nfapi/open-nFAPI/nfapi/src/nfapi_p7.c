@@ -39,7 +39,6 @@
 #include <debug.h>
 #include "nfapi_nr_interface_scf.h"
 
-#include <common/utils/LOG/log.h>
 extern int nfapi_unpack_p7_vendor_extension(nfapi_p7_message_header_t *header, uint8_t **ppReadPackedMsg, void *user_data);
 extern int nfapi_pack_p7_vendor_extension(nfapi_p7_message_header_t *header, uint8_t **ppWritePackedMsg, void *user_data);
 
@@ -6043,7 +6042,6 @@ static uint8_t unpack_tx_data_request(uint8_t **ppReadPackedMsg, uint8_t *end, v
 
       return 0;
     }
-    LOG_I(NFAPI_PNF,"[t4-3] unpack_tx_data_pdu_list_value\n");
   }
 
   return 1;
@@ -8499,12 +8497,9 @@ int nfapi_nr_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 unpack supplied message buffer is too small %d, %d\n", messageBufLen, unpackedBufLen);
 		return -1;
 	}
-  // LOG_I(UDP_,"[t4-1-1] will clean the supplied buffer\n");
 
 	// clean the supplied buffer for - tag value blanking
-  //// (void)memset(pUnpackedBuf, 0, unpackedBufLen);
-  // pUnpackedBuf = alloca(unpackedBufLen); // [NTUST] quick reset ptr value
-  LOG_I(UDP_,"[t4-1-1] will process the header\n");
+  //(void)memset(pUnpackedBuf, 0, unpackedBufLen);
 
 	// process the header
 	if(!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) &&
@@ -8532,14 +8527,6 @@ int nfapi_nr_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *
 	}
 	*/
 
-  /*
-    NFAPI_NR_PHY_MSG_TYPE_DL_TTI_REQUEST= 0X80,
-    NFAPI_NR_PHY_MSG_TYPE_UL_TTI_REQUEST= 0X81,
-    NFAPI_NR_PHY_MSG_TYPE_SLOT_INDICATION=0X82,
-    NFAPI_NR_PHY_MSG_TYPE_UL_DCI_REQUEST= 0X83,
-    NFAPI_NR_PHY_MSG_TYPE_TX_DATA_REQUEST=0X84,
-  */
-  LOG_I(UDP_,"[t4-1-2] p7 unpack type:%x\n",pMessageHeader->message_id);
 	// look for the specific message
 	switch (pMessageHeader->message_id)
 	{
@@ -8554,12 +8541,8 @@ int nfapi_nr_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *
 			break;
 		case NFAPI_NR_PHY_MSG_TYPE_TX_DATA_REQUEST:
 			if (check_nr_unpack_length(NFAPI_NR_PHY_MSG_TYPE_TX_DATA_REQUEST, unpackedBufLen))
-      {
-        LOG_I(NFAPI_PNF,"[t4-2] check_nr_unpack_length\n");
-        result = unpack_tx_data_request(&pReadPackedMessage,  end, pMessageHeader, config);
-        LOG_I(NFAPI_PNF,"[t4-4] unpack_tx_data_request\n");
-      }
-      break;
+				result = unpack_tx_data_request(&pReadPackedMessage,  end, pMessageHeader, config);
+			break;
 		case NFAPI_NR_PHY_MSG_TYPE_UL_DCI_REQUEST:
 			if (check_nr_unpack_length(NFAPI_NR_PHY_MSG_TYPE_UL_DCI_REQUEST, unpackedBufLen))
 				result = unpack_ul_dci_request(&pReadPackedMessage,  end, pMessageHeader, config);

@@ -28,7 +28,6 @@
 #include <stdio.h>
 
 #include "pnf_p7.h"
-#include <common/utils/LOG/log.h>
 
 #define FAPI2_IP_DSCP	0
 
@@ -924,10 +923,7 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 
 		if(tx_slot_buffer->tx_data_req.SFN == sfn_tx && tx_slot_buffer->tx_data_req.Slot == slot_tx)
 		{
-			
-			LOG_I(NFAPI_PNF, "Get address: %p\n",&(pnf_p7->slot_buffer[buffer_index_tx].tx_data_req));
-			LOG_I(NFAPI_PNF, "[%d]tx_slot_buffer.tx_data_req.SFN: %d ; *current* sfn_tx: %d\n",buffer_index_tx, tx_slot_buffer->tx_data_req.SFN,sfn_tx);
-			LOG_I(NFAPI_PNF, "[%d]tx_slot_buffer.tx_data_req.Slot: %d ; *current* slot_tx: %d\n",buffer_index_tx, tx_slot_buffer->tx_data_req.Slot,slot_tx);	
+				
 			DevAssert(pnf_p7->_public.tx_data_req_fn != NULL);
 			LOG_I(PHY, "Process tx_data SFN/slot %d.%d buffer index: %d \n",sfn_tx,slot_tx,buffer_index_tx);	
 			// pnf_phy_tx_data_req()
@@ -1365,7 +1361,7 @@ uint8_t is_nr_p7_request_in_window(uint16_t sfn,uint16_t slot, const char* name,
 		in_window = 1;
 		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
 	}
-	else if(current_sfn_slot_dec <= recv_sfn_slot_dec + NFAPI_MAX_SFNSLOTDEC + timing_window){ //checking for wrap
+	else if(current_sfn_slot_dec + NFAPI_MAX_SFNSLOTDEC <= recv_sfn_slot_dec + timing_window){ //checking for wrap
 		in_window = 1;
 		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
 	}
@@ -1940,17 +1936,18 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
                             NFAPI_SFNSF2DEC(req->sfn_sf),
                             req->tx_request_body.number_of_pdus);
 #endif
+
+
 			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
 			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
-			cp_nr_tx_data_req(&pnf_p7->slot_buffer[buffer_index].tx_data_req, &req);
-			// pnf_p7->slot_buffer[buffer_index].tx_data_req = req;
-			LOG_I(NFAPI_PNF,"[t5] Fill tx_data in buf[%d] , %d/%d\n",buffer_index,req.SFN,req.Slot);
+      cp_nr_tx_data_req(&pnf_p7->slot_buffer[buffer_index].tx_data_req, &req);
 
 			pnf_p7->stats.tx_data_ontime++;
 		}
 		else
 		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() TX_DATA_REQUEST Request is outside of window REQ:SFN_SLOT:%d CURR:SFN_SLOT:%d,(%d,%d)\n", __FUNCTION__, NFAPI_SFNSLOT2DEC(req.SFN,req.Slot), NFAPI_SFNSLOT2DEC(pnf_p7->sfn,pnf_p7->slot),pnf_p7->sfn,pnf_p7->slot);
+                  NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() TX_DATA_REQUEST Request is outside of window REQ:SFN_SLOT:%d CURR:SFN_SLOT:%d\n", __FUNCTION__, NFAPI_SFNSLOT2DEC(req.SFN,req.Slot), NFAPI_SFNSLOT2DEC(pnf_p7->sfn,pnf_p7->slot));
+
 			if(pnf_p7->_public.timing_info_mode_aperiodic)
 			{
 				pnf_p7->timing_info_aperiodic_send = 1;
@@ -1982,7 +1979,6 @@ void pnf_handle_tx_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 	}
 
 	int unpack_result = nfapi_p7_message_unpack(pRecvMsg, recvMsgLen, req, sizeof(nfapi_tx_request_t), &pnf_p7->_public.codec_config);
-	LOG_I(PHY,"[t4-5] nfapi_nr_p7_message_unpack\n");
 	if(unpack_result == 0)
 	{
 		if(pthread_mutex_lock(&(pnf_p7->mutex)) != 0)
@@ -2491,7 +2487,6 @@ void pnf_nr_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 			pnf_handle_ul_dci_request(pRecvMsg, recvMsgLen, pnf_p7);
 			break;
 		case NFAPI_NR_PHY_MSG_TYPE_TX_DATA_REQUEST:
-			LOG_I(NFAPI_PNF,"[t4] pnf_nr_dispatch_p7_message , %d/%d\n",pnf_p7->sfn,pnf_p7->slot);
 			pnf_handle_tx_data_request(pRecvMsg, recvMsgLen, pnf_p7);
 			break;
 		default:
@@ -3184,7 +3179,6 @@ int pnf_nr_p7_message_pump(pnf_p7_t* pnf_p7)
 		if(FD_ISSET(pnf_p7->p7_sock, &rfds)) 
 
 		{
-			LOG_I(NFAPI_PNF,"[t3] socket receive\n");	
 			pnf_nr_nfapi_p7_read_dispatch_message(pnf_p7, now_hr_time); 
 		}
 	}
