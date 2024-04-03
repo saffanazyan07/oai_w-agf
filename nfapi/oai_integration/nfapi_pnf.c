@@ -63,6 +63,8 @@
 #include "executables/lte-softmodem.h"
 #include "nfapi/open-nFAPI/pnf/inc/pnf_p7.h"
 
+#include <common/utils/LOG/log.h>
+
 #define NUM_P5_PHY 2
 
 #define _GNU_SOURCE
@@ -2114,6 +2116,7 @@ void handle_nr_slot_ind(uint16_t sfn, uint16_t slot)
     //send VNF slot indication, which is aligned with TX thread, so that it can call the scheduler
     //we give four additional slots (2ms) which should be enough time for the VNF to
     //answer
+    LOG_I(NFAPI_PNF,"[x1-1] Call oai_nfapi_nr_slot_indication\n");
     uint8_t slot_ahead = 2;
     uint32_t sfn_slot_tx = sfnslot_add_slot(sfn, slot, slot_ahead);
     uint16_t sfn_tx = NFAPI_SFNSLOT2SFN(sfn_slot_tx);
@@ -2121,10 +2124,10 @@ void handle_nr_slot_ind(uint16_t sfn, uint16_t slot)
 
     nfapi_nr_slot_indication_scf_t ind = { .sfn = sfn_tx, .slot = slot_tx };
     oai_nfapi_nr_slot_indication(&ind);
-
+    LOG_I(NFAPI_PNF,"[x1-2] Finish oai_nfapi_nr_slot_indication\n");
     //copy data from appropriate p7 slot buffers into channel structures for PHY processing
     nfapi_pnf_p7_slot_ind(p7_config_g, p7_config_g->phy_id, sfn, slot); 
-
+    LOG_I(NFAPI_PNF,"[x1-3] Finish nfapi_pnf_p7_slot_ind\n");
     return;
 }
 
