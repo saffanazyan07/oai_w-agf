@@ -241,7 +241,7 @@ void nr_dlsch_detection_mrc(uint32_t rx_size_symbol,
                             int length);
 
 /* Main Function */
-int nr_rx_pdsch(PHY_VARS_NR_UE *ue,
+__attribute__((optimize(0))) int nr_rx_pdsch(PHY_VARS_NR_UE *ue,
                 const UE_nr_rxtx_proc_t *proc,
                 NR_UE_DLSCH_t dlsch[2],
                 unsigned char symbol,
