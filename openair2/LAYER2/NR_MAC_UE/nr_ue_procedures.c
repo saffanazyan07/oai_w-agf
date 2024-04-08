@@ -261,7 +261,7 @@ int8_t nr_ue_decode_BCCH_DL_SCH(NR_UE_MAC_INST_t *mac,
                                 uint32_t pdu_len)
 {
   if(ack_nack) {
-    LOG_D(NR_MAC, "Decoding NR-BCCH-DL-SCH-Message (SIB1 or SI)\n");
+    LOG_I(NR_MAC, "Decoding NR-BCCH-DL-SCH-Message (SIB1 or SI)\n");
     nr_mac_rrc_data_ind_ue(mac->ue_id, cc_id, gNB_index, 0, 0, 0, mac->physCellId, 0, NR_BCCH_DL_SCH, (uint8_t *) pduP, pdu_len);
     mac->get_sib1 = false;
     mac->get_otherSI = false;
@@ -2241,6 +2241,9 @@ void multiplex_pucch_resource(NR_UE_MAC_INST_t *mac, PUCCH_sched_t *pucch, int n
       if (overlap) {
         o++;
         j++;
+      } else {
+	LOG_E(MAC,"impossible multiplex_pucch_resource case\n");
+	return;
       }
     } else {
       if (o > 0) {

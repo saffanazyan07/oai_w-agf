@@ -1011,7 +1011,7 @@ static void nr_rrc_ue_process_securityModeCommand(NR_UE_RRC_INST_t *ue_rrc,
                                                   int msg_size,
                                                   const nr_pdcp_integrity_data_t *msg_integrity)
 {
-  LOG_I(NR_RRC, "Receiving from SRB1 (DL-DCCH), Processing securityModeCommand\n");
+  LOG_I(NR_RRC, "Processing securityModeCommand\n");
 
   AssertFatal(securityModeCommand->criticalExtensions.present == NR_SecurityModeCommand__criticalExtensions_PR_securityModeCommand,
         "securityModeCommand->criticalExtensions.present (%d) != "
@@ -1115,7 +1115,7 @@ static void nr_rrc_ue_process_securityModeCommand(NR_UE_RRC_INST_t *ue_rrc,
   asn1cCalloc(modeComplete->criticalExtensions.choice.securityModeComplete, ext);
   ext->nonCriticalExtension = NULL;
   LOG_I(NR_RRC,
-        "Receiving from SRB1 (DL-DCCH), encoding securityModeComplete, rrc_TransactionIdentifier: %ld\n",
+        "encoding securityModeComplete, rrc_TransactionIdentifier: %ld\n",
         securityModeCommand->rrc_TransactionIdentifier);
   uint8_t buffer[200];
   asn_enc_rval_t enc_rval =
@@ -1607,7 +1607,7 @@ static int nr_rrc_ue_decode_dcch(NR_UE_RRC_INST_t *rrc,
   if (LOG_DEBUGFLAG(DEBUG_ASN1)) {
     xer_fprint(stdout, &asn_DEF_NR_DL_DCCH_Message, (void *)dl_dcch_msg);
   }
-
+  LOG_I(NR_RRC,"Got dcch %u, sz: %lu\n", dl_dcch_msg->message.present, Buffer_size);
   switch (dl_dcch_msg->message.present) {
     case NR_DL_DCCH_MessageType_PR_c1: {
       struct NR_DL_DCCH_MessageType__c1 *c1 = dl_dcch_msg->message.choice.c1;
@@ -1622,7 +1622,7 @@ static int nr_rrc_ue_decode_dcch(NR_UE_RRC_INST_t *rrc,
         } break;
 
         case NR_DL_DCCH_MessageType__c1_PR_rrcResume:
-          LOG_I(NR_RRC, "Received rrcResume on DL-DCCH-Message\n");
+          LOG_I(NR_RRC, "Received rrcResume on DL-DCCH-Message, need to develop processing and answer\n");
           break;
         case NR_DL_DCCH_MessageType__c1_PR_rrcRelease:
           LOG_I(NR_RRC, "[UE %ld] Received RRC Release (gNB %d)\n", rrc->ue_id, gNB_indexP);
@@ -1670,6 +1670,7 @@ static int nr_rrc_ue_decode_dcch(NR_UE_RRC_INST_t *rrc,
         case NR_DL_DCCH_MessageType__c1_PR_spare2:
         case NR_DL_DCCH_MessageType__c1_PR_spare1:
         case NR_DL_DCCH_MessageType__c1_PR_counterCheck:
+	  LOG_W(NR_RRC, "received dcch type: %d, not processing it\n", dl_dcch_msg->message.present);
           break;
         case NR_DL_DCCH_MessageType__c1_PR_securityModeCommand:
           LOG_I(NR_RRC, "Received securityModeCommand (gNB %d)\n", gNB_indexP);
@@ -1679,6 +1680,7 @@ static int nr_rrc_ue_decode_dcch(NR_UE_RRC_INST_t *rrc,
       }
     } break;
     default:
+      LOG_E(NR_RRC, "received unknown dcch: %d, not processing it\n", dl_dcch_msg->message.present);
       break;
   }
   //  release memory allocation

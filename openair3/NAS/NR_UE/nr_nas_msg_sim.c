@@ -411,6 +411,11 @@ void derive_ue_keys(uint8_t *buf, nr_ue_nas_t *nas) {
   for(int i = 0; i < 16; i++){
     printf("%x ", knas_int[i]);
   }
+  printf("kgnb_int:\n");
+  for(int i = 0; i < 16; i++){
+    printf("%x ", kgnb[i]);
+  }
+
   printf("\n");
 }
 
@@ -1199,11 +1204,10 @@ void *nas_nrue(void *args_p)
 
       case NAS_DOWNLINK_DATA_IND: {
         LOG_I(NAS,
-              "[UE %ld] Received %s: length %u , buffer %p\n",
+              "[UE %ld] Received %s: length %u\n",
               instance,
               ITTI_MSG_NAME(msg_p),
-              NAS_DOWNLINK_DATA_IND(msg_p).nasMsg.length,
-              NAS_DOWNLINK_DATA_IND(msg_p).nasMsg.data);
+              NAS_DOWNLINK_DATA_IND(msg_p).nasMsg.length);
         as_nas_info_t initialNasMsg = {0};
 
         uint8_t *pdu_buffer = NAS_DOWNLINK_DATA_IND(msg_p).nasMsg.data;
