@@ -1941,7 +1941,6 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
 			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
       		cp_nr_tx_data_req(&pnf_p7->slot_buffer[buffer_index].tx_data_req, &req);
-			LOG_I(NFAPI_PNF,"[t5] Fill tx_data in buf[%d] , %d/%d\n",buffer_index,req.SFN,req.Slot);
 
 			pnf_p7->stats.tx_data_ontime++;
 		}
@@ -2488,7 +2487,6 @@ void pnf_nr_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 			pnf_handle_ul_dci_request(pRecvMsg, recvMsgLen, pnf_p7);
 			break;
 		case NFAPI_NR_PHY_MSG_TYPE_TX_DATA_REQUEST:
-			LOG_I(NFAPI_PNF,"[t4] pnf_nr_dispatch_p7_message , %d/%d\n",pnf_p7->sfn,pnf_p7->slot);
 			pnf_handle_tx_data_request(pRecvMsg, recvMsgLen, pnf_p7);
 			break;
 		default:
@@ -3181,7 +3179,6 @@ int pnf_nr_p7_message_pump(pnf_p7_t* pnf_p7)
 		if(FD_ISSET(pnf_p7->p7_sock, &rfds)) 
 
 		{
-			LOG_I(NFAPI_PNF,"[t3] socket receive\n");	
 			pnf_nr_nfapi_p7_read_dispatch_message(pnf_p7, now_hr_time); 
 		}
 	}

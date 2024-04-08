@@ -139,9 +139,7 @@ static void tx_func(void *param)
   }
 
   start_meas(&gNB->slot_indication_stats);
-  LOG_I(NFAPI_PNF,"[x1] Call NR_slot_indication\n");
   ifi->NR_slot_indication(module_id, CC_id, frame_tx, slot_tx);
-  LOG_I(NFAPI_PNF,"[x2] Finish NR_slot_indication\n");
   stop_meas(&gNB->slot_indication_stats);
   gNB->msgDataTx->timestamp_tx = info->timestamp_tx;
   info = gNB->msgDataTx;
