@@ -760,6 +760,9 @@ int main( int argc, char **argv ) {
   if (RC.nb_RU > 0)
     start_NR_RU();
 
+  for (int idx = 0; idx < RC.nb_nr_L1_inst; idx++)
+    RC.gNB[idx]->if_inst->sl_ahead = sl_ahead;
+
   if (NFAPI_MODE==NFAPI_MODE_PNF) {
     wait_nfapi_init("main?");
   }
@@ -772,7 +775,6 @@ int main( int argc, char **argv ) {
     // once all RUs are ready initialize the rest of the gNBs ((dependence on final RU parameters after configuration)
     printf("ALL RUs ready - init gNBs\n");
 
-    for (int idx=0;idx<RC.nb_nr_L1_inst;idx++) RC.gNB[idx]->if_inst->sl_ahead = sl_ahead;
     if(IS_SOFTMODEM_DOSCOPE) {
       sleep(1);
       scopeParms_t p;
