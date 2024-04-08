@@ -25,7 +25,7 @@
 # author  Navid Nikaein, Lionel GAUTHIER, Laurent Thomas
 
 set -e
-
+set -xv
 # Include helper functions
 THIS_SCRIPT_PATH=$(dirname $(readlink -f "$0"))
 source "$THIS_SCRIPT_PATH"/tools/build_helper
@@ -502,7 +502,7 @@ function main() {
     # e.g., cmake_targets/ran_build/build, hence the ../../..
     CMAKE_CMD="$CMAKE_CMD ../../.."
     echo_info "Running \"$CMAKE_CMD\""
-    eval $CMAKE_CMD
+    $CMAKE_CMD
     compilations $BUILD_DIR all.txt $TARGET_LIST
     ###################
     # Doxygen Support #

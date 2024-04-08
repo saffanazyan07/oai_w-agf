@@ -781,12 +781,43 @@ srb_found:
     memcpy(rrc_buffer_p, buf, size);
     MessageDef *message_p = itti_alloc_new_message(TASK_PDCP_UE, 0, NR_RRC_DCCH_DATA_IND);
     AssertFatal(message_p != NULL, "OUT OF MEMORY\n");
-    NR_RRC_DCCH_DATA_IND(message_p).dcch_index = srb_id;
-    NR_RRC_DCCH_DATA_IND(message_p).sdu_p = rrc_buffer_p;
-    NR_RRC_DCCH_DATA_IND(message_p).sdu_size = size;
-    memcpy(&NR_RRC_DCCH_DATA_IND(message_p).msg_integrity, msg_integrity, sizeof(*msg_integrity));
-    ue_id_t ue_id = ue->ue_id;
-    itti_send_msg_to_task(TASK_RRC_NRUE, ue_id, message_p);
+    nr_pdcp_entity_t *rb = nr_pdcp_get_rb(ue, srb_id, true);
+    NR_RRC_DCCH_DATA_IND(message_p) =
+        (NRRrcDcchDataInd){.dcch_index = srb_id,
+                           .sdu_p = rrc_buffer_p,
+                           .sdu_size = size,
+                           .msg_integrity = *msg_integrity,
+                           .integrityResult = rb->check_integrity(rb, (const uint8_t *)buf, size, msg_integrity)};
+    itti_send_msg_to_task(TASK_RRC_NRUE, ue->ue_id, message_p);
+    MessageDef *Resp;
+    itti_receive_msg(TASK_PDCP_UE, &Resp);
+    if (Resp == NULL)
+      return;
+    RrcDcchDataResp *returned = &Resp->ittiMsg.nr_rrc_dcch_data_resp;
+    if (returned->doCypheringKeys) {
+      // configure lower layers to apply SRB integrity protection and ciphering
+      for (i = 0; i < sizeofArray(ue->srb); i++) {
+        int integrity_algorithm = (returned->security_mode >> 4) & 0xf;
+        int ciphering_algorithm = returned->security_mode & 0x0f;
+        nr_pdcp_entity_t *rb = nr_pdcp_get_rb(ue, i, true);
+        if (rb)
+          rb->set_security(rb, integrity_algorithm, (char *)returned->kRRCint, ciphering_algorithm, (char *)returned->kRRCenc);
+      }
+    }
+    if (returned->srbID) {
+      nr_pdcp_entity_t *rb = nr_pdcp_get_rb(ue, returned->srbID, true);
+      if (rb) {
+        char *ptr = (char *)returned->buffer;
+        for (int i = 0; i < sizeofArray(returned->sz) && returned->sz[i]; i++) {
+          int max_size = nr_max_pdcp_pdu_size(returned->sz[i]);
+          char pdu_buf[max_size];
+          int pdu_size = rb->process_sdu(rb, ptr, returned->sz[i], 0, pdu_buf, max_size);
+          deliver_pdu_srb_rlc(NULL, ue->ue_id, returned->srbID, pdu_buf, pdu_size, 0);
+          ptr += returned->sz[i];
+        }
+      }
+    }
+    itti_free(ITTI_MSG_ORIGIN_ID(Resp), Resp);
   }
 }
 
@@ -1061,34 +1092,6 @@ void nr_pdcp_config_set_security(ue_id_t ue_id,
                    ciphering_algorithm, (char *)kRRCenc_pP);
 
   nr_pdcp_manager_unlock(nr_pdcp_ue_manager);
-}
-
-bool nr_pdcp_check_integrity_srb(ue_id_t ue_id,
-                                 int srb_id,
-                                 const uint8_t *msg,
-                                 int msg_size,
-                                 const nr_pdcp_integrity_data_t *msg_integrity)
-{
-  nr_pdcp_ue_t *ue;
-  nr_pdcp_entity_t *rb;
-
-  nr_pdcp_manager_lock(nr_pdcp_ue_manager);
-
-  ue = nr_pdcp_manager_get_ue(nr_pdcp_ue_manager, ue_id);
-
-  rb = nr_pdcp_get_rb(ue, srb_id, true);
-
-  if (rb == NULL) {
-    nr_pdcp_manager_unlock(nr_pdcp_ue_manager);
-    LOG_E(PDCP, "no SRB found (ue_id %ld, rb_id %d)\n", ue_id, srb_id);
-    return false;
-  }
-
-  bool ret = rb->check_integrity(rb, msg, msg_size, msg_integrity);
-
-  nr_pdcp_manager_unlock(nr_pdcp_ue_manager);
-
-  return ret;
 }
 
 bool nr_pdcp_data_req_srb(ue_id_t ue_id,
