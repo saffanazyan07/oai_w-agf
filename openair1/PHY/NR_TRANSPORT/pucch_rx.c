@@ -383,7 +383,7 @@ void nr_decode_pucch0(PHY_VARS_gNB *gNB,
   uci_pdu->timing_advance = 0xffff; // currently not valid
   uci_pdu->rssi = 1280 - (10 * dB_fixed(32767 * 32767)) - dB_fixed_times10(signal_energy_ant0);
 
-  LOG_I(PHY,"(%d/%d) uci_pdu->pduBitmap:%d\n",frame,slot,uci_pdu->pduBitmap);
+  // LOG_I(PHY,"(%d/%d) uci_pdu->pduBitmap:%d\n",frame,slot,uci_pdu->pduBitmap);
   if (pucch_pdu->bit_len_harq==0) {
     uci_pdu->sr.sr_confidence_level = SNRtimes10 < uci_stats->pucch0_thres;
     uci_stats->pucch0_sr_trials++;
