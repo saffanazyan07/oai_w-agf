@@ -383,7 +383,7 @@ void nr_decode_pucch0(PHY_VARS_gNB *gNB,
   uci_pdu->timing_advance = 0xffff; // currently not valid
   uci_pdu->rssi = 1280 - (10 * dB_fixed(32767 * 32767)) - dB_fixed_times10(signal_energy_ant0);
 
-  if (pucch_pdu->bit_len_harq==0 ){
+  if (pucch_pdu->bit_len_harq==0) {
     uci_pdu->sr.sr_confidence_level = SNRtimes10 < uci_stats->pucch0_thres;
     uci_stats->pucch0_sr_trials++;
     if (xrtmag_dBtimes10>(10*max_n0+100)) {
@@ -394,7 +394,7 @@ void nr_decode_pucch0(PHY_VARS_gNB *gNB,
       uci_pdu->sr.sr_indication = 0;
     }
   }
-  else if (pucch_pdu->bit_len_harq==1){
+  else if (pucch_pdu->bit_len_harq==1) {
     uci_pdu->harq.num_harq = 1;
     uci_pdu->harq.harq_confidence_level = no_conf;
     uci_pdu->harq.harq_list[0].harq_value = !(index&0x01);
@@ -460,7 +460,7 @@ void nr_decode_pucch0(PHY_VARS_gNB *gNB,
       }
     }
   }
-  LOG_I(PHY, "(%d/%d) pduBitmap: %u, num_harq:%d\n",frame,slot, uci_pdu->pduBitmap,uci_pdu->harq.num_harq);
+  // LOG_I(PHY, "(%d/%d) pduBitmap: %u, num_harq:%d\n",frame,slot, uci_pdu->pduBitmap,uci_pdu->harq.num_harq);
 
 }
 //*****************************************************************//
@@ -1670,7 +1670,7 @@ void nr_decode_pucch2(PHY_VARS_gNB *gNB,
   // LOG_I(PHY, "  rssi: %u\n", uci_pdu->rssi);
 
   // LOG_I(PHY, "  nfapi_nr_sr_pdu_2_3_4_t Contents:\n");
-  LOG_I(PHY, "    sr_bit_len: %u\n", uci_pdu->sr.sr_bit_len);
+  // LOG_I(PHY, "    sr_bit_len: %u\n", uci_pdu->sr.sr_bit_len);
   // // Output sr_payload if needed
 
   // LOG_I(PHY, "  nfapi_nr_harq_pdu_2_3_4_t Contents:\n");
