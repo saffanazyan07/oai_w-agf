@@ -68,7 +68,7 @@ static void nr_fill_nfapi_pucch(gNB_MAC_INST *nrmac,
   memset(pucch_pdu, 0, sizeof(nfapi_nr_pucch_pdu_t));
   future_ul_tti_req->n_pdus += 1;
 
-  LOG_D(NR_MAC,
+  LOG_I(NR_MAC,
         "%s %4d.%2d Scheduling pucch reception in %4d.%2d: bits SR %d, DAI %d, CSI %d on res %d\n",
         pucch->dai_c>0 ? "pucch_acknack" : "",
         frame,
@@ -1020,6 +1020,7 @@ void handle_nr_uci_pucch_0_1(module_id_t mod_id,
     return;
   }
   NR_UE_sched_ctrl_t *sched_ctrl = &UE->UE_sched_ctrl;
+  LOG_I(NR_MAC,"(%d/%d)uci_01->pduBitmap:%d\n",frame,slot,uci_01->pduBitmap);
 
   if (((uci_01->pduBitmap >> 1) & 0x01)) {
     // iterate over received harq bits

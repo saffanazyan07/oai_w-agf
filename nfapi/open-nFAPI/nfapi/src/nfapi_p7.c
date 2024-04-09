@@ -3497,7 +3497,7 @@ static uint8_t pack_nr_uci_pucch_0_1(void* tlv, uint8_t **ppWritePackedMsg, uint
 		if (!push8(value->sr.sr_confidence_level, ppWritePackedMsg, end))
 			return 0;
 	}
-
+  LOG_I(PHY,"UCI:value->pduBitmap:%d\n",value->pduBitmap);
 	if (((value->pduBitmap >> 1) & 0x01)) { //HARQ
 		if (!push8(value->harq.num_harq, ppWritePackedMsg, end))
 			return 0;
