@@ -3498,6 +3498,7 @@ static uint8_t pack_nr_uci_pucch_0_1(void* tlv, uint8_t **ppWritePackedMsg, uint
 			return 0;
 	}
 
+  LOG_I(PHY,"value->pduBitmap:%d, value->harq.num_harq:%d\n",value->pduBitmap,value->harq.num_harq);
 	if (((value->pduBitmap >> 1) & 0x01)) { //HARQ
 		if (!push8(value->harq.num_harq, ppWritePackedMsg, end))
 			return 0;
@@ -6442,6 +6443,7 @@ static uint8_t unpack_nr_uci_pucch_0_1(nfapi_nr_uci_pucch_pdu_format_0_1_t *valu
   }
 
   if (((value->pduBitmap >> 1) & 0x01)) { // HARQ
+  // LOG_I(NFAPI_VNF, "Pack HARQ pduBitmap: %u, num_harq:%d\n", value->pduBitmap,value->harq.num_harq);
 
     if (!(pull8(ppReadPackedMsg, &value->harq.num_harq, end) && pull8(ppReadPackedMsg, &value->harq.harq_confidence_level, end)))
       return 0;
@@ -6453,6 +6455,7 @@ static uint8_t unpack_nr_uci_pucch_0_1(nfapi_nr_uci_pucch_pdu_format_0_1_t *valu
       }
     }
   }
+  LOG_I(NFAPI_VNF, "pduBitmap: %u, num_harq:%d\n", value->pduBitmap,value->harq.num_harq);
 
   return 1;
 }
@@ -6703,6 +6706,8 @@ static uint8_t unpack_nr_uci_indication(uint8_t **ppReadPackedMsg, uint8_t *end,
     return 0;
   if (!pull16(ppReadPackedMsg, &pNfapiMsg->num_ucis, end))
     return 0;
+
+  LOG_I(NFAPI_VNF,"(%d,%d)\n",pNfapiMsg->sfn,pNfapiMsg->slot);
 
   pNfapiMsg->uci_list = nfapi_p7_allocate(sizeof(*pNfapiMsg->uci_list) * pNfapiMsg->num_ucis, config);
   for (int i = 0; i < pNfapiMsg->num_ucis; i++) {

@@ -383,8 +383,7 @@ void nr_decode_pucch0(PHY_VARS_gNB *gNB,
   uci_pdu->timing_advance = 0xffff; // currently not valid
   uci_pdu->rssi = 1280 - (10 * dB_fixed(32767 * 32767)) - dB_fixed_times10(signal_energy_ant0);
 
-  // LOG_I(PHY,"(%d/%d) uci_pdu->pduBitmap:%d\n",frame,slot,uci_pdu->pduBitmap);
-  if (pucch_pdu->bit_len_harq==0) {
+  if (pucch_pdu->bit_len_harq==0 ){
     uci_pdu->sr.sr_confidence_level = SNRtimes10 < uci_stats->pucch0_thres;
     uci_stats->pucch0_sr_trials++;
     if (xrtmag_dBtimes10>(10*max_n0+100)) {
@@ -395,7 +394,7 @@ void nr_decode_pucch0(PHY_VARS_gNB *gNB,
       uci_pdu->sr.sr_indication = 0;
     }
   }
-  else if (pucch_pdu->bit_len_harq==1) {
+  else if (pucch_pdu->bit_len_harq==1){
     uci_pdu->harq.num_harq = 1;
     uci_pdu->harq.harq_confidence_level = no_conf;
     uci_pdu->harq.harq_list[0].harq_value = !(index&0x01);
@@ -461,6 +460,8 @@ void nr_decode_pucch0(PHY_VARS_gNB *gNB,
       }
     }
   }
+  LOG_I(PHY, "(%d/%d) pduBitmap: %u, num_harq:%d\n",frame,slot, uci_pdu->pduBitmap,uci_pdu->harq.num_harq);
+
 }
 //*****************************************************************//
 void nr_decode_pucch1(c16_t **rxdataF,
@@ -1658,6 +1659,33 @@ void nr_decode_pucch2(PHY_VARS_gNB *gNB,
   if (pucch_pdu->bit_len_csi_part2>0) {
     uci_pdu->pduBitmap|=8;
   }
+
+  // LOG_I(PHY, "nfapi_nr_uci_pucch_pdu_format_2_3_4_t Contents:\n");
+  // LOG_I(PHY, "  pduBitmap: %u\n", uci_pdu->pduBitmap);
+  // LOG_I(PHY, "  handle: %u\n", uci_pdu->handle);
+  // LOG_I(PHY, "  rnti: %u\n", uci_pdu->rnti);
+  // LOG_I(PHY, "  pucch_format: %u\n", uci_pdu->pucch_format);
+  // LOG_I(PHY, "  ul_cqi: %u\n", uci_pdu->ul_cqi);
+  // LOG_I(PHY, "  timing_advance: %u\n", uci_pdu->timing_advance);
+  // LOG_I(PHY, "  rssi: %u\n", uci_pdu->rssi);
+
+  // LOG_I(PHY, "  nfapi_nr_sr_pdu_2_3_4_t Contents:\n");
+  LOG_I(PHY, "    sr_bit_len: %u\n", uci_pdu->sr.sr_bit_len);
+  // // Output sr_payload if needed
+
+  // LOG_I(PHY, "  nfapi_nr_harq_pdu_2_3_4_t Contents:\n");
+  // LOG_I(PHY, "    harq_crc: %u\n", uci_pdu->harq.harq_crc);
+  // LOG_I(PHY, "    harq_bit_len: %u\n", uci_pdu->harq.harq_bit_len);
+  // // Output harq_payload if needed
+
+  // LOG_I(PHY, "  nfapi_nr_csi_part1_pdu_t Contents:\n");
+  // LOG_I(PHY, "    csi_part1_crc: %u\n", uci_pdu->csi_part1.csi_part1_crc);
+  // LOG_I(PHY, "    csi_part1_bit_len: %u\n", uci_pdu->csi_part1.csi_part1_bit_len);
+  // // Output csi_part1_payload if needed
+
+  // LOG_I(PHY, "  nfapi_nr_csi_part2_pdu_t Contents:\n");
+  // LOG_I(PHY, "    csi_part2_crc: %u\n", uci_pdu->csi_part2.csi_part2_crc);
+  // LOG_I(PHY, "    csi_part2_bit_len: %u\n", uci_pdu->csi_part2.csi_part2_bit_len);
 }
 
 void nr_dump_uci_stats(FILE *fd,PHY_VARS_gNB *gNB,int frame) {
