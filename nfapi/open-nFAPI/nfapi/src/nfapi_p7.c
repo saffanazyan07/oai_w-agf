@@ -38,6 +38,7 @@
 #include <nfapi.h>
 #include <debug.h>
 #include "nfapi_nr_interface_scf.h"
+#include <common/utils/LOG/log.h>
 
 extern int nfapi_unpack_p7_vendor_extension(nfapi_p7_message_header_t *header, uint8_t **ppReadPackedMsg, void *user_data);
 extern int nfapi_pack_p7_vendor_extension(nfapi_p7_message_header_t *header, uint8_t **ppWritePackedMsg, void *user_data);
@@ -960,6 +961,7 @@ static uint8_t pack_ul_tti_request_prach_pdu(nfapi_nr_prach_pdu_t *prach_pdu, ui
 
 static uint8_t pack_ul_tti_request_pucch_pdu(nfapi_nr_pucch_pdu_t *pucch_pdu, uint8_t **ppWritePackedMsg, uint8_t *end)
 {
+  LOG_I(PHY,"pucch_pdu->sr_flag: %d\n",pucch_pdu->sr_flag);
   if (!(push16(pucch_pdu->rnti, ppWritePackedMsg, end)
         && push32(pucch_pdu->handle, ppWritePackedMsg, end)
         && push16(pucch_pdu->bwp_size, ppWritePackedMsg, end)
@@ -1663,6 +1665,7 @@ static uint8_t pack_ul_config_request_body_value(void *tlv, uint8_t **ppWritePac
 static uint8_t pack_ul_tti_request(void *msg, uint8_t **ppWritePackedMsg, uint8_t *end, nfapi_p7_codec_config_t *config)
 {
   nfapi_nr_ul_tti_request_t *pNfapiMsg = (nfapi_nr_ul_tti_request_t *)msg;
+  LOG_I(PHY,"pack_ul_tti_request SFN/Slot:%d.%d\n",pNfapiMsg->SFN,pNfapiMsg->Slot);
   pNfapiMsg->n_ulcch = 0;
   pNfapiMsg->n_ulsch = 0;
   for (int i = 0; i < pNfapiMsg->n_pdus; i++) {
