@@ -496,8 +496,8 @@ bool rx_sss_nr(PHY_VARS_NR_UE *ue,
   }
 
 //#ifdef DEBUG_SSS_NR
-  
-#define SSS_METRIC_FLOOR_NR   (30000)
+
+#define SSS_METRIC_FLOOR_NR (10000)
   if (*tot_metric > SSS_METRIC_FLOOR_NR) {	
     Nid2 = GET_NID2(frame_parms->Nid_cell);
     Nid1 = GET_NID1(frame_parms->Nid_cell);
