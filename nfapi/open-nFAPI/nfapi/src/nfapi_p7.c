@@ -276,7 +276,7 @@ static uint8_t pack_dl_tti_pdcch_pdu_rel15_value(void *tlv, uint8_t **ppWritePac
 static uint8_t pack_dl_tti_pdsch_pdu_rel15_value(void *tlv, uint8_t **ppWritePackedMsg, uint8_t *end)
 {
   nfapi_nr_dl_tti_pdsch_pdu_rel15_t *value = (nfapi_nr_dl_tti_pdsch_pdu_rel15_t *)tlv;
-  printf("I am here pack_dl_tti_pdsch_pdu_rel15_value\n");
+
   if (!(push16(value->pduBitmap, ppWritePackedMsg, end) && push16(value->rnti, ppWritePackedMsg, end)
         && push16(value->pduIndex, ppWritePackedMsg, end) && push16(value->BWPSize, ppWritePackedMsg, end)
         && push16(value->BWPStart, ppWritePackedMsg, end) && push8(value->SubcarrierSpacing, ppWritePackedMsg, end)
@@ -333,7 +333,7 @@ static uint8_t pack_dl_tti_pdsch_pdu_rel15_value(void *tlv, uint8_t **ppWritePac
         push8(1, ppWritePackedMsg, end))) { // powerControlOffsetSS
     return 0;
   }
-  printf("PACK value->precodingAndBeamforming.prgs_list[i].pm_idx:%d\n",value->precodingAndBeamforming.prgs_list[0].pm_idx);
+  LOG_I(NFAPI_VNF,"PACK value->precodingAndBeamforming.prgs_list[i].pm_idx:%d\n",value->precodingAndBeamforming.prgs_list[0].pm_idx);
   if (!push8(value->maintenance_parms_v3.ldpcBaseGraph, ppWritePackedMsg, end)
       || !push32(value->maintenance_parms_v3.tbSizeLbrmBytes, ppWritePackedMsg, end))
     return 0;
@@ -4143,7 +4143,7 @@ static uint8_t unpack_dl_tti_pdsch_pdu_rel15_value(void *tlv, uint8_t **ppReadPa
   if (!pull8(ppReadPackedMsg, &value->maintenance_parms_v3.ldpcBaseGraph, end)
       || !pull32(ppReadPackedMsg, &value->maintenance_parms_v3.tbSizeLbrmBytes, end))
     return 0;
-  printf("UNPACK value->precodingAndBeamforming.prgs_list[i].pm_idx,:%d\n",value->precodingAndBeamforming.prgs_list[0].pm_idx);
+  LOG_I(NFAPI_PNF,"UNPACK value->precodingAndBeamforming.prgs_list[i].pm_idx,:%d\n",value->precodingAndBeamforming.prgs_list[0].pm_idx);
   return 1;
 }
 
