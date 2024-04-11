@@ -1092,7 +1092,6 @@ void nr_schedule_ue_spec(module_id_t module_id,
     pdsch_pdu->NrOfSymbols = tda_info->nrOfSymbols;
     // Precoding
     pdsch_pdu->precodingAndBeamforming.prg_size = pdsch_pdu->rbSize;
-    LOG_I(NR_MAC, "(%d/%d)sched_pdsch->pm_index:%d\n",frame,slot,sched_pdsch->pm_index);
     pdsch_pdu->precodingAndBeamforming.prgs_list[0].pm_idx = sched_pdsch->pm_index;
     // TBS_LBRM according to section 5.4.2.1 of 38.212
     // TODO: verify the case where maxMIMO_Layers is NULL, in which case
