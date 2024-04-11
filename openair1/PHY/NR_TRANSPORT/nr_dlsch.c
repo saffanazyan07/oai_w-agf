@@ -39,6 +39,7 @@
 #include "common/utils/LOG/vcd_signal_dumper.h"
 #include "common/utils/nr/nr_common.h"
 #include "executables/softmodem-common.h"
+#include <common/utils/LOG/log.h>
 
 //#define DEBUG_DLSCH
 //#define DEBUG_DLSCH_MAPPING
@@ -489,8 +490,16 @@ void nr_generate_pdsch(processingData_L1tx_t *msgTx, int frame, int slot)
         uint16_t subCarrier = start_sc;
         const size_t txdataF_offset_per_symbol = l_symbol * frame_parms->ofdm_symbol_size + txdataF_offset;
         int rb = 0;
+        LOG_I(PHY,"ant:%d,l_symbol:%d\n", ant, l_symbol);
         while(rb < rel15->rbSize) {
+          LOG_I(PHY,"(%d/%d) rel15->precodingAndBeamforming.prg_size:%d\n",frame,slot, rel15->precodingAndBeamforming.prg_size);
           //get pmi info
+          if(rel15->precodingAndBeamforming.prg_size > 0){
+            LOG_I(PHY,"[0]:%d\n",(rel15->precodingAndBeamforming.prgs_list[0].pm_idx));
+            // rel15->precodingAndBeamforming.prgs_list[0].pm_idx = 0;
+            LOG_I(PHY,"(int)rb/prg_size:%d\n",(int)rb/rel15->precodingAndBeamforming.prg_size);
+          }
+            
           const int pmi = (rel15->precodingAndBeamforming.prg_size > 0) ?
             (rel15->precodingAndBeamforming.prgs_list[(int)rb/rel15->precodingAndBeamforming.prg_size].pm_idx) : 0;
           const int pmi2 = (rb < (rel15->rbSize - 1) && rel15->precodingAndBeamforming.prg_size > 0) ?
@@ -500,7 +509,7 @@ void nr_generate_pdsch(processingData_L1tx_t *msgTx, int frame, int slot)
           // if pmi differs, or current rb is the end (rel15->rbSize - 1), than we do 1 RB in a row
           const int rb_step = pmi == pmi2 ? 2 : 1;
           const int re_cnt  = NR_NB_SC_PER_RB * rb_step;
-
+          LOG_I(PHY,"pmi:%d\n",pmi);
           if (pmi == 0) {//unitary Precoding
             if (subCarrier + re_cnt <= frame_parms->ofdm_symbol_size) { // RB does not cross DC
               if (ant < rel15->nrOfLayers)
