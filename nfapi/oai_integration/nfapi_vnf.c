@@ -2040,7 +2040,6 @@ static void remove_ul_config_req_pdu(int index, nfapi_ul_config_request_t *ul_co
 
 int oai_nfapi_ul_tti_req(nfapi_nr_ul_tti_request_t *ul_tti_req) {
   nfapi_vnf_p7_config_t *p7_config = vnf.p7_vnfs[0].config;
-  LOG_I(NR_PHY, "Entering oai_nfapi_ul_tti_req sfn:%d,slot:%d\n", ul_tti_req->SFN, ul_tti_req->Slot);
 
   ul_tti_req->header.phy_id = 1; // HACK TODO FIXME - need to pass this around!!!!
   ul_tti_req->header.message_id = NFAPI_NR_PHY_MSG_TYPE_UL_TTI_REQUEST;
