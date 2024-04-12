@@ -804,7 +804,10 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx)
                            slot_rx,
                            uci_pdu_format0,
                            pucch_pdu);
-
+          LOG_I(PHY,
+                "frame %d, slot %d: PUCCH\n",
+                frame_rx,
+                slot_rx);
           gNB->UL_INFO.uci_ind.num_ucis += 1;
           pucch->active = 0;
           break;
