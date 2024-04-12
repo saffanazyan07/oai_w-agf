@@ -333,7 +333,6 @@ static uint8_t pack_dl_tti_pdsch_pdu_rel15_value(void *tlv, uint8_t **ppWritePac
         push8(1, ppWritePackedMsg, end))) { // powerControlOffsetSS
     return 0;
   }
-  LOG_I(NFAPI_VNF,"PACK value->precodingAndBeamforming.prgs_list[i].pm_idx:%d\n",value->precodingAndBeamforming.prgs_list[0].pm_idx);
   if (!push8(value->maintenance_parms_v3.ldpcBaseGraph, ppWritePackedMsg, end)
       || !push32(value->maintenance_parms_v3.tbSizeLbrmBytes, ppWritePackedMsg, end))
     return 0;
@@ -961,7 +960,6 @@ static uint8_t pack_ul_tti_request_prach_pdu(nfapi_nr_prach_pdu_t *prach_pdu, ui
 
 static uint8_t pack_ul_tti_request_pucch_pdu(nfapi_nr_pucch_pdu_t *pucch_pdu, uint8_t **ppWritePackedMsg, uint8_t *end)
 {
-  // LOG_I(PHY,"pucch_pdu->sr_flag: %d\n",pucch_pdu->sr_flag);
   if (!(push16(pucch_pdu->rnti, ppWritePackedMsg, end)
         && push32(pucch_pdu->handle, ppWritePackedMsg, end)
         && push16(pucch_pdu->bwp_size, ppWritePackedMsg, end)
@@ -1665,7 +1663,6 @@ static uint8_t pack_ul_config_request_body_value(void *tlv, uint8_t **ppWritePac
 static uint8_t pack_ul_tti_request(void *msg, uint8_t **ppWritePackedMsg, uint8_t *end, nfapi_p7_codec_config_t *config)
 {
   nfapi_nr_ul_tti_request_t *pNfapiMsg = (nfapi_nr_ul_tti_request_t *)msg;
-  // LOG_I(PHY,"pack_ul_tti_request SFN/Slot:%d.%d\n",pNfapiMsg->SFN,pNfapiMsg->Slot);
   pNfapiMsg->n_ulcch = 0;
   pNfapiMsg->n_ulsch = 0;
   for (int i = 0; i < pNfapiMsg->n_pdus; i++) {
@@ -3498,7 +3495,6 @@ static uint8_t pack_nr_uci_pucch_0_1(void* tlv, uint8_t **ppWritePackedMsg, uint
 			return 0;
 	}
 
-  // LOG_I(PHY,"value->pduBitmap:%d, value->harq.num_harq:%d\n",value->pduBitmap,value->harq.num_harq);
 	if (((value->pduBitmap >> 1) & 0x01)) { //HARQ
 		if (!push8(value->harq.num_harq, ppWritePackedMsg, end))
 			return 0;
@@ -4143,7 +4139,6 @@ static uint8_t unpack_dl_tti_pdsch_pdu_rel15_value(void *tlv, uint8_t **ppReadPa
   if (!pull8(ppReadPackedMsg, &value->maintenance_parms_v3.ldpcBaseGraph, end)
       || !pull32(ppReadPackedMsg, &value->maintenance_parms_v3.tbSizeLbrmBytes, end))
     return 0;
-  LOG_I(NFAPI_PNF,"UNPACK value->precodingAndBeamforming.prgs_list[i].pm_idx,:%d\n",value->precodingAndBeamforming.prgs_list[0].pm_idx);
   return 1;
 }
 

@@ -912,7 +912,6 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 			DevAssert(pnf_p7->_public.dl_tti_req_fn != NULL);
 			// pnf_phy_dl_tti_req()
 			(pnf_p7->_public.dl_tti_req_fn)(NULL, &(pnf_p7->_public), tx_slot_buffer->dl_tti_req);
-			LOG_I(PHY,"[PNF_P7] dl_tti_req Finish (%d/%d)\n",sfn_tx,slot_tx);
 		}
 
 		if(tx_slot_buffer->ul_tti_req != 0)
