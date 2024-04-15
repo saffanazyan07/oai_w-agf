@@ -1242,6 +1242,8 @@ int trigger_scheduler(nfapi_nr_slot_indication_scf_t *slot_ind)
     oai_nfapi_dl_tti_req(&g_sched_resp.DL_req);
 
   if (g_sched_resp.UL_tti_req.n_pdus > 0)
+    LOG_I(MAC, "(%d/%d) Triggering UL TTI request\n",slot_ind->sfn,slot_ind->slot);
+  if (g_sched_resp.UL_tti_req.n_pdus > 0)
     oai_nfapi_ul_tti_req(&g_sched_resp.UL_tti_req);
 
   if (g_sched_resp.TX_req.Number_of_PDUs > 0)
