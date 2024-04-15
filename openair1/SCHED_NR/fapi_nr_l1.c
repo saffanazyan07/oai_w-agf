@@ -137,7 +137,6 @@ void nr_schedule_ul_tti_req(PHY_VARS_gNB *gNB, nfapi_nr_ul_tti_request_t *UL_tti
 
   int slot_type = nr_slot_select(cfg, frame, slot);
   DevAssert(slot_type == NR_UPLINK_SLOT || slot_type == NR_MIXED_SLOT);
-  LOG_I(NR_PHY, "UL_tti_req->n_pdus:%d\n",UL_tti_req->n_pdus);
   for (int i = 0; i < UL_tti_req->n_pdus; i++) {
     switch (UL_tti_req->pdus_list[i].pdu_type) {
       case NFAPI_NR_UL_CONFIG_PUSCH_PDU_TYPE:
@@ -148,7 +147,6 @@ void nr_schedule_ul_tti_req(PHY_VARS_gNB *gNB, nfapi_nr_ul_tti_request_t *UL_tti
               UL_tti_req->SFN,
               UL_tti_req->Slot);
         nr_fill_ulsch(gNB, UL_tti_req->SFN, UL_tti_req->Slot, &UL_tti_req->pdus_list[i].pusch_pdu);
-        LOG_I(NR_PHY,"(%d/%d)Finish nr_fill_ulsch\n",UL_tti_req->SFN, UL_tti_req->Slot);
         break;
       case NFAPI_NR_UL_CONFIG_PUCCH_PDU_TYPE:
         LOG_D(NR_PHY,
@@ -158,7 +156,6 @@ void nr_schedule_ul_tti_req(PHY_VARS_gNB *gNB, nfapi_nr_ul_tti_request_t *UL_tti
               UL_tti_req->SFN,
               UL_tti_req->Slot);
         nr_fill_pucch(gNB, UL_tti_req->SFN, UL_tti_req->Slot, &UL_tti_req->pdus_list[i].pucch_pdu);
-        LOG_I(NR_PHY,"(%d/%d)Finish nr_fill_pucch\n",UL_tti_req->SFN, UL_tti_req->Slot);
         break;
       case NFAPI_NR_UL_CONFIG_PRACH_PDU_TYPE:
         LOG_D(NR_PHY,
@@ -169,11 +166,8 @@ void nr_schedule_ul_tti_req(PHY_VARS_gNB *gNB, nfapi_nr_ul_tti_request_t *UL_tti
               UL_tti_req->Slot);
         nfapi_nr_prach_pdu_t *prach_pdu = &UL_tti_req->pdus_list[i].prach_pdu;
         nr_fill_prach(gNB, UL_tti_req->SFN, UL_tti_req->Slot, prach_pdu);
-        LOG_I(NR_PHY,"(%d/%d)Finish nr_fill_prach\n",UL_tti_req->SFN, UL_tti_req->Slot);
         if (gNB->RU_list[0]->if_south == LOCAL_RF || gNB->RU_list[0]->if_south == REMOTE_IF5)
           nr_fill_prach_ru(gNB->RU_list[0], UL_tti_req->SFN, UL_tti_req->Slot, prach_pdu);
-        if (gNB->RU_list[0]->if_south == LOCAL_RF || gNB->RU_list[0]->if_south == REMOTE_IF5)
-          LOG_I(NR_PHY,"(%d/%d)Finish nr_fill_prach_ru\n",UL_tti_req->SFN, UL_tti_req->Slot);
         break;
       case NFAPI_NR_UL_CONFIG_SRS_PDU_TYPE:
         LOG_D(NR_PHY,
@@ -183,7 +177,6 @@ void nr_schedule_ul_tti_req(PHY_VARS_gNB *gNB, nfapi_nr_ul_tti_request_t *UL_tti
               UL_tti_req->SFN,
               UL_tti_req->Slot);
         nr_fill_srs(gNB, UL_tti_req->SFN, UL_tti_req->Slot, &UL_tti_req->pdus_list[i].srs_pdu);
-        LOG_I(NR_PHY,"(%d/%d)Finish nr_fill_srs\n",UL_tti_req->SFN, UL_tti_req->Slot);
         break;
     }
   }
