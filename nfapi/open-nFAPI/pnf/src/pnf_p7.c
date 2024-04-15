@@ -1308,16 +1308,76 @@ uint8_t is_nr_p7_request_in_window(uint16_t sfn,uint16_t slot, const char* name,
 {
 	uint32_t recv_sfn_slot_dec = NFAPI_SFNSLOT2DEC(sfn,slot);
 	uint32_t current_sfn_slot_dec = NFAPI_SFNSLOT2DEC(phy->sfn,phy->slot);
-	// printf("p7_msg_sfn: %d, p7_msg_slot: %d, phy_sfn:%d , phy_slot:%d \n",sfn,slot,phy->sfn,phy->slot);
+	//printf("p7_msg_sfn: %d, p7_msg_slot: %d, phy_sfn:%d , phy_slot:%d \n",sfn,slot,phy->sfn,phy->slot);
+	uint8_t in_window = 0;
 	uint8_t timing_window = phy->_public.slot_buffer_size;
-	if(abs(recv_sfn_slot_dec - current_sfn_slot_dec) > timing_window){
-		if(abs(NFAPI_MAX_SFNSLOTDEC + recv_sfn_slot_dec - current_sfn_slot_dec) > timing_window){
-			return 0;
-			NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is out of window %d (delta:%d) [max:%d]\n", current_sfn_slot_dec, name, recv_sfn_slot_dec,  (current_sfn_slot_dec - recv_sfn_slot_dec), timing_window);
-		}
+
+	// if(recv_sfn_slot_dec <= current_sfn_slot_dec)
+	// {
+	// 	// Need to check for wrap in window
+	// 	if(((recv_sfn_slot_dec + timing_window) % NFAPI_MAX_SFNSLOTDEC) < recv_sfn_slot_dec)
+	// 	{
+	// 		if(current_sfn_slot_dec > ((recv_sfn_slot_dec + timing_window) % NFAPI_MAX_SFNSLOTDEC))
+	// 		{
+	// 			// out of window
+	// 			NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is late %d (with wrap)\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
+	// 		}
+	// 		else
+	// 		{
+	// 			// ok
+	// 			//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d (with wrap)\n", current_sfn_sf_dec, name, recv_sfn_sf_dec);
+	// 			in_window = 1;
+	// 		}
+	// 	}
+	// 	else
+	// 	{
+	// 		if((current_sfn_slot_dec - recv_sfn_slot_dec) <= timing_window)
+	// 			{
+	// 				// in window
+	// 				//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
+	// 				in_window = 1;
+	// 			}
+	// 		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in late %d (delta:%d)\n", current_sfn_slot_dec, name, recv_sfn_slot_dec, (current_sfn_slot_dec - recv_sfn_slot_dec));
+	// 	}
+
+	// }
+	// else
+	// {
+	// 	// Need to check it is in window
+	// 	if((recv_sfn_slot_dec - current_sfn_slot_dec) <= timing_window)
+	// 	{
+	// 		// in window
+	// 		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_sf_dec, name, recv_sfn_sf_dec);
+	// 		in_window = 1;
+	// 	}
+	// 	else
+	// 	{
+	// 		// too far in the future
+	// 		NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is out of window %d (delta:%d) [max:%d]\n", current_sfn_slot_dec, name, recv_sfn_slot_dec,  (recv_sfn_slot_dec - current_sfn_slot_dec), timing_window);
+	// 	}
+
+	// }
+	if(current_sfn_slot_dec <= recv_sfn_slot_dec + timing_window){
+		in_window = 1;
+		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
 	}
-	return 1;
+	else if(current_sfn_slot_dec <= recv_sfn_slot_dec + NFAPI_MAX_SFNSLOTDEC + timing_window){ //checking for wrap
+		in_window = 1;
+		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
+	}
+  
+	else
+	{ 	
+		
+		NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is out of window %d (delta:%d) [max:%d]\n", current_sfn_slot_dec, name, recv_sfn_slot_dec,  (current_sfn_slot_dec - recv_sfn_slot_dec), timing_window);
+		
+	}//Need to add more cases
+	
+
+	return in_window;
 }
+
+
 
 
 
