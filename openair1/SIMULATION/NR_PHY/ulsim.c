@@ -1136,7 +1136,7 @@ int main(int argc, char *argv[])
         }
 
         for (int i = 0; i < (TBS / 8); i++)
-          UE->ul_harq_processes[harq_pid].a[i] = i & 0xff;
+          UE->ul_harq_processes[harq_pid].aPayload[i] = i & 0xff;
 
         if (input_fd == NULL) {
           // set FAPI parameters for UE, put them in the scheduled response and call
@@ -1452,7 +1452,7 @@ int main(int argc, char *argv[])
 
       for (i = 0; i < TBS; i++) {
         uint8_t estimated_output_bit = (ulsch_gNB->harq_process->b[i / 8] & (1 << (i & 7))) >> (i & 7);
-        uint8_t test_input_bit = (UE->ul_harq_processes[harq_pid].b[i / 8] & (1 << (i & 7))) >> (i & 7);
+        uint8_t test_input_bit = (UE->ul_harq_processes[harq_pid].aPayload[i / 8] & (1 << (i & 7))) >> (i & 7);
       
         if (estimated_output_bit != test_input_bit) {
           /*if(errors_decoding == 0)

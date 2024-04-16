@@ -197,7 +197,7 @@ void nr_ue_ulsch_procedures(PHY_VARS_NR_UE *UE,
                             Nl);
 
   trace_NRpdu(DIRECTION_UPLINK,
-              harq_process_ul_ue->a,
+              harq_process_ul_ue->aPayload,
               tb_size,
               WS_C_RNTI, rnti, frame, slot, 0, 0);
 
