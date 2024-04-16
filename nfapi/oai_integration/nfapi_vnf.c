@@ -1248,8 +1248,6 @@ int trigger_scheduler(nfapi_nr_slot_indication_scf_t *slot_ind)
     oai_nfapi_tx_data_req(&g_sched_resp.TX_req);
 
   if (g_sched_resp.UL_dci_req.numPdus > 0)
-    LOG_I(MAC, "(%d/%d)oai_nfapi_ul_dci_req\n",slot_ind->sfn,slot_ind->slot);
-  if (g_sched_resp.UL_dci_req.numPdus > 0)
     oai_nfapi_ul_dci_req(&g_sched_resp.UL_dci_req);
   return 1;
 }
