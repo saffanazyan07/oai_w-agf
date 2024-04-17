@@ -1398,12 +1398,16 @@ static bool nr_UE_is_to_be_scheduled(const NR_ServingCellConfigCommon_t *scc, in
   const bool has_data = sched_ctrl->estimated_ul_buffer > sched_ctrl->sched_ul_bytes;
   const bool high_inactivity = diff >= (ulsch_max_frame_inactivity > 0 ? ulsch_max_frame_inactivity * n : num_slots_per_period);
   LOG_D(NR_MAC,
-        "%4d.%2d UL inactivity %d slots has_data %d SR %d\n",
+        "%4d.%2d UL inactivity %d slots has_data %d SR %d tooHigh %d max_frame %d period %d n %d\n",
         frame,
         slot,
         diff,
         has_data,
-        sched_ctrl->SR);
+        sched_ctrl->SR,
+        high_inactivity,
+        ulsch_max_frame_inactivity,
+        num_slots_per_period,
+        n);
   return has_data || sched_ctrl->SR || high_inactivity;
 }
 
@@ -1710,7 +1714,7 @@ static void pf_ul(module_id_t module_id,
     const int B = max(0, sched_ctrl->estimated_ul_buffer - sched_ctrl->sched_ul_bytes);
     /* preprocessor computed sched_frame/sched_slot */
     const bool do_sched = nr_UE_is_to_be_scheduled(scc, 0, UE, sched_pusch->frame, sched_pusch->slot, nrmac->ulsch_max_frame_inactivity);
-
+    // if(UE->rnti,do_sched)
     LOG_D(NR_MAC,"pf_ul: do_sched UE %04x => %s\n",UE->rnti,do_sched ? "yes" : "no");
     if ((B == 0 && !do_sched) || (sched_ctrl->rrc_processing_timer > 0)) {
       continue;
