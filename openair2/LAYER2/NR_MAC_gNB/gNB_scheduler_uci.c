@@ -1055,7 +1055,7 @@ void handle_nr_uci_pucch_0_1(module_id_t mod_id,
     if (uci_01->sr.sr_indication && uci_01->sr.sr_confidence_level == 0 && uci_01->ul_cqi >= 148) {
       // SR detected with SNR >= 10dB
       sched_ctrl->SR |= true;
-      LOG_I(NR_MAC, "(%d/%d)SR UE %04x ul_cqi %d\n",frame, slot, uci_01->rnti, uci_01->ul_cqi);
+      LOG_D(NR_MAC, "SR UE %04x ul_cqi %d\n", uci_01->rnti, uci_01->ul_cqi);
     }
 
   }
