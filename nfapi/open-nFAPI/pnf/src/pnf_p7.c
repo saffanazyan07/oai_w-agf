@@ -1304,19 +1304,18 @@ int pnf_p7_subframe_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn_sf)
 // return 1 if in window
 // return 0 if out of window
 
-uint8_t is_nr_p7_request_in_window(uint16_t sfn,uint16_t slot, const char* name, pnf_p7_t* phy)
+bool is_nr_p7_request_in_window(uint16_t sfn,uint16_t slot, const char* name, pnf_p7_t* phy)
 {
 	uint32_t recv_sfn_slot_dec = NFAPI_SFNSLOT2DEC(sfn,slot);
 	uint32_t current_sfn_slot_dec = NFAPI_SFNSLOT2DEC(phy->sfn,phy->slot);
 	// printf("p7_msg_sfn: %d, p7_msg_slot: %d, phy_sfn:%d , phy_slot:%d \n",sfn,slot,phy->sfn,phy->slot);
 	uint8_t timing_window = phy->_public.slot_buffer_size;
-	if(abs(recv_sfn_slot_dec - current_sfn_slot_dec) > timing_window){
-		if(abs(NFAPI_MAX_SFNSLOTDEC + recv_sfn_slot_dec - current_sfn_slot_dec) > timing_window){
-			return 0;
-			NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is out of window %d (delta:%d) [max:%d]\n", current_sfn_slot_dec, name, recv_sfn_slot_dec,  (current_sfn_slot_dec - recv_sfn_slot_dec), timing_window);
-		}
+	if((((NFAPI_MAX_SFNSLOTDEC + recv_sfn_slot_dec - current_sfn_slot_dec) % NFAPI_MAX_SFNSLOTDEC)  > timing_window) &&
+	   (((NFAPI_MAX_SFNSLOTDEC + current_sfn_slot_dec - recv_sfn_slot_dec) % NFAPI_MAX_SFNSLOTDEC)  > timing_window)){
+		NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is out of window %d (delta:%d) [max:%d]\n", current_sfn_slot_dec, name, recv_sfn_slot_dec,  (current_sfn_slot_dec - recv_sfn_slot_dec), timing_window);
+		return false;
 	}
-	return 1;
+	return true;
 }
 
 
@@ -1882,8 +1881,9 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 
 			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
 			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
+			LOG_I(MAC,"cp_nr_tx_data_req start\n");
       		cp_nr_tx_data_req(&pnf_p7->slot_buffer[buffer_index].tx_data_req, &req);
-
+			LOG_I(MAC,"cp_nr_tx_data_req stop\n");
 			pnf_p7->stats.tx_data_ontime++;
 		}
 		else
