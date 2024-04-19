@@ -1881,9 +1881,7 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 
 			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
 			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
-			LOG_I(MAC,"cp_nr_tx_data_req start\n");
       		cp_nr_tx_data_req(&pnf_p7->slot_buffer[buffer_index].tx_data_req, &req);
-			LOG_I(MAC,"cp_nr_tx_data_req stop\n");
 			pnf_p7->stats.tx_data_ontime++;
 		}
 		else
