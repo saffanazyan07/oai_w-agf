@@ -771,6 +771,8 @@ int nfapi_pnf_p7_stop(nfapi_pnf_p7_config_t* config);
  */
 int nfapi_pnf_p7_slot_ind(nfapi_pnf_p7_config_t* config, uint16_t phy_id, uint16_t sfn, uint16_t slot);
 
+void recv_and_save_pnf_p7(nfapi_pnf_p7_config_t* config);
+
 
 /*! Subframe indication
  * \param config A pointer to a PNF P7 config

@@ -35,6 +35,12 @@ extern uint16_t sf_ahead;
 
 //uint16_t sf_ahead=4;
 
+nfapi_pnf_p7_config_t *pnf_p7_recv = NULL;
+
+void recv_and_save_pnf_p7(nfapi_pnf_p7_config_t* pnf_p7){
+	pnf_p7_recv = pnf_p7;
+}
+
 void add_slot(uint16_t *frameP, uint16_t *slotP, int offset)
 {
 	uint16_t num_slots = 20; // set based on numerlogy (fixing for 1)
@@ -844,7 +850,7 @@ void send_dummy_subframe(pnf_p7_t* pnf_p7, uint16_t sfn_sf)
 
 int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t slot)
 {	
-	//This function is aligned with rx sfn/slot
+		//This function is aligned with rx sfn/slot
 
 	// We could either send an event to the p7 thread have have it run the
 	// subframe or we could handle it here and lock access to the subframe
@@ -912,6 +918,7 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 			DevAssert(pnf_p7->_public.dl_tti_req_fn != NULL);
 			// pnf_phy_dl_tti_req()
 			(pnf_p7->_public.dl_tti_req_fn)(NULL, &(pnf_p7->_public), &tx_slot_buffer->dl_tti_req);
+			tx_slot_buffer->dl_tti_req.dl_tti_request_body.nPDUs = 0;
 		}
 
 		if(tx_slot_buffer->ul_tti_req.n_pdus > 0 && tx_slot_buffer->ul_tti_req.SFN == sfn_tx && tx_slot_buffer->ul_tti_req.Slot == slot_tx)
@@ -919,6 +926,10 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 			DevAssert(pnf_p7->_public.ul_tti_req_fn != NULL);
 			// pnf_phy_ul_tti_req()
 			(pnf_p7->_public.ul_tti_req_fn)(NULL, &(pnf_p7->_public), &tx_slot_buffer->ul_tti_req);
+			tx_slot_buffer->ul_tti_req.n_pdus = 0;
+			tx_slot_buffer->ul_tti_req.SFN = -1;
+			tx_slot_buffer->ul_tti_req.Slot = -1;
+
 		}
 
 		if(tx_slot_buffer->tx_data_req.SFN == sfn_tx && tx_slot_buffer->tx_data_req.Slot == slot_tx)
@@ -1538,6 +1549,7 @@ void pnf_handle_dl_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack dl_tti_req");
 	}
+	nfapi_pnf_p7_slot_ind(pnf_p7_recv, pnf_p7_recv->phy_id, req.SFN, req.Slot); 
 }
 
 
@@ -1889,6 +1901,7 @@ void pnf_handle_ul_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack ul_tti_req\n");
 	}
+	nfapi_pnf_p7_slot_ind(pnf_p7_recv, pnf_p7_recv->phy_id, req.SFN, req.Slot); 
 }
 
 void pnf_handle_ul_config_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
@@ -2026,6 +2039,7 @@ void pnf_handle_ul_dci_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack UL DCI req\n");
 	}
+	nfapi_pnf_p7_slot_ind(pnf_p7_recv, pnf_p7_recv->phy_id, req.SFN, req.Slot); 
 }
 
 
@@ -2176,6 +2190,7 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 			return;
 		}
   }
+  nfapi_pnf_p7_slot_ind(pnf_p7_recv, pnf_p7_recv->phy_id, req.SFN, req.Slot); 
 }
 
 
