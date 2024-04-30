@@ -1427,8 +1427,9 @@ void *rrc_nrue(void *notUsed)
     break;
 
   case NR_RRC_MAC_BCCH_DATA_IND:
-    LOG_D(NR_RRC, "[UE %ld] Received %s: gNB %d\n", rrc->ue_id, ITTI_MSG_NAME(msg_p), NR_RRC_MAC_BCCH_DATA_IND(msg_p).gnb_index);
+    LOG_I(NR_RRC, "[UE %ld] Received %s: gNB %d\n", rrc->ue_id, ITTI_MSG_NAME(msg_p), NR_RRC_MAC_BCCH_DATA_IND(msg_p).gnb_index);
     NRRrcMacBcchDataInd *bcch = &NR_RRC_MAC_BCCH_DATA_IND(msg_p);
+    LOG_I(NR_RRC, "bcch->is_bch : %d\n", bcch->is_bch);
     if (bcch->is_bch)
       nr_rrc_ue_decode_NR_BCCH_BCH_Message(rrc, bcch->gnb_index, bcch->sdu, bcch->sdu_size);
     else

@@ -2122,9 +2122,6 @@ void handle_nr_slot_ind(uint16_t sfn, uint16_t slot)
     oai_nfapi_nr_slot_indication(&ind);
     //copy data from appropriate p7 slot buffers into channel structures for PHY processing
     recv_and_save_pnf_p7(p7_config_g);
-    pnf_p7_t* p = (pnf_p7_t*)(p7_config_g);
-    // p->sfn = sfn;
-    // p->slot = slot;
     nfapi_pnf_p7_slot_ind(p7_config_g, p7_config_g->phy_id, sfn, slot); 
     return;
 }
