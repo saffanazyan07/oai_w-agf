@@ -884,51 +884,98 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 	uint32_t tx_slot_dec = NFAPI_SFNSLOT2DEC(sfn_tx,slot_tx);
 	uint8_t buffer_index_tx = tx_slot_dec % 20;
 
-	// apply the shift to the incoming sfn_sf
-	if(pnf_p7->slot_shift != 0) // see in vnf_build_send_dl_node_sync
+	// If the subframe_buffer has been configured
+	if(pnf_p7->_public.slot_buffer_size!= 0) // for now value is same as sf_buffer_size
 	{
-		uint16_t shifted_slot = slot + pnf_p7->slot_shift; 
 
-		// adjust for wrap-around
-		if(shifted_slot < 0)
-			shifted_slot += NFAPI_MAX_SFNSLOTDEC;
-		else if(shifted_slot > NFAPI_MAX_SFNSLOTDEC)
-			shifted_slot -= NFAPI_MAX_SFNSLOTDEC;
+		// apply the shift to the incoming sfn_sf
+		if(pnf_p7->slot_shift != 0) // see in vnf_build_send_dl_node_sync
+		{
+			uint16_t shifted_slot = slot + pnf_p7->slot_shift; 
 
-//		NFAPI_TRACE(NFAPI_TRACE_INFO, "Applying shift %d to sfn/slot (%d -> %d)\n", pnf_p7->sfn_slot_shift, NFAPI_SFNSF2DEC(sfn_slot), shifted_sfn_slot);
-		slot = shifted_slot;
+			// adjust for wrap-around
+			if(shifted_slot < 0)
+				shifted_slot += NFAPI_MAX_SFNSLOTDEC;
+			else if(shifted_slot > NFAPI_MAX_SFNSLOTDEC)
+				shifted_slot -= NFAPI_MAX_SFNSLOTDEC;
 
-		//
-		// why does the shift not apply to pnf_p7->sfn_sf???
-		//
+	//		NFAPI_TRACE(NFAPI_TRACE_INFO, "Applying shift %d to sfn/slot (%d -> %d)\n", pnf_p7->sfn_slot_shift, NFAPI_SFNSF2DEC(sfn_slot), shifted_sfn_slot);
+			slot = shifted_slot;
 
-		pnf_p7->slot_shift = 0;
+			//
+			// why does the shift not apply to pnf_p7->sfn_sf???
+			//
+
+			pnf_p7->slot_shift = 0;
+		}
+
+		nfapi_pnf_p7_slot_buffer_t* rx_slot_buffer = &(pnf_p7->slot_buffer[buffer_index_rx]);
+
+		nfapi_pnf_p7_slot_buffer_t* tx_slot_buffer = &(pnf_p7->slot_buffer[buffer_index_tx]);
+
+		if(tx_slot_buffer->dl_tti_req.dl_tti_request_body.nPDUs > 0 && tx_slot_buffer->dl_tti_req.SFN == sfn_tx && tx_slot_buffer->dl_tti_req.Slot == slot_tx)
+		{
+			DevAssert(pnf_p7->_public.dl_tti_req_fn != NULL);
+			// pnf_phy_dl_tti_req()
+			(pnf_p7->_public.dl_tti_req_fn)(NULL, &(pnf_p7->_public), &tx_slot_buffer->dl_tti_req);
+			tx_slot_buffer->dl_tti_req.dl_tti_request_body.nPDUs = 0;
+		}
+
+		if(tx_slot_buffer->ul_tti_req.n_pdus > 0 && tx_slot_buffer->ul_tti_req.SFN == sfn_tx && tx_slot_buffer->ul_tti_req.Slot == slot_tx)
+		{
+			DevAssert(pnf_p7->_public.ul_tti_req_fn != NULL);
+			// pnf_phy_ul_tti_req()
+			(pnf_p7->_public.ul_tti_req_fn)(NULL, &(pnf_p7->_public), &tx_slot_buffer->ul_tti_req);
+			tx_slot_buffer->ul_tti_req.n_pdus = 0;
+			tx_slot_buffer->ul_tti_req.SFN = -1;
+			tx_slot_buffer->ul_tti_req.Slot = -1;
+
+		}
+
+		if(tx_slot_buffer->tx_data_req.SFN == sfn_tx && tx_slot_buffer->tx_data_req.Slot == slot_tx)
+		{
+				
+			DevAssert(pnf_p7->_public.tx_data_req_fn != NULL);
+			LOG_D(PHY, "Process tx_data SFN/slot %d.%d buffer index: %d \n",sfn_tx,slot_tx,buffer_index_tx);	
+			// pnf_phy_tx_data_req()
+			(pnf_p7->_public.tx_data_req_fn)(&(pnf_p7->_public), &tx_slot_buffer->tx_data_req);
+		}
+
+		if(tx_slot_buffer->ul_dci_req.numPdus > 0 && tx_slot_buffer->ul_dci_req.SFN == sfn_tx && tx_slot_buffer->ul_dci_req.Slot == slot_tx)
+		{
+			DevAssert(pnf_p7->_public.ul_dci_req_fn != NULL);
+			LOG_D(PHY, "Process ul_dci SFN/slot %d.%d buffer index: %d \n",sfn_tx,slot_tx,buffer_index_tx);
+			// pnf_phy_ul_dci_req()
+     		(pnf_p7->_public.ul_dci_req_fn)(NULL, &(pnf_p7->_public), &tx_slot_buffer->ul_dci_req);
+		}
+
+		//reset slot buffer 
+
+		if (rx_slot_buffer->ul_tti_req.n_pdus == 0)
+		{
+			pnf_p7->slot_buffer[buffer_index_rx].sfn = -1;
+			pnf_p7->slot_buffer[buffer_index_rx].slot = -1;
+		}
+
+		//send the periodic timing info if configured
+		if(pnf_p7->_public.timing_info_mode_periodic && (pnf_p7->timing_info_period_counter++) == pnf_p7->_public.timing_info_period)
+		{
+			pnf_nr_pack_and_send_timing_info(pnf_p7);
+
+			pnf_p7->timing_info_period_counter = 0;
+		}
+		else if(pnf_p7->_public.timing_info_mode_aperiodic && pnf_p7->timing_info_aperiodic_send)
+		{
+			pnf_nr_pack_and_send_timing_info(pnf_p7);
+
+			pnf_p7->timing_info_aperiodic_send = 0;
+		}
+		else
+		{
+			pnf_p7->timing_info_ms_counter++;
+		}
+
 	}
-
-	nfapi_pnf_p7_slot_buffer_t* rx_slot_buffer = &(pnf_p7->slot_buffer[buffer_index_rx]);
-
-	nfapi_pnf_p7_slot_buffer_t* tx_slot_buffer = &(pnf_p7->slot_buffer[buffer_index_tx]);
-
-
-	//send the periodic timing info if configured
-	if(pnf_p7->_public.timing_info_mode_periodic && (pnf_p7->timing_info_period_counter++) == pnf_p7->_public.timing_info_period)
-	{
-		pnf_nr_pack_and_send_timing_info(pnf_p7);
-
-		pnf_p7->timing_info_period_counter = 0;
-	}
-	else if(pnf_p7->_public.timing_info_mode_aperiodic && pnf_p7->timing_info_aperiodic_send)
-	{
-		pnf_nr_pack_and_send_timing_info(pnf_p7);
-
-		pnf_p7->timing_info_aperiodic_send = 0;
-	}
-	else
-	{
-		pnf_p7->timing_info_ms_counter++;
-	}
-
-
 
 	if(pthread_mutex_unlock(&(pnf_p7->mutex)) != 0)
 	{
@@ -1481,8 +1528,7 @@ void pnf_handle_dl_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 			// filling dl_tti_request in slot buffer
 			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
 			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
-			// cp_nr_dl_tti_req(&pnf_p7->slot_buffer[buffer_index].dl_tti_req, &req);
-			(pnf_p7->_public.dl_tti_req_fn)(NULL, &(pnf_p7->_public), &req);
+			cp_nr_dl_tti_req(&pnf_p7->slot_buffer[buffer_index].dl_tti_req, &req);
 
 			pnf_p7->stats.dl_tti_ontime++;
 		}
@@ -1503,6 +1549,7 @@ void pnf_handle_dl_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack dl_tti_req");
 	}
+	nfapi_pnf_p7_slot_ind(pnf_p7_recv, pnf_p7_recv->phy_id, req.SFN, req.Slot); 
 }
 
 
@@ -1831,8 +1878,7 @@ void pnf_handle_ul_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 
 			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
 			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
-			// cp_nr_ul_tti_req(&pnf_p7->slot_buffer[buffer_index].ul_tti_req, &req);
-			(pnf_p7->_public.ul_tti_req_fn)(NULL, &(pnf_p7->_public), &req);
+			cp_nr_ul_tti_req(&pnf_p7->slot_buffer[buffer_index].ul_tti_req, &req);
 			
 			pnf_p7->stats.ul_tti_ontime++;
 		}
@@ -1855,6 +1901,7 @@ void pnf_handle_ul_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack ul_tti_req\n");
 	}
+	nfapi_pnf_p7_slot_ind(pnf_p7_recv, pnf_p7_recv->phy_id, req.SFN, req.Slot); 
 }
 
 void pnf_handle_ul_config_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
@@ -1966,9 +2013,7 @@ void pnf_handle_ul_dci_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 			uint8_t buffer_index = sfn_slot_dec % 20;
 
 			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
-			// cp_nr_ul_dci_req(&pnf_p7->slot_buffer[buffer_index].ul_dci_req, &req);
-			(pnf_p7->_public.ul_dci_req_fn)(NULL, &(pnf_p7->_public), &req);
-
+			cp_nr_ul_dci_req(&pnf_p7->slot_buffer[buffer_index].ul_dci_req, &req);
 
 
 			pnf_p7->stats.ul_dci_ontime++;
@@ -1994,6 +2039,7 @@ void pnf_handle_ul_dci_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack UL DCI req\n");
 	}
+	nfapi_pnf_p7_slot_ind(pnf_p7_recv, pnf_p7_recv->phy_id, req.SFN, req.Slot); 
 }
 
 
@@ -2123,8 +2169,7 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 
 			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
 			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
-      		// cp_nr_tx_data_req(&pnf_p7->slot_buffer[buffer_index].tx_data_req, &req);
-			(pnf_p7->_public.tx_data_req_fn)(&(pnf_p7->_public), &req);
+      		cp_nr_tx_data_req(&pnf_p7->slot_buffer[buffer_index].tx_data_req, &req);
 			pnf_p7->stats.tx_data_ontime++;
 		}
 		else
@@ -2145,6 +2190,7 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 			return;
 		}
   }
+  nfapi_pnf_p7_slot_ind(pnf_p7_recv, pnf_p7_recv->phy_id, req.SFN, req.Slot); 
 }
 
 
