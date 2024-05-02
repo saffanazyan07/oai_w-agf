@@ -2309,6 +2309,21 @@ void handle_t300_expiry(NR_UE_RRC_INST_t *rrc)
   // TODO inform upper layers about the failure to establish the RRC connection
 }
 
+void *xx(void *_)
+{
+  while (1) {
+    getchar();
+    NR_UE_RRC_INST_t *rrc = &NR_UE_rrc_inst[0];
+    nr_rrc_initiate_rrcReestablishment(rrc, NR_ReestablishmentCause_otherFailure, 0);
+  }
+}
+
+void gogo(void)
+{
+  pthread_t t;
+  if (pthread_create(&t, NULL, xx, NULL) != 0) abort();
+}
+
 //This calls the sidelink preconf message after RRC, MAC instances are created.
 void start_sidelink(int instance)
 {

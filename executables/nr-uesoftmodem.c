@@ -456,6 +456,8 @@ ldpc_interface_t ldpc_interface = {0}, ldpc_interface_offload = {0};
 
 int main(int argc, char **argv)
 {
+  void gogo(void);
+  gogo();
   int set_exe_prio = 1;
   if (checkIfFedoraDistribution())
     if (checkIfGenericKernelOnFedora())
