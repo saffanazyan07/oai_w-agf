@@ -35,12 +35,6 @@ extern uint16_t sf_ahead;
 
 //uint16_t sf_ahead=4;
 
-nfapi_pnf_p7_config_t *pnf_p7_recv = NULL;
-
-void recv_and_save_pnf_p7(nfapi_pnf_p7_config_t* pnf_p7){
-	pnf_p7_recv = pnf_p7;
-}
-
 void add_slot(uint16_t *frameP, uint16_t *slotP, int offset)
 {
 	uint16_t num_slots = 20; // set based on numerlogy (fixing for 1)
@@ -850,7 +844,7 @@ void send_dummy_subframe(pnf_p7_t* pnf_p7, uint16_t sfn_sf)
 
 int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t slot)
 {	
-		//This function is aligned with rx sfn/slot
+	//This function is aligned with rx sfn/slot
 
 	// We could either send an event to the p7 thread have have it run the
 	// subframe or we could handle it here and lock access to the subframe
@@ -865,50 +859,26 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 		NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
 		return -1;
 	}
-
 	// save the curren time, sfn and slot
 	pnf_p7->slot_start_time_hr = pnf_get_current_time_hr();
-	int slot_ahead = 0;
-	uint32_t sfn_slot_tx = sfnslot_add_slot(sfn, slot, slot_ahead);
-	uint16_t sfn_tx = NFAPI_SFNSLOT2SFN(sfn_slot_tx);
-	uint8_t slot_tx = NFAPI_SFNSLOT2SLOT(sfn_slot_tx);
-
-	//We align the pnf_p7 sfn/slot with tx sfn/slot, and vnf is synced with pnf_p7 sfn/slot. This is so that the scheduler runs slot_ahead from rx thread.
-
-	pnf_p7->sfn = sfn_tx;
-	pnf_p7->slot = slot_tx; 
-
-	uint32_t rx_slot_dec = NFAPI_SFNSLOT2DEC(sfn, slot);
-	uint8_t buffer_index_rx = rx_slot_dec % 20; 
-
-	uint32_t tx_slot_dec = NFAPI_SFNSLOT2DEC(sfn_tx,slot_tx);
-	uint8_t buffer_index_tx = tx_slot_dec % 20;
-
+	pnf_p7->sfn = sfn;
+	pnf_p7->slot = slot; 
 	// apply the shift to the incoming sfn_sf
-	if(pnf_p7->slot_shift != 0) // see in vnf_build_send_dl_node_sync
-	{
-		uint16_t shifted_slot = slot + pnf_p7->slot_shift; 
-
-		// adjust for wrap-around
-		if(shifted_slot < 0)
-			shifted_slot += NFAPI_MAX_SFNSLOTDEC;
-		else if(shifted_slot > NFAPI_MAX_SFNSLOTDEC)
-			shifted_slot -= NFAPI_MAX_SFNSLOTDEC;
-
-//		NFAPI_TRACE(NFAPI_TRACE_INFO, "Applying shift %d to sfn/slot (%d -> %d)\n", pnf_p7->sfn_slot_shift, NFAPI_SFNSF2DEC(sfn_slot), shifted_sfn_slot);
-		slot = shifted_slot;
-
-		//
-		// why does the shift not apply to pnf_p7->sfn_sf???
-		//
-
-		pnf_p7->slot_shift = 0;
-	}
-
-	nfapi_pnf_p7_slot_buffer_t* rx_slot_buffer = &(pnf_p7->slot_buffer[buffer_index_rx]);
-
-	nfapi_pnf_p7_slot_buffer_t* tx_slot_buffer = &(pnf_p7->slot_buffer[buffer_index_tx]);
-
+// 	if(pnf_p7->slot_shift != 0) // see in vnf_build_send_dl_node_sync
+// 	{
+// 		uint16_t shifted_slot = slot + pnf_p7->slot_shift; 
+// 		// adjust for wrap-around
+// 		if(shifted_slot < 0)
+// 			shifted_slot += NFAPI_MAX_SFNSLOTDEC;
+// 		else if(shifted_slot > NFAPI_MAX_SFNSLOTDEC)
+// 			shifted_slot -= NFAPI_MAX_SFNSLOTDEC;
+// //		NFAPI_TRACE(NFAPI_TRACE_INFO, "Applying shift %d to sfn/slot (%d -> %d)\n", pnf_p7->sfn_slot_shift, NFAPI_SFNSF2DEC(sfn_slot), shifted_sfn_slot);
+// 		slot = shifted_slot;
+// 		//
+// 		// why does the shift not apply to pnf_p7->sfn_sf???
+// 		//
+// 		pnf_p7->slot_shift = 0;
+// 	}
 
 	//send the periodic timing info if configured
 	if(pnf_p7->_public.timing_info_mode_periodic && (pnf_p7->timing_info_period_counter++) == pnf_p7->_public.timing_info_period)
@@ -927,8 +897,6 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 	{
 		pnf_p7->timing_info_ms_counter++;
 	}
-
-
 
 	if(pthread_mutex_unlock(&(pnf_p7->mutex)) != 0)
 	{
@@ -1479,9 +1447,10 @@ void pnf_handle_dl_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 			NFAPI_TRACE(NFAPI_TRACE_DEBUG,"%s() %ld.%09ld POPULATE DL_TTI_REQ current tx sfn/slot:%d.%d p7 msg sfn/slot: %d.%d buffer_index:%d\n", __FUNCTION__, t.tv_sec, t.tv_nsec, pnf_p7->sfn,pnf_p7->slot, req.SFN, req.Slot, buffer_index);
 
 			// filling dl_tti_request in slot buffer
-			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
-			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
+			// pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
+			// pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
 			// cp_nr_dl_tti_req(&pnf_p7->slot_buffer[buffer_index].dl_tti_req, &req);
+			// pnf_phy_dl_tti_req()
 			(pnf_p7->_public.dl_tti_req_fn)(NULL, &(pnf_p7->_public), &req);
 
 			pnf_p7->stats.dl_tti_ontime++;
@@ -1829,9 +1798,10 @@ void pnf_handle_ul_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 			
 			//filling slot buffer
 
-			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
-			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
+			// pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
+			// pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
 			// cp_nr_ul_tti_req(&pnf_p7->slot_buffer[buffer_index].ul_tti_req, &req);
+			// pnf_phy_ul_tti_req()
 			(pnf_p7->_public.ul_tti_req_fn)(NULL, &(pnf_p7->_public), &req);
 			
 			pnf_p7->stats.ul_tti_ontime++;
@@ -1965,14 +1935,11 @@ void pnf_handle_ul_dci_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 			uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req.SFN,req.Slot);
 			uint8_t buffer_index = sfn_slot_dec % 20;
 
-			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
+			// pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
 			// cp_nr_ul_dci_req(&pnf_p7->slot_buffer[buffer_index].ul_dci_req, &req);
+			// pnf_phy_ul_dci_req()
 			(pnf_p7->_public.ul_dci_req_fn)(NULL, &(pnf_p7->_public), &req);
-
-
-
 			pnf_p7->stats.ul_dci_ontime++;
-			
 		}
 		else
 		{
@@ -2109,21 +2076,13 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 			uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req.SFN,req.Slot);
 			uint8_t buffer_index = sfn_slot_dec % 20;
 
-                        struct timespec t;
-                        clock_gettime(CLOCK_MONOTONIC, &t);
+			struct timespec t;
+			clock_gettime(CLOCK_MONOTONIC, &t);
 
-                        //NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() %ld.%09ld POPULATE TX_DATA_REQ sfn_sf:%d buffer_index:%d\n", __FUNCTION__, t.tv_sec, t.tv_nsec, sfn_slot_dec, buffer_index);
-#if 0
-                        if (0 && NFAPI_SFNSF2DEC(req->sfn_sf)%100==0) NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() TX_REQ.req sfn_sf:%d pdus:%d - TX_REQ is within window\n",
-                            __FUNCTION__,
-                            NFAPI_SFNSF2DEC(req->sfn_sf),
-                            req->tx_request_body.number_of_pdus);
-#endif
-
-
-			pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
-			pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
+			// pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
+			// pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
       		// cp_nr_tx_data_req(&pnf_p7->slot_buffer[buffer_index].tx_data_req, &req);
+			// pnf_phy_tx_data_req()
 			(pnf_p7->_public.tx_data_req_fn)(&(pnf_p7->_public), &req);
 			pnf_p7->stats.tx_data_ontime++;
 		}
