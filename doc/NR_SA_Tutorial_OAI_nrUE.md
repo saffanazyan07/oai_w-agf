@@ -31,14 +31,12 @@ Minimum hardware requirements:
 - [USRP B210](https://www.ettus.com/all-products/ub210-kit/), [USRP N300](https://www.ettus.com/all-products/USRP-N300/) or [USRP X300](https://www.ettus.com/all-products/x300-kit/)
     - Please identify the network interface(s) on which the USRP is connected and update the gNB configuration file
 
-
 # 2. OAI CN5G
 
 ## 2.1 OAI CN5G pre-requisites
 
 Please install and configure OAI CN5G as described here:
 [OAI CN5G](NR_SA_Tutorial_OAI_CN5G.md)
-
 
 # 3. OAI gNB and OAI nrUE
 
@@ -111,18 +109,6 @@ cd ~/openairinterface5g/cmake_targets/ran_build/build
 sudo ./nr-softmodem -O ../../../targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band77.fr1.273PRB.2x2.usrpn300.conf --gNBs.[0].min_rxtxtime 6 --sa --usrp-tx-thread-config 1 -E --continuous-tx
 ```
 
-### RFsimulator
-```bash
-cd ~/openairinterface5g/cmake_targets/ran_build/build
-sudo ./nr-softmodem -O ../../../targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210.conf --gNBs.[0].min_rxtxtime 6 --rfsim --sa
-```
-
-### RFsimulator in FR2
-```bash
-cd ~/openairinterface5g/cmake_targets/ran_build/build
-sudo ./nr-softmodem -O ../../../targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band257.u3.32prb.usrpx410.conf --rfsim
-```
-
 # 5. OAI UE
 
 ## 5.1 Run OAI nrUE
@@ -136,8 +122,49 @@ Run OAI nrUE with USRP B210
 cd ~/openairinterface5g/cmake_targets/ran_build/build
 sudo ./nr-uesoftmodem -r 106 --numerology 1 --band 78 -C 3619200000 --ue-fo-compensation --sa -E --uicc0.imsi 001010000000001
 ```
+## 5.2 End-to-end connectivity test
 
-### RFsimulator
+Ping test from the UE host to the CN5G:
+
+```bash
+ping 192.168.70.135 -I oaitun_ue1
+```
+
+# 6. Run an end-to-end OAI setup with RFsimulator
+
+Please refer to the following documentation to learn about the relevant topics discussed in this chapter:
+
+- RFsimulator tutorial [rfsimulator/README.md](../radio/rfsimulator/README.md)
+- Channel simulation with OAI [channel_simulation.md](../openair1/SIMULATION/TOOLS/DOC/channel_simulation.md)
+- Telnet server usage [telnetusage.md](../common/utils/telnetsrv/DOC/telnetusage.md).
+
+## 6.1 Build
+
+In case of deployment with RFsimulator, build with:
+
+```bash
+# Build OAI gNB
+cd ~/openairinterface5g/cmake_targets
+./build_oai -w SIMU --ninja --nrUE --gNB --build-lib "nrscope" -C
+```
+## 6.2 Run gNB
+
+### 6.2.1 FR1
+```bash
+cd ~/openairinterface5g/cmake_targets/ran_build/build
+sudo ./nr-softmodem -O ../../../targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210.conf --gNBs.[0].min_rxtxtime 6 --rfsim --sa
+```
+
+### 6.2.2 FR2
+```bash
+cd ~/openairinterface5g/cmake_targets/ran_build/build
+sudo ./nr-softmodem -O ../../../targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band257.u3.32prb.usrpx410.conf --rfsim
+```
+
+## 6.3 Run nrUE
+
+### 6.3.1 FR1
+
 Important notes:
 - This should be run on the same host as the OAI gNB
 - It only applies when running OAI gNB with RFsimulator
@@ -148,7 +175,7 @@ cd ~/openairinterface5g/cmake_targets/ran_build/build
 sudo ./nr-uesoftmodem -r 106 --numerology 1 --band 78 -C 3619200000 --sa --uicc0.imsi 001010000000001 --rfsim
 ```
 
-### RFsimulator in FR2
+### 6.3.2 FR2
 Important notes:
 - This should be run on the same host as the OAI gNB
 - It only applies when running OAI gNB with RFsimulator in FR2
@@ -159,11 +186,94 @@ cd ~/openairinterface5g/cmake_targets/ran_build/build
 sudo ./nr-uesoftmodem -r 32 --numerology 3 --band 257 -C 27533280000 --sa --uicc0.imsi 001010000000001 --ssb 72 --rfsim
 ```
 
-### Connection to an NG-Core
+## 6.3.4 Run multiple UEs in RFsimulator
+
+### 6.3.5 Multiple nrUEs with namespaces
+
+Important notes:
+
+* This should be run on the same host as the OAI gNB
+* It only applies when running OAI gNB with RFsimulator
+* Use the script [multi_ue.sh](../radio/rfsimulator/scripts/multi-ue.sh) to make namespaces for multiple UEs.
+* For each UE, a namespace shall be created, each one has a different address that will be used as rfsim server address
+* Each UE shall have a different IMSI, which shall be present in the relevant tables of the MySQL database
+* Each UE shall run a telnet server on a different port, with command line option `--telnetsrv.listenport` 
+
+1. For the first UE, create the namespace ue1 (-c1) and then execute bash inside (-e):
+
+```bash
+sudo ./multi-ue.sh -c1 -e
+sudo ./multi-ue.sh -o1
+```
+
+2. After entering the bash environment, run the following command to deploy your first UE
+
+```bash
+sudo ./nr-uesoftmodem -O ../../../targets/PROJECTS/GENERIC-NR-5GC/CONF/ue.conf -r 106 --numerology 1 --band 78 -C 3619200000 --rfsim --sa --uicc0.imsi 001010000000001 --nokrnmod -E --rfsimulator.options chanmod --rfsimulator.serveraddr 10.201.1.100 --telnetsrv --telnetsrv.listenport 9095
+```
+
+3. For the second UE, create the namespace ue2 (-c2) and then execute bash inside (-e):
+
+```bash
+sudo ./multi-ue.sh -c2 -e
+sudo ./multi-ue.sh -o2
+```
+
+4. After entering the bash environment, run the following command to deploy your second UE
+```bash
+sudo ./nr-uesoftmodem -O ../../../targets/PROJECTS/GENERIC-NR-5GC/CONF/ue.conf -r 106 --numerology 1 --band 78 -C 3619200000 --rfsim --sa --uicc0.imsi 001010000000002 --nokrnmod -E --rfsimulator.options chanmod --rfsimulator.serveraddr 10.202.1.100 --telnetsrv --telnetsrv.listenport 9096
+```
+
+### 6.3.6 Running Multiple UEs with Docker
+
+1. Make sure OAI nrUE image is pulled:
+
+```bash
+docker pull oaisoftwarealliance/oai-nr-ue:latest
+```
+
+2. Configure your setup by editing the Docker compose file e.g. in [docker-compose.yaml](../ci-scripts/yaml_files/5g_rfsimulator/docker-compose.yaml). 
+
+3. Deploy the UEs, e.g. for 3 UEs:
+
+```bash
+docker compose up -d oai-nr-ue{1,2,3}
+```
+
+4. Check the logs to ensure each UE has gotten an IP address, e.g.:
+
+```bash
+docker logs oai-nr-ue1
+```
+
+or
+
+```bash
+  docker exec -it oai-nr-ue1 ip a show oaitun_ue1
+```
+
+5. Test the connectivity of each UE to the core network:
+```bash
+  docker exec -it oai-nr-ue1 ping -c1 192.168.70.135
+```
+
+7. After testing, undeploy the UEs to allow them time to deregister, and then bring down the rest of the network:
+```bash
+  docker compose stop oai-nr-ue{1,2,3}
+  docker compose down -v
+```
+
+For more details and scenario, refer to the following files:
+
+* [RFSIM deployment in the CI](../ci-scripts/yaml_files/5g_rfsimulator/README.md)
+* [E1 deployment in the CI](../ci-scripts/yaml_files/5g_rfsimulator_e1/README.md)
+* [Docker documentation](../docker/README.md)
+
+# 7. Connect OAI nrUE to an NG-Core
 
 A configuration file can be fed to the nrUE command line in order to connect to the local NGC.
 
-The nrUE configuration file (e.g. [ue.conf](../targets/PROJECTS/GENERIC-NR-5GC/CONF/ue.conf)) is structured in a key-value format and contains the relevant UICC parameters that are necessary to authenticate the UE to the local 5GC. E.g.:
+The nrUE configuration file (e.g. [ue.conf](../targets/PROJECTS/GENERIC-NR-5GC/CONF/ue.conf)) or [ue.sa.conf](../ci-scripts/conf_files/ue.sa.conf) is structured in a key-value format and contains the relevant UICC parameters that are necessary to authenticate the UE to the local 5GC. E.g.:
 
 ```shell
 uicc0 = {
@@ -194,15 +304,9 @@ The CL option `--uicc0.imsi`  can override the IMSI value in the configuration f
 
 More details available at [ci-scripts/yaml_files/5g_rfsimulator/README.md](../ci-scripts/yaml_files/5g_rfsimulator/README.md).
 
-## 5.2 End-to-end connectivity test
-- Ping test from the UE host to the CN5G
-```bash
-ping 192.168.70.135 -I oaitun_ue1
-```
+# 7. Advanced configurations (optional)
 
-# 6. Advanced configurations (optional)
-
-## 6.1 USRP N300 and X300 Ethernet Tuning
+## 7.1 USRP N300 and X300 Ethernet Tuning
 
 Please also refer to the official [USRP Host Performance Tuning Tips and Tricks](https://kb.ettus.com/USRP_Host_Performance_Tuning_Tips_and_Tricks) tuning guide.
 
@@ -224,20 +328,19 @@ sudo sysctl -w net.core.rmem_default=62500000
 sudo ethtool -G enp1s0f0 tx 4096 rx 4096
 ```
 
-## 6.2 Real-time performance workarounds
+## 7.2 Real-time performance workarounds
 - Enable Performance Mode `sudo cpupower idle-set -D 0`
 - If you get real-time problems on heavy UL traffic, reduce the maximum UL MCS using an additional command-line switch: `--MACRLCs.[0].ul_max_mcs 14`.
 - You can also reduce the number of LDPC decoder iterations, which will make the LDPC decoder take less time: `--L1s.[0].max_ldpc_iterations 4`.
 
-## 6.3 Uplink issues related with noise on the DC carriers
+## 7.3 Uplink issues related with noise on the DC carriers
 - There is noise on the DC carriers on N300 and especially the X300 in UL. To avoid their use or shift them away from the center to use more UL spectrum, use the `--tune-offset <Hz>` command line switch, where `<Hz>` is ideally half the bandwidth, or possibly less.
 
-## 6.4 Timing-related Problems
+## 7.4 Timing-related Problems
 - Sometimes, the nrUE would keep repeating RA procedure because of Msg3 failure at the gNB. If it happens, add the `-A` option at the nrUE and/or gNB side, e.g., `-A 45`. This modifies the timing advance (in samples). Adjust +/-5 if the issue persists.
 - This can be necessary since certain USRPs have larger signal delays than others; it is therefore specific to the used USRP model.
 - The x310 and B210 are found to work with the default configuration; N310 and x410 can benefit from setting this timing advance.
 - For example if the OAI UE uses the X410 and the gNB based on [Nvidia Aerial and Foxconn](./Aerial_FAPI_Split_Tutorial.md) a timing advance of 90 has been found to work well.  
 
-
-## 6.5 Lower latency on user plane
+## 7.5 Lower latency on user plane
 - To lower latency on the user plane, you can force the UE to be scheduled constantly in uplink: `--MACRLCs.[0].ulsch_max_frame_inactivity 0` .
