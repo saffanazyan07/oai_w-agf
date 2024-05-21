@@ -2221,7 +2221,6 @@ INPUT                  = \
 @CMAKE_CURRENT_SOURCE_DIR@/../openair1/PHY/CODING/nrPolar_tools/nr_polar_decoder.c \
 @CMAKE_CURRENT_SOURCE_DIR@/../openair1/PHY/CODING/nrPolar_tools/nr_bitwise_operations.c \
 @CMAKE_CURRENT_SOURCE_DIR@/../openair1/PHY/CODING/nrPolar_tools/nr_polar_decoding_tools.c \
-@CMAKE_CURRENT_SOURCE_DIR@/../openair1/PHY/CODING/nrPolar_tools/nr_polar_kernal_operation.c \
 @CMAKE_CURRENT_SOURCE_DIR@/../openair1/PHY/CODING/nrPolar_tools/nr_crc_byte.c \
 @CMAKE_CURRENT_SOURCE_DIR@/../openair1/PHY/CODING/nrPolar_tools/nr_polar_dci_defs.h \
 @CMAKE_CURRENT_SOURCE_DIR@/../openair1/PHY/CODING/nrPolar_tools/nr_polar_pbch_defs.h \

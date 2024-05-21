@@ -68,7 +68,7 @@ void polar_encoder(uint32_t *in,
   // Attach CRC to the Transport Block. (a to b)
   memcpy(nr_polar_B, nr_polar_A, polarParams->payloadBits);
   for (uint i = polarParams->payloadBits; i < polarParams->K; i++)
-    nr_polar_B[i] = nr_polar_crc[i - (polarParams->payloadBits)];
+    nr_polar_B[i] = nr_polar_crc[i - polarParams->payloadBits];
 
 #ifdef DEBUG_POLAR_ENCODER
   uint64_t B2 = 0;
@@ -112,10 +112,8 @@ void polar_encoder(uint32_t *in,
   for (uint i = 0; i < polarParams->N; i++)
     nr_polar_D[i] %= 2;
 
-  uint64_t D[8];
-  memset(D, 0, sizeof(D));
 #ifdef DEBUG_POLAR_ENCODER
-
+  uint64_t D[8]={0};
   for (int i = 0; i < polarParams->N; i++)
     D[i / 64] |= ((uint64_t)nr_polar_D[i]) << (i & 63);
 
@@ -290,7 +288,7 @@ void nr_polar_rm_interleaving_cb(void *in, void *out, uint16_t E)
   }
 }
 
-__attribute__((always_inline)) static inline void polar_rate_matching(const t_nrPolar_params *polarParams, void *in, void *out)
+static inline void polar_rate_matching(const t_nrPolar_params *polarParams, void *in, void *out)
 {
   // handle rate matching with a single 128 bit word using bit shuffling
   // can be done with SIMD intrisics if needed

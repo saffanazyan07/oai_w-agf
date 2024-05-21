@@ -204,12 +204,12 @@ void nr_polar_bit_insertion(uint8_t *input,
   } else {
     for (int n=0; n<=N-1; n++) {
       output[n] = 0;
-      for (int m=0; m<=(K+n_PC)-1; m++) {
+      for (int m=0; m<=K+n_PC-1; m++) {
 	if ( n == Q_I_N[m]) {
           output[n] = input[k];
           k++;
           break;
-  }
+	}
       }
     }
   }

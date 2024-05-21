@@ -80,7 +80,7 @@ int8_t polar_decoder(double *input,
   double  pathMetric[2*listSize];
   uint8_t crcState[2*listSize]; //0=False, 1=True
 
-  for (int i=0; i<(2*listSize); i++) {
+  for (int i=0; i<2*listSize; i++) {
     pathMetric[i] = 0;
     crcState[i]=1;
   }
@@ -210,7 +210,7 @@ int8_t polar_decoder(double *input,
 
         for (int k=(listSize-1); k>0; k--) {
           for (int i = 0; i < polarParams->crcParityBits; i++) {
-            crcChecksum[i][listIndex[(2*listSize-1)-k]] = crcChecksum[i][listIndex[k]];
+            crcChecksum[i][listIndex[(2*listSize-1) -k]] = crcChecksum[i][listIndex[k]];
           }
         }
 
@@ -220,7 +220,7 @@ int8_t polar_decoder(double *input,
         //Copy the best "listSize" number of entries to the first indices.
         for (int k = 0; k < listSize; k++) {
           if (k > listIndex[k]) {
-            copyIndex = listIndex[(2*listSize-1)-k];
+            copyIndex = listIndex[(2*listSize-1) -k];
           } else { //Use the backup.
             copyIndex = listIndex[k];
           }
@@ -235,7 +235,7 @@ int8_t polar_decoder(double *input,
 
         for (int k = 0; k < listSize; k++) {
           if (k > listIndex[k]) {
-            copyIndex = listIndex[(2*listSize-1)-k];
+            copyIndex = listIndex[(2*listSize-1) -k];
           } else { //Use the backup.
             copyIndex = listIndex[k];
           }
@@ -247,7 +247,7 @@ int8_t polar_decoder(double *input,
 
         for (int k = 0; k < listSize; k++) {
           if (k > listIndex[k]) {
-            copyIndex = listIndex[(2*listSize-1)-k];
+            copyIndex = listIndex[(2*listSize-1) -k];
           } else { //Use the backup.
             copyIndex = listIndex[k];
           }
@@ -595,7 +595,6 @@ int8_t polar_decoder_dci(double *input,
 void init_polar_deinterleaver_table(t_nrPolar_params *polarParams) {
   AssertFatal(polarParams->K > 17, "K = %d < 18, is not allowed\n",polarParams->K);
   AssertFatal(polarParams->K < 129, "K = %d > 128, is not supported yet\n",polarParams->K);
-  int bit_i,ip,ipmod64;
   int numbytes = polarParams->K>>3;
   int residue = polarParams->K & 7;
 
@@ -607,17 +606,17 @@ void init_polar_deinterleaver_table(t_nrPolar_params *polarParams) {
 
     for (int i=0; i<numbits; i++) {
       // flip bit endian for B
-      ip = polarParams->K - 1 - polarParams->interleaving_pattern[(8 * byte) + i];
-      ipmod64 = ip&63;
+      int ip = polarParams->K - 1 - polarParams->interleaving_pattern[(8 * byte) + i];
+      int ipmod64 = ip&63;
       AssertFatal(ip<128,"ip = %d\n",ip);
 
       for (int val=0; val<256; val++) {
-        bit_i=(val>>i)&1;
+        uint64_t bit_i=(val>>i)&1;
 
         if (ip < 64)
-          polarParams->B_tab0[byte][val] |= ((uint64_t)bit_i) << ipmod64;
+          polarParams->B_tab0[byte][val] |= bit_i << ipmod64;
         else
-          polarParams->B_tab1[byte][val] |= ((uint64_t)bit_i) << ipmod64;
+          polarParams->B_tab1[byte][val] |= bit_i << ipmod64;
       }
     }
   }
