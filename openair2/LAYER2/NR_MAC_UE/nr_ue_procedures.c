@@ -1630,6 +1630,135 @@ int nr_ue_configure_pucch(NR_UE_MAC_INST_t *mac,
   return 0;
 }
 
+// PUCCH Power control according to 38.213 section 7.2.1
+int16_t get_pucch_tx_power_ue(NR_UE_MAC_INST_t *mac,
+                              int scs,
+                              NR_PUCCH_Config_t *pucch_Config,
+                              int delta_pucch,
+                              uint8_t format_type,
+                              uint16_t nb_of_prbs,
+                              uint8_t freq_hop_flag,
+                              uint8_t add_dmrs_flag,
+                              uint8_t N_symb_PUCCH,
+                              int subframe_number,
+                              int O_uci)
+{
+  NR_UE_UL_BWP_t *current_UL_BWP = mac->current_UL_BWP;
+  AssertFatal(current_UL_BWP && current_UL_BWP->pucch_ConfigCommon,
+              "Missing configuration: need UL_BWP and pucch_ConfigCommon to calculate PUCCH tx power\n");
+  int PUCCH_POWER_DEFAULT = 0;
+  // p0_nominal is optional
+  int16_t P_O_NOMINAL_PUCCH = DEFAULT_P0_NOMINAL_PUCCH_0_DBM;
+  if (current_UL_BWP->pucch_ConfigCommon->p0_nominal != NULL) {
+    P_O_NOMINAL_PUCCH = *current_UL_BWP->pucch_ConfigCommon->p0_nominal;
+  }
+
+  struct NR_PUCCH_PowerControl *power_config = pucch_Config ? pucch_Config->pucch_PowerControl : NULL;
+
+  if (!power_config)
+    return (PUCCH_POWER_DEFAULT);
+
+  int16_t P_O_UE_PUCCH;
+  int16_t G_b_f_c = 0;
+
+  if (pucch_Config->spatialRelationInfoToAddModList != NULL) {  /* FFS TODO NR */
+    LOG_D(MAC,"PUCCH Spatial relation infos are not yet implemented\n");
+    return (PUCCH_POWER_DEFAULT);
+  }
+
+  if (power_config->p0_Set != NULL) {
+    P_O_UE_PUCCH = power_config->p0_Set->list.array[0]->p0_PUCCH_Value; /* get from index 0 if no spatial relation set */
+    G_b_f_c = 0;
+  }
+  else {
+    G_b_f_c = delta_pucch;
+    LOG_E(MAC,"PUCCH Transmit power control command not yet implemented for NR\n");
+    return (PUCCH_POWER_DEFAULT);
+  }
+
+  int P_O_PUCCH = P_O_NOMINAL_PUCCH + P_O_UE_PUCCH;
+
+  int16_t delta_F_PUCCH = DEFAULT_DELTA_F_PUCCH_0_DB;
+  long *delta_F_PUCCH_config = NULL;
+  int DELTA_TF;
+  uint16_t N_ref_PUCCH;
+  int N_sc_ctrl_RB = 0;
+
+  /* computing of pucch transmission power adjustment */
+  switch (format_type) {
+    case 0:
+      N_ref_PUCCH = 2;
+      DELTA_TF = 10 * log10(N_ref_PUCCH/N_symb_PUCCH);
+      delta_F_PUCCH_config = power_config->deltaF_PUCCH_f0;
+      break;
+    case 1:
+      N_ref_PUCCH = 14;
+      DELTA_TF = 10 * log10(N_ref_PUCCH/N_symb_PUCCH * O_uci);
+      delta_F_PUCCH_config = power_config->deltaF_PUCCH_f1;
+      break;
+    case 2:
+      N_sc_ctrl_RB = 10;
+      DELTA_TF = get_deltatf(nb_of_prbs, N_symb_PUCCH, freq_hop_flag, add_dmrs_flag, N_sc_ctrl_RB, O_uci);
+      delta_F_PUCCH_config = power_config->deltaF_PUCCH_f2;
+      break;
+    case 3:
+      N_sc_ctrl_RB = 14;
+      DELTA_TF = get_deltatf(nb_of_prbs, N_symb_PUCCH, freq_hop_flag, add_dmrs_flag, N_sc_ctrl_RB, O_uci);
+      delta_F_PUCCH_config = power_config->deltaF_PUCCH_f3;
+      break;
+    case 4:
+      N_sc_ctrl_RB = 14/(nb_pucch_format_4_in_subframes[subframe_number]);
+      DELTA_TF = get_deltatf(nb_of_prbs, N_symb_PUCCH, freq_hop_flag, add_dmrs_flag, N_sc_ctrl_RB, O_uci);
+      delta_F_PUCCH_config = power_config->deltaF_PUCCH_f4;
+      break;
+    default:
+    {
+      LOG_E(MAC,"PUCCH unknown pucch format %d\n", format_type);
+      return (0);
+    }
+  }
+  if (delta_F_PUCCH_config != NULL) {
+    delta_F_PUCCH = *delta_F_PUCCH_config;
+  }
+
+  if (power_config->twoPUCCH_PC_AdjustmentStates && *power_config->twoPUCCH_PC_AdjustmentStates > 1) {
+    LOG_E(MAC,"PUCCH power control adjustment states with 2 states not yet implemented\n");
+    return (PUCCH_POWER_DEFAULT);
+  }
+
+  int16_t pathloss = compute_nr_SSB_PL(mac, mac->ssb_measurements.ssb_rsrp_dBm);
+  int M_pucch_component = (10 * log10((double)(pow(2,scs) * nb_of_prbs)));
+
+  int16_t pucch_power = P_O_PUCCH + M_pucch_component + pathloss + delta_F_PUCCH + DELTA_TF + G_b_f_c;
+
+  LOG_D(MAC, "PUCCH ( Tx power : %d dBm ) ( 10Log(...) : %d ) ( from Path Loss : %d ) ( delta_F_PUCCH : %d ) ( DELTA_TF : %d ) ( G_b_f_c : %d ) \n",
+        pucch_power, M_pucch_component, pathloss, delta_F_PUCCH, DELTA_TF, G_b_f_c);
+
+  return (pucch_power);
+}
+
+int get_deltatf(uint16_t nb_of_prbs,
+                uint8_t N_symb_PUCCH,
+                uint8_t freq_hop_flag,
+                uint8_t add_dmrs_flag,
+                int N_sc_ctrl_RB,
+                int O_UCI)
+{
+  int DELTA_TF;
+  int O_CRC = compute_pucch_crc_size(O_UCI);
+  int N_symb = N_symb_PUCCH < 4 ? N_symb_PUCCH : nb_symbols_excluding_dmrs[N_symb_PUCCH - 4][add_dmrs_flag][freq_hop_flag];
+  float N_RE = nb_of_prbs * N_sc_ctrl_RB * N_symb;
+  float K1 = 6;
+  if (O_UCI + O_CRC < 12)
+    DELTA_TF = 10 * log10((double)(((K1 * (O_UCI)) / N_RE)));
+  else {
+    float K2 = 2.4;
+    float BPRE = (O_UCI + O_CRC) / N_RE;
+    DELTA_TF = 10 * log10((double)(pow(2,(K2*BPRE)) - 1));
+  }
+  return DELTA_TF;
+}
+
 static int find_pucch_resource_set(NR_PUCCH_Config_t *pucch_Config, int size)
 {
   // Procedure described in 38.213 Section 9.2.1
