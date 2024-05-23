@@ -97,6 +97,7 @@ random-access procedure
 @returns timing advance or 0xffff if preamble doesn't match
 */
 static void nr_ue_process_rar(NR_UE_MAC_INST_t *mac, nr_downlink_indication_t *dl_info, int pdu_id);
+int get_sum_delta_pucch(NR_UE_MAC_INST_t *mac, int slot, frame_t frame);
 
 int get_pucch0_mcs(const int O_ACK, const int O_SR, const int ack_payload, const int sr_payload)
 {
@@ -1634,7 +1635,7 @@ int nr_ue_configure_pucch(NR_UE_MAC_INST_t *mac,
 int16_t get_pucch_tx_power_ue(NR_UE_MAC_INST_t *mac,
                               int scs,
                               NR_PUCCH_Config_t *pucch_Config,
-                              int delta_pucch,
+                              int sum_delta_pucch,
                               uint8_t format_type,
                               uint16_t nb_of_prbs,
                               uint8_t freq_hop_flag,
@@ -1671,7 +1672,7 @@ int16_t get_pucch_tx_power_ue(NR_UE_MAC_INST_t *mac,
     G_b_f_c = 0;
   }
   else {
-    G_b_f_c = delta_pucch;
+    G_b_f_c = sum_delta_pucch;
     LOG_E(MAC,"PUCCH Transmit power control command not yet implemented for NR\n");
     return (PUCCH_POWER_DEFAULT);
   }
@@ -4106,4 +4107,20 @@ int16_t compute_nr_SSB_PL(NR_UE_MAC_INST_t *mac, short ssb_rsrp_dBm)
         pow(10, ssb_rsrp_dBm/10));
 
   return pathloss;
+}
+
+// This is not entirely correct. In certain k2/k1/k0 settings we might postpone accumulating delta_PUCCH until next HARQ feedback
+// slot. The correct way to do this would be to calculate the K_PUCCH (delta_PUCCH summation window end) for each PUCCH occasion and
+// compare PUCCH transmission symbol with the reception symbol of the DCI containing delta_PUCCH to determine if the delta_PUCCH
+// should be added at each occasion.
+int get_sum_delta_pucch(NR_UE_MAC_INST_t *mac, int slot, frame_t frame)
+{
+  int delta_tpc_sum = 0;
+  for (int i = 0; i < NR_MAX_HARQ_PROCESSES; i++) {
+    if (mac->dl_harq_info[i].active && mac->dl_harq_info[i].ul_slot == slot && mac->dl_harq_info[i].ul_frame == frame) {
+      delta_tpc_sum += mac->dl_harq_info[i].delta_pucch;
+      mac->dl_harq_info[i].delta_pucch = 0;
+    }
+  }
+  return delta_tpc_sum;
 }
