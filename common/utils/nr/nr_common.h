@@ -208,6 +208,7 @@ void SLIV2SL(int SLIV,int *S,int *L);
 int get_dmrs_port(int nl, uint16_t dmrs_ports);
 uint16_t SL_to_bitmap(int startSymbolIndex, int nrOfSymbols);
 int get_nb_periods_per_frame(uint8_t tdd_period);
+int get_nb_max_tdd_periodicity(uint8_t mu, uint8_t tdd_period);
 long rrc_get_max_nr_csrs(const int max_rbs, long b_SRS);
 bool compare_relative_ul_channel_bw(int nr_band, int scs, int nb_ul, frame_type_t frame_type);
 int get_supported_bw_mhz(frequency_range_t frequency_range, int scs, int nb_rb);
