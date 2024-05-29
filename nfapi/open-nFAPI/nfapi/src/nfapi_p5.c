@@ -3379,6 +3379,21 @@ static uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end,
                                                     end);
             config_beam_idx++;
             break;
+          case NFAPI_NR_CONFIG_TDD_PERIOD_TAG:
+            printf("*** have tag %x, idx %ld\n", generic_tl.tag, idx);
+            assert(idx <= sizeof(unpack_fns) / sizeof(unpack_fns[0]));
+            result = (*unpack_fns[idx].unpack_func)(tl, ppReadPackedMsg, end);
+            uint8_t mu = pNfapiMsg->ssb_config.scs_common.value;
+            uint8_t period = pNfapiMsg->tdd_table.tdd_period.value;
+            // Memory allocations
+            int nb_max_tdd_periodicity = get_nb_max_tdd_periodicity(mu, pNfapiMsg->tdd_table.tdd_period.value);
+            pNfapiMsg->tdd_table.max_tdd_periodicity_list =
+                (nfapi_nr_max_tdd_periodicity_t *)malloc(nb_max_tdd_periodicity * sizeof(nfapi_nr_max_tdd_periodicity_t));
+            for (int i = 0; i < nb_max_tdd_periodicity; i++) {
+              pNfapiMsg->tdd_table.max_tdd_periodicity_list[i].max_num_of_symbol_per_slot_list =
+                  (nfapi_nr_max_num_of_symbol_per_slot_t *)malloc(14 * sizeof(nfapi_nr_max_num_of_symbol_per_slot_t));
+            }
+            break;
           case NFAPI_NR_CONFIG_SLOT_CONFIG_TAG:
             pNfapiMsg->tdd_table.max_tdd_periodicity_list[tdd_periodicity_idx]
                 .max_num_of_symbol_per_slot_list[symbol_per_slot_idx]
@@ -3394,19 +3409,6 @@ static uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end,
             symbol_per_slot_idx = (symbol_per_slot_idx + 1) % 14;
             if (symbol_per_slot_idx == 0) {
               tdd_periodicity_idx++;
-            }
-            break;
-          case NFAPI_NR_CONFIG_SCS_COMMON_TAG:
-            printf("*** have tag %x, idx %ld\n", generic_tl.tag, idx);
-            assert(idx <= sizeof(unpack_fns) / sizeof(unpack_fns[0]));
-            result = (*unpack_fns[idx].unpack_func)(tl, ppReadPackedMsg, end);
-            uint8_t mu = pNfapiMsg->ssb_config.scs_common.value;
-            // Memory allocations
-            pNfapiMsg->tdd_table.max_tdd_periodicity_list =
-                (nfapi_nr_max_tdd_periodicity_t *)malloc(2*(1<<mu)*10 * sizeof(nfapi_nr_max_tdd_periodicity_t));
-            for (int i = 0; i < 2*(1<<mu)*10; i++) {
-              pNfapiMsg->tdd_table.max_tdd_periodicity_list[i].max_num_of_symbol_per_slot_list =
-                  (nfapi_nr_max_num_of_symbol_per_slot_t *)malloc(14 * sizeof(nfapi_nr_max_num_of_symbol_per_slot_t));
             }
             break;
           default:
