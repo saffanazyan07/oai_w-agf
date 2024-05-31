@@ -130,7 +130,7 @@ static int estimate_ul_buffer_short_bsr(const NR_BSR_SHORT *bsr)
    * differentiate them */
   int rep_idx = bsr->Buffer_size;
   int estim_idx = overestim_bsr_index(rep_idx);
-  int max = sizeofArray(NR_SHORT_BSR_TABLE);
+  int max = sizeofArray(NR_SHORT_BSR_TABLE)-1;
   int idx = min(estim_idx, max);
   int estim_size = NR_SHORT_BSR_TABLE[idx];
   LOG_D(NR_MAC, "short BSR LCGID %d index %d estim index %d size %d\n", bsr->LcgID, rep_idx, estim_idx, estim_size);
