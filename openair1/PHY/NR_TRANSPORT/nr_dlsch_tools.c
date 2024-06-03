@@ -58,7 +58,7 @@ void nr_fill_dlsch_dl_tti_req(processingData_L1tx_t *msgTx, nfapi_nr_dl_tti_pdsc
   harq->sdu_len = 0;
 }
 
-void nr_fill_dlsch_tx_req(processingData_L1tx_t *msgTx, int idx, uint8_t *sdu, uint16_t sdu_len)
+void nr_fill_dlsch_tx_req(processingData_L1tx_t *msgTx, int idx, uint8_t *sdu, uint32_t sdu_len)
 {
   AssertFatal(sdu != NULL, "sdu is null\n");
 

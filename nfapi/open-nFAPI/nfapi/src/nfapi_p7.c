@@ -2086,7 +2086,7 @@ static uint8_t pack_tx_data_pdu_list_value(void *tlv, uint8_t **ppWritePackedMsg
   uint16_t total_number_of_tlvs = value->num_TLV;
 
   for (; i < total_number_of_tlvs; ++i) {
-    if (!(push16(value->TLVs[i].tag, ppWritePackedMsg, end) && push16(value->TLVs[i].length, ppWritePackedMsg, end)))
+    if (!(push16(value->TLVs[i].tag, ppWritePackedMsg, end) && push32(value->TLVs[i].length, ppWritePackedMsg, end)))
       return 0;
 
     switch (value->TLVs[i].tag) {
@@ -6007,7 +6007,7 @@ static uint8_t unpack_tx_data_pdu_list_value(uint8_t **ppReadPackedMsg, uint8_t 
 
   for(; i < total_number_of_tlvs; ++i) {
     if (!(pull16(ppReadPackedMsg, &pNfapiMsg->TLVs[i].tag, end) &&
-          pull16(ppReadPackedMsg, &pNfapiMsg->TLVs[i].length, end)))
+          pull32(ppReadPackedMsg, &pNfapiMsg->TLVs[i].length, end)))
       return 0;
 
     switch(pNfapiMsg->TLVs[i].tag) {
