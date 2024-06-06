@@ -2179,6 +2179,7 @@ void handle_RRCRelease(NR_UE_RRC_INST_t *rrc)
   }
   if (!suspend) {
     NR_Release_Cause_t cause = OTHER;
+    AssertFatal(false,"");
     nr_rrc_going_to_IDLE(rrc, cause, rrc->RRCRelease);
   }
   asn1cFreeStruc(asn_DEF_NR_RRCRelease, rrc->RRCRelease);
@@ -2188,6 +2189,7 @@ void nr_rrc_going_to_IDLE(NR_UE_RRC_INST_t *rrc,
                           NR_Release_Cause_t release_cause,
                           NR_RRCRelease_t *RRCRelease)
 {
+  AssertFatal(false,"");
   NR_UE_Timers_Constants_t *tac = &rrc->timers_and_constants;
 
   // if going to RRC_IDLE was triggered by reception

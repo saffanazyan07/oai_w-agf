@@ -622,8 +622,11 @@ static int UE_dl_preprocessing(PHY_VARS_NR_UE *UE, const UE_nr_rxtx_proc_t *proc
       nr_fill_dl_indication(&dl_indication, NULL, NULL, proc, UE, phy_data);
       UE->if_inst->dl_indication(&dl_indication);
     }
-
+    uint64_t a=rdtsc_oai();
     sampleShift = pbch_pdcch_processing(UE, proc, phy_data);
+    uint64_t b=rdtsc_oai();
+    if (b-a > 3000*500)
+      LOG_D(PHY,"preprocessing %lu\n", (b-a)/3000); 
     if (phy_data->dlsch[0].active && phy_data->dlsch[0].rnti_type == TYPE_C_RNTI_) {
       // indicate to tx thread to wait for DLSCH decoding
       const int ack_nack_slot = (proc->nr_slot_rx + phy_data->dlsch[0].dlsch_config.k1_feedback) % UE->frame_parms.slots_per_frame;
@@ -776,6 +779,15 @@ void *UE_thread(void *arg)
   int shiftForNextFrame = 0;
   int intialSyncOffset = 0;
   openair0_timestamp sync_timestamp;
+  polarReturn(nr_polar_params(0,32,0,1));
+  polarReturn(nr_polar_params(1,39,8,1));
+  polarReturn(nr_polar_params(1,39,4,1));
+  polarReturn(nr_polar_params(1,49,8,1));
+  polarReturn(nr_polar_params(1,41,8,1));
+  polarReturn(nr_polar_params(1,49,4,1));
+  polarReturn(nr_polar_params(1,41,4,1));
+  polarReturn(nr_polar_params(1,45,4,1));
+  polarReturn(nr_polar_params(1,45,8,1));
   while (!oai_exit) {
     if (syncRunning) {
       notifiedFIFO_elt_t *res=tryPullTpool(&nf,&(get_nrUE_params()->Tpool));

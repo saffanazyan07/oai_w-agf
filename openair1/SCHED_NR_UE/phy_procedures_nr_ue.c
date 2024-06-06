@@ -958,7 +958,7 @@ int pbch_pdcch_processing(PHY_VARS_NR_UE *ue, const UE_nr_rxtx_proc_t *proc, nr_
     // Hold the channel estimates in frequency domain.
   int32_t pdcch_est_size = ((((fp->symbols_per_slot*(fp->ofdm_symbol_size+LTE_CE_FILTER_LENGTH))+15)/16)*16);
   __attribute__((aligned(16))) c16_t pdcch_dl_ch_estimates[4 * fp->nb_antennas_rx][pdcch_est_size];
-
+  uint64_t a=rdtsc_oai();
   uint8_t dci_cnt = 0;
   for(int n_ss = 0; n_ss<phy_pdcch_config->nb_search_space; n_ss++) {
     for (uint16_t l=0; l<nb_symb_pdcch; l++) {
@@ -980,7 +980,9 @@ int pbch_pdcch_processing(PHY_VARS_NR_UE *ue, const UE_nr_rxtx_proc_t *proc, nr_
     }
     dci_cnt = dci_cnt + nr_ue_pdcch_procedures(ue, proc, pdcch_est_size, pdcch_dl_ch_estimates, phy_data, n_ss, rxdataF);
   }
-  LOG_D(PHY, "[UE %d] Frame %d, nr_slot_rx %d: found %d DCIs\n", ue->Mod_id, frame_rx, nr_slot_rx, dci_cnt);
+  uint64_t b=rdtsc_oai();
+  if (b-a > 3000*500)
+    LOG_E(PHY, "[UE %d] Frame %d, nr_slot_rx %d: found %d DCIs on %d trial, cpu %lu\n", ue->Mod_id, frame_rx, nr_slot_rx, dci_cnt,phy_pdcch_config->nb_search_space*nb_symb_pdcch, (b-a)/3000 );
   phy_pdcch_config->nb_search_space = 0;
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_UE_SLOT_FEP_PDCCH, VCD_FUNCTION_OUT);
   return sampleShift;
