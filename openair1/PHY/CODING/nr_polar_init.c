@@ -84,6 +84,8 @@ t_nrPolar_params *nr_polar_params(int8_t messageType, uint16_t messageLength, ui
   while (currentPtr != NULL) {
     //printf("currentPtr->idx %d, (%d,%d)\n",currentPtr->idx,currentPtr->payloadBits,currentPtr->encoderLength);
     //LOG_D(PHY,"Looking for index %d\n",(messageType * messageLength * aggregation_prime));
+    if (currentPtr->busy && currentPtr->idx == PolarKey )
+      LOG_W(PHY,"busy key %d\n", PolarKey);
     if (currentPtr->busy == false && currentPtr->idx == PolarKey ) {
       currentPtr->busy=true;
       pthread_mutex_unlock(&PolarListMutex);
@@ -104,7 +106,7 @@ t_nrPolar_params *nr_polar_params(int8_t messageType, uint16_t messageLength, ui
   newPolarInitNode->nextPtr = PolarList;
   PolarList = newPolarInitNode;
   pthread_mutex_unlock(&PolarListMutex);
-  //   LOG_D(PHY,"Setting new polarParams index %d, messageType %d, messageLength %d, aggregation_prime %d\n",(messageType * messageLength * aggregation_prime),messageType,messageLength,aggregation_prime);
+  LOG_W(PHY,"Setting new polarParams index %d, messageType %d, messageLength %d, aggr level %d, flag %d\n",PolarKey,messageType,messageLength, aggregation_level, decoder_flag);
   newPolarInitNode->idx = PolarKey;
   //printf("newPolarInitNode->idx %d, (%d,%d,%d:%d)\n",newPolarInitNode->idx,messageType,messageLength,aggregation_prime,aggregation_level);
 
