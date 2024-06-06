@@ -2062,6 +2062,7 @@ static void configure_servingcell_info(NR_UE_MAC_INST_t *mac, NR_ServingCellConf
 /// This function implements 38.331 Section 5.3.12: UE actions upon PUCCH/SRS release request
 void release_PUCCH_SRS(NR_UE_MAC_INST_t *mac)
 {
+  AssertFatal(false,"");
   // release PUCCH-CSI-Resources configured in CSI-ReportConfig
   NR_UE_ServingCell_Info_t *sc_info = &mac->sc_info;
   NR_CSI_MeasConfig_t *meas_config = sc_info->csi_MeasConfig;

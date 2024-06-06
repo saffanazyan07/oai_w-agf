@@ -688,13 +688,13 @@ void nr_dci_decoding_procedure(PHY_VARS_NR_UE *ue,
 {
   int e_rx_cand_idx = 0;
   *dci_ind = (fapi_nr_dci_indication_t){.SFN = proc->frame_rx, .slot = proc->nr_slot_rx};
-
+  uint64_t a=0, z=rdtsc_oai();;
+    int iter=0;
   for (int j = 0; j < rel15->number_of_candidates; j++) {
     int CCEind = rel15->CCE[j];
     int L = rel15->L[j];
 
     // Loop over possible DCI lengths
-    
     for (int k = 0; k < rel15->num_dci_options; k++) {
       // skip this candidate if we've already found one with the
       // same rnti and size at a different aggregation level
@@ -727,9 +727,10 @@ void nr_dci_decoding_procedure(PHY_VARS_NR_UE *ue,
                             L * 108,
                             rel15->coreset.pdcch_dmrs_scrambling_id,
                             tmp_e);
-
+      uint64_t b=rdtsc_oai();
+      iter++;
       const uint32_t crc = polar_decoder_int16(tmp_e, dci_estimation, 1, NR_POLAR_DCI_MESSAGE_TYPE, dci_length, L);
-
+      a += rdtsc_oai() -b;
       rnti_t n_rnti = rel15->rnti;
       if (crc == n_rnti) {
         LOG_D(NR_PHY_DCI,
@@ -770,4 +771,6 @@ void nr_dci_decoding_procedure(PHY_VARS_NR_UE *ue,
     }
     e_rx_cand_idx += 9 * L * 6; // e_rx index for next candidate (L CCEs, 6 REGs per CCE and 9 REs per REG )
   }
+  if (a > 3000*100)
+    LOG_E(PHY,"cpu: %lu, cpu tot %llu rel15->num_dci_options %d, dci_ind->number_of_dci %d, iter %d\n",a/3000, (rdtsc_oai() - z)/3000, rel15->num_dci_options,dci_ind->number_of_dcis, iter);
 }
