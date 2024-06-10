@@ -899,7 +899,7 @@ static uint8_t nr_ulsch_mmse_2layers(NR_DL_FRAME_PARMS *frame_parms,
     // (1/2^log2_maxh)*conj_H_00xH_00: (1/(64*2))conjH_00*H_00*2^15
     nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][0], ul_ch_estimates_ext[0][0], conjch00_ch00, nb_rb_0, shift);
     // (1/2^log2_maxh)*conj_H_10xH_10: (1/(64*2))conjH_10*H_10*2^15
-    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][0], ul_ch_estimates_ext[1][0], conjch10_ch10, nb_rb_0, shift);
+    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][1], ul_ch_estimates_ext[0][1], conjch10_ch10, nb_rb_0, shift);
     // conj_H_00xH_01
     nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][0],
                               ul_ch_estimates_ext[1][0],
