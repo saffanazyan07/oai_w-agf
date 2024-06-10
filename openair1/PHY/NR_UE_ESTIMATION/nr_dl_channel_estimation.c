@@ -213,7 +213,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
             return (-1);
             break;
         }
-        c16_t ch = c16mulShift(*rxF, *pil, 15);
+        c16_t ch = c16MulConjShift(*rxF, *pil, 15);
         // Start pilot
         multaddRealVectorComplexScalar(fl, ch, ch_tmp, 8);
 
@@ -228,7 +228,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
 
         // Middle pilots
         for (int pIdx = 1; pIdx < num_pilots - 1; pIdx += 2) {
-          c16_t ch = c16mulShift(*rxF, *pil, 15);
+          c16_t ch = c16MulConjShift(*rxF, *pil, 15);
           const c16_t *tmp = pIdx == 1 /*2nd pilot*/ ? fml : fm;
           multaddRealVectorComplexScalar(tmp, ch, ch_tmp, 8);
           // SNR & RSRP estimation
@@ -239,7 +239,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
           pil++;
           k = (k + prs_cfg->CombSize) % frame_params->ofdm_symbol_size;
           rxF = &rxdataF[rxAnt][l * frame_params->ofdm_symbol_size + k];
-          ch = c16mulShift(*rxF, *pil, 15);
+          ch = c16MulConjShift(*rxF, *pil, 15);
           const c16_t *tmp2 = pIdx == num_pilots - 3 /*2nd pilot*/ ? fmr : fmm;
           multaddRealVectorComplexScalar(tmp2, ch, ch_tmp, 8);
           // SNR & RSRP estimation
@@ -254,7 +254,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
         }
 
         // End pilot
-        ch = c16mulShift(*rxF, *pil, 15);
+        ch = c16MulConjShift(*rxF, *pil, 15);
         multaddRealVectorComplexScalar(fr, ch, ch_tmp, 8);
 
         // SNR & RSRP estimation
@@ -313,7 +313,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
         }
 
         // Start pilot
-        c16_t ch = c16mulShift(*rxF, *pil, 15);
+        c16_t ch = c16MulConjShift(*rxF, *pil, 15);
         // Start pilot
         multaddRealVectorComplexScalar(fl, ch, ch_tmp, 16);
         // SNR & RSRP estimation
@@ -324,7 +324,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
         pil++;
         k = (k + prs_cfg->CombSize) % frame_params->ofdm_symbol_size;
         rxF = &rxdataF[rxAnt][l * frame_params->ofdm_symbol_size + k];
-        ch = c16mulShift(*rxF, *pil, 15);
+        ch = c16MulConjShift(*rxF, *pil, 15);
         multaddRealVectorComplexScalar(fml, ch, ch_tmp, 16);
         // SNR & RSRP estimation
         rsrp += squaredMod(*rxF);
@@ -338,7 +338,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
 
         // Middle pilots
         for (int pIdx = 2; pIdx < num_pilots - 2; pIdx++) {
-          c16_t ch = c16mulShift(*rxF, *pil, 15);
+          c16_t ch = c16MulConjShift(*rxF, *pil, 15);
           multaddRealVectorComplexScalar(fmm, ch, ch_tmp, 16);
 
           // SNR & RSRP estimation
@@ -353,7 +353,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
         }
 
         // End pilot
-        ch = c16mulShift(*rxF, *pil, 15);
+        ch = c16MulConjShift(*rxF, *pil, 15);
         multaddRealVectorComplexScalar(fmr, ch, ch_tmp, 16);
         // SNR & RSRP estimation
         rsrp += squaredMod(*rxF);
@@ -364,7 +364,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
         k = (k + prs_cfg->CombSize) % frame_params->ofdm_symbol_size;
         rxF = &rxdataF[rxAnt][l * frame_params->ofdm_symbol_size + k];
 
-        ch = c16mulShift(*rxF, *pil, 15);
+        ch = c16MulConjShift(*rxF, *pil, 15);
         multaddRealVectorComplexScalar(fr, ch, ch_tmp, 16);
         // SNR & RSRP estimation
         rsrp += squaredMod(*rxF);
@@ -396,32 +396,8 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
       printf("\t\t\t[gNB %d][Rx %d][RB %d]\n", gNB_id, rxAnt, rb);
       printf("================================================================\n");
       idx = (12 * rb) << 1;
-      printf("%4d %4d  %4d %4d  %4d %4d  %4d %4d  %4d %4d  %4d %4d\n",
-             ch_tmp[idx],
-             ch_tmp[idx + 1],
-             ch_tmp[idx + 2],
-             ch_tmp[idx + 3],
-             ch_tmp[idx + 4],
-             ch_tmp[idx + 5],
-             ch_tmp[idx + 6],
-             ch_tmp[idx + 7],
-             ch_tmp[idx + 8],
-             ch_tmp[idx + 9],
-             ch_tmp[idx + 10],
-             ch_tmp[idx + 11]);
-      printf("%4d %4d  %4d %4d  %4d %4d  %4d %4d  %4d %4d  %4d %4d\n",
-             ch_tmp[idx + 12],
-             ch_tmp[idx + 13],
-             ch_tmp[idx + 14],
-             ch_tmp[idx + 15],
-             ch_tmp[idx + 16],
-             ch_tmp[idx + 17],
-             ch_tmp[idx + 18],
-             ch_tmp[idx + 19],
-             ch_tmp[idx + 20],
-             ch_tmp[idx + 21],
-             ch_tmp[idx + 22],
-             ch_tmp[idx + 23]);
+      for (int z=0; z<12; z++)
+         printf("(%4d,%4d) ", ch_tmp[idx+z].r, ch_tmp[idx+z].i);
       printf("\n");
     }
 #endif
