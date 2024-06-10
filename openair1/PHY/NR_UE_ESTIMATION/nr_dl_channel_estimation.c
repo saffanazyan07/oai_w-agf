@@ -203,7 +203,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
 
         // SNR & RSRP estimation
         rsrp += squaredMod(*rxF);
-        c16_t noiseFig = c16mulShift(ch, *pil, 15);
+        c16_t noiseFig = c16sub(*rxF, c16mulShift(ch, *pil, 15));
         snr += 10 * log10(squaredMod(*rxF) - squaredMod(noiseFig)) - 10 * log10(squaredMod(noiseFig));
         PRS_PRINTS;
         pil++;
@@ -217,7 +217,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
           multaddRealVectorComplexScalar(tmp, ch, ch_tmp, 8);
           // SNR & RSRP estimation
           rsrp += squaredMod(*rxF);
-          c16_t noiseFig = c16mulShift(ch, *pil, 15);
+          c16_t noiseFig = c16sub(*rxF, c16mulShift(ch, *pil, 15));
           snr += 10 * log10(squaredMod(*rxF) - squaredMod(noiseFig)) - 10 * log10(squaredMod(noiseFig));
           PRS_PRINTS;
           pil++;
@@ -228,7 +228,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
           multaddRealVectorComplexScalar(tmp2, ch, ch_tmp, 8);
           // SNR & RSRP estimation
           rsrp += squaredMod(*rxF);
-          noiseFig = c16mulShift(ch, *pil, 15);
+          noiseFig = c16sub(*rxF, c16mulShift(ch, *pil, 15));
           snr += 10 * log10(squaredMod(*rxF) - squaredMod(noiseFig)) - 10 * log10(squaredMod(noiseFig));
           PRS_PRINTS;
           pil++;
@@ -243,7 +243,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
 
         // SNR & RSRP estimation
         rsrp += squaredMod(*rxF);
-        noiseFig = c16mulShift(ch, *pil, 15);
+        noiseFig = c16sub(*rxF, c16mulShift(ch, *pil, 15));
         snr += 10 * log10(squaredMod(*rxF) - squaredMod(noiseFig)) - 10 * log10(squaredMod(noiseFig));
         PRS_PRINTS;
       } else if (prs_cfg->CombSize == 4) {
@@ -302,7 +302,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
         multaddRealVectorComplexScalar(fl, ch, ch_tmp, 16);
         // SNR & RSRP estimation
         rsrp += squaredMod(*rxF);
-        c16_t noiseFig = c16mulShift(ch, *pil, 15);
+        c16_t noiseFig = c16sub(*rxF, c16mulShift(ch, *pil, 15));
         snr += 10 * log10(squaredMod(*rxF) - squaredMod(noiseFig)) - 10 * log10(squaredMod(noiseFig));
         PRS_PRINTS;
         pil++;
@@ -312,7 +312,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
         multaddRealVectorComplexScalar(fml, ch, ch_tmp, 16);
         // SNR & RSRP estimation
         rsrp += squaredMod(*rxF);
-        noiseFig = c16mulShift(ch, *pil, 15);
+        noiseFig = c16sub(*rxF, c16mulShift(ch, *pil, 15));
         snr += 10 * log10(squaredMod(*rxF) - squaredMod(noiseFig)) - 10 * log10(squaredMod(noiseFig));
         PRS_PRINTS;
         pil++;
@@ -327,7 +327,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
 
           // SNR & RSRP estimation
           rsrp += squaredMod(*rxF);
-          c16_t noiseFig = c16mulShift(ch, *pil, 15);
+          c16_t noiseFig = c16sub(*rxF, c16mulShift(ch, *pil, 15));
           snr += 10 * log10(squaredMod(*rxF) - squaredMod(noiseFig)) - 10 * log10(squaredMod(noiseFig));
           PRS_PRINTS;
           pil++;
@@ -341,7 +341,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
         multaddRealVectorComplexScalar(fmr, ch, ch_tmp, 16);
         // SNR & RSRP estimation
         rsrp += squaredMod(*rxF);
-        noiseFig = c16mulShift(ch, *pil, 15);
+        noiseFig = c16sub(*rxF, c16mulShift(ch, *pil, 15));
         snr += 10 * log10(squaredMod(*rxF) - squaredMod(noiseFig)) - 10 * log10(squaredMod(noiseFig));
         PRS_PRINTS;
         pil++;
@@ -352,7 +352,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
         multaddRealVectorComplexScalar(fr, ch, ch_tmp, 16);
         // SNR & RSRP estimation
         rsrp += squaredMod(*rxF);
-        noiseFig = c16mulShift(ch, *pil, 15);
+        noiseFig = c16sub(*rxF, c16mulShift(ch, *pil, 15));
         snr += 10 * log10(squaredMod(*rxF) - squaredMod(noiseFig)) - 10 * log10(squaredMod(noiseFig));
         PRS_PRINTS;
       } else {

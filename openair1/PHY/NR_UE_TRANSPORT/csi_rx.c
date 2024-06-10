@@ -326,8 +326,9 @@ static int nr_csi_rs_channel_estimation(
               uint64_t symbol_offset = symb*frame_parms->ofdm_symbol_size;
               const c16_t *tx_csi_rs_signal = &csi_rs_generated_signal[port_tx][symbol_offset + dataF_offset];
               const c16_t *rx_csi_rs_signal = &csi_rs_received_signal[ant_rx][symbol_offset];
-              csi_rs_ls_estimated_channel[ant_rx][port_tx][kinit] =
-                  c16MulConjShift(tx_csi_rs_signal[k], rx_csi_rs_signal[k], nr_csi_info->csi_rs_generated_signal_bits);
+              c16_t *res = csi_rs_ls_estimated_channel[ant_rx][port_tx] + kinit;
+              *res = c16add(*res,
+                            c16MulConjShift(tx_csi_rs_signal[k], rx_csi_rs_signal[k], nr_csi_info->csi_rs_generated_signal_bits));
             }
           }
         }
@@ -377,14 +378,15 @@ static int nr_csi_rs_channel_estimation(
       for (uint port_tx = 0; port_tx < N_ports; port_tx++) {
         c16_t val = csi_rs_ls_estimated_channel[ant_rx][port_tx][k];
         c16_t *csi_rs_estimated_channel = &csi_rs_estimated_channel_freq[ant_rx][port_tx][k_offset];
-        if (k == 0 || k == frame_parms->first_carrier_offset) { // Start of OFDM symbol case or first occupied subcarrier case
+        if (k == 0 || k == frame_parms->first_carrier_offset) {
+          // Start of OFDM symbol case or first occupied subcarrier case
           multaddRealVectorComplexScalar(filt24_start, val, csi_rs_estimated_channel, 24);
         } else if ((k + NR_NB_SC_PER_RB >= frame_parms->ofdm_symbol_size)
-                   || (rb
-                       == csirs_config_pdu->start_rb + csirs_config_pdu->nr_of_rbs
-                              - 1)) { // End of OFDM symbol case or Last occupied subcarrier case
+                   || (rb == csirs_config_pdu->start_rb + csirs_config_pdu->nr_of_rbs - 1)) {
+          // End of OFDM symbol case or Last occupied subcarrier case
           multaddRealVectorComplexScalar(filt24_end, val, csi_rs_estimated_channel - 3 * sizeof(c16_t), 24);
-        } else { // Middle case
+        } else {
+          // Middle case
           multaddRealVectorComplexScalar(filt24_middle, val, csi_rs_estimated_channel - 3 * sizeof(c16_t), 24);
         }
       }
