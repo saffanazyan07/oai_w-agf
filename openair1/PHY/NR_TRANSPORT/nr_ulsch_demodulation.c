@@ -909,34 +909,34 @@ static uint8_t nr_ulsch_mmse_2layers(NR_DL_FRAME_PARMS *frame_parms,
     // conj_H_10xH_11
     nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][1], ul_ch_estimates_ext[1][1], conjch10_ch11, nb_rb_0, shift);
     // conj_H_01xH_01
-    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][0], ul_ch_estimates_ext[0][1], conjch01_ch01, nb_rb_0, shift);
+    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][0], ul_ch_estimates_ext[1][0], conjch01_ch01, nb_rb_0, shift);
     // conj_H_11xH_11
     nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][1], ul_ch_estimates_ext[1][1], conjch11_ch11, nb_rb_0, shift);
     // conj_H_01xH_00
     nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][0], ul_ch_estimates_ext[0][0], conjch01_ch00, nb_rb_0, shift);
     // conj_H_11xH_10
-    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][1], ul_ch_estimates_ext[1][0], conjch11_ch10, nb_rb_0, shift);
+    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][1], ul_ch_estimates_ext[0][1], conjch11_ch10, nb_rb_0, shift);
   }
   if (n_rx==4){
     // (1/2^log2_maxh)*conj_H_20xH_20: (1/(64*2*16))conjH_20*H_20*2^15
-    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][2], ul_ch_estimates_ext[2][0], conjch20_ch20, nb_rb_0, shift);
+    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][2], ul_ch_estimates_ext[0][2], conjch20_ch20, nb_rb_0, shift);
 
     // (1/2^log2_maxh)*conj_H_30xH_30: (1/(64*2*4))conjH_30*H_30*2^15
-    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][3], ul_ch_estimates_ext[3][0], conjch30_ch30, nb_rb_0, shift);
+    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][3], ul_ch_estimates_ext[0][3], conjch30_ch30, nb_rb_0, shift);
 
     // (1/2^log2_maxh)*conj_H_20xH_20: (1/(64*2))conjH_20*H_20*2^15
-    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][2], ul_ch_estimates_ext[2][1], conjch20_ch21, nb_rb_0, shift);
+    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][2], ul_ch_estimates_ext[1][2], conjch20_ch21, nb_rb_0, shift);
 
-    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][3], ul_ch_estimates_ext[3][1], conjch30_ch31, nb_rb_0, shift);
+    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[0][3], ul_ch_estimates_ext[1][3], conjch30_ch31, nb_rb_0, shift);
 
-    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][2], ul_ch_estimates_ext[2][1], conjch21_ch21, nb_rb_0, shift);
+    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][2], ul_ch_estimates_ext[1][2], conjch21_ch21, nb_rb_0, shift);
 
-    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][3], ul_ch_estimates_ext[3][1], conjch31_ch31, nb_rb_0, shift);
+    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][3], ul_ch_estimates_ext[1][3], conjch31_ch31, nb_rb_0, shift);
 
     // (1/2^log2_maxh)*conj_H_20xH_20: (1/(64*2))conjH_20*H_20*2^15
-    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][2], ul_ch_estimates_ext[2][0], conjch21_ch20, nb_rb_0, shift);
+    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][2], ul_ch_estimates_ext[0][2], conjch21_ch20, nb_rb_0, shift);
 
-    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][3], ul_ch_estimates_ext[3][0], conjch31_ch30, nb_rb_0, shift);
+    nr_ulsch_conjch0_mult_ch1(ul_ch_estimates_ext[1][3], ul_ch_estimates_ext[0][3], conjch31_ch30, nb_rb_0, shift);
 
     nr_ulsch_construct_HhH_elements(conjch00_ch00,
                               conjch01_ch01,
