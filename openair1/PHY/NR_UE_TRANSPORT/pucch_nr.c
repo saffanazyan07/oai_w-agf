@@ -164,7 +164,7 @@ void nr_generate_pucch1(const PHY_VARS_NR_UE *ue,
                         const fapi_nr_ul_config_pucch_pdu *pucch_pdu)
 {
   uint16_t m0 = pucch_pdu->initial_cyclic_shift;
-  uint64_t payload = pucch_pdu->payload;
+  uint64_t payload = pucch_pdu->payloadd;
   uint8_t startingSymbolIndex = pucch_pdu->start_symbol_index;
   uint8_t nrofSymbols = pucch_pdu->nr_of_symbols;
   uint16_t startingPRB = pucch_pdu->prb_start + pucch_pdu->bwp_start;
@@ -644,7 +644,7 @@ void nr_generate_pucch2(const PHY_VARS_NR_UE *ue,
   uint64_t b[16] = {0}; // limit to 1024-bit encoded length
   // M_bit is the number of bits of block b (payload after encoding)
   uint16_t M_bit = 0;
-  nr_uci_encoding(pucch_pdu->payload,
+  nr_uci_encoding(pucch_pdu->payloadd,
                   pucch_pdu->n_bit,
                   2,0,
                   pucch_pdu->nr_of_symbols,
@@ -860,7 +860,7 @@ void nr_generate_pucch3_4(const PHY_VARS_NR_UE *ue,
   uint16_t startingPRB = pucch_pdu->prb_start + pucch_pdu->bwp_start;
   uint8_t add_dmrs = pucch_pdu->add_dmrs_flag;
 
-  nr_uci_encoding(pucch_pdu->payload,
+  nr_uci_encoding(pucch_pdu->payloadd,
                   pucch_pdu->n_bit,
                   pucch_pdu->format_type,
                   is_pi_over_2_bpsk_enabled,

@@ -1497,7 +1497,7 @@ int nr_ue_configure_pucch(NR_UE_MAC_INST_t *mac,
     pucch_pdu->time_domain_occ_idx = 0;
     // Only HARQ transmitted in default PUCCH
     pucch_pdu->mcs = get_pucch0_mcs(pucch->n_harq, 0, pucch->ack_payload, 0);
-    pucch_pdu->payload = pucch->ack_payload;
+    pucch_pdu->payloadd = pucch->ack_payload;
     pucch_pdu->n_bit = 1;
   }
   else if (pucch->pucch_resource != NULL) {
@@ -1560,13 +1560,13 @@ int nr_ue_configure_pucch(NR_UE_MAC_INST_t *mac,
           // only HARQ bits are transmitted, resource selection depends on SR
           // resource selection handled in function multiplex_pucch_resource
           pucch_pdu->n_bit = pucch->n_harq;
-          pucch_pdu->payload = pucch->ack_payload;
+          pucch_pdu->payloadd = pucch->ack_payload;
         }
         else {
           // For a positive SR transmission using PUCCH format 1,
           // the UE transmits the PUCCH as described in 38.211 by setting b(0) = 0
           pucch_pdu->n_bit = pucch->n_sr;
-          pucch_pdu->payload = 0;
+          pucch_pdu->payloadd = 0;
         }
         break;
       case NR_PUCCH_Resource__format_PR_format2 :
@@ -1583,7 +1583,7 @@ int nr_ue_configure_pucch(NR_UE_MAC_INST_t *mac,
                                                      2,
                                                      pucchres->format.choice.format2->nrofSymbols,
                                                      8);
-        pucch_pdu->payload = (pucch->csi_part1_payload << (pucch->n_harq + pucch->n_sr)) | (pucch->sr_payload << pucch->n_harq) | pucch->ack_payload;
+        pucch_pdu->payloadd = (pucch->csi_part1_payload << (pucch->n_harq + pucch->n_sr)) | (pucch->sr_payload << pucch->n_harq) | pucch->ack_payload;
         break;
       case NR_PUCCH_Resource__format_PR_format3 :
         pucch_pdu->format_type = 3;
@@ -1616,7 +1616,7 @@ int nr_ue_configure_pucch(NR_UE_MAC_INST_t *mac,
                                                      2 - pucch_pdu->pi_2bpsk,
                                                      pucchres->format.choice.format3->nrofSymbols - f3_dmrs_symbols,
                                                      12);
-        pucch_pdu->payload = (pucch->csi_part1_payload << (pucch->n_harq + pucch->n_sr)) | (pucch->sr_payload << pucch->n_harq) | pucch->ack_payload;
+        pucch_pdu->payloadd = (pucch->csi_part1_payload << (pucch->n_harq + pucch->n_sr)) | (pucch->sr_payload << pucch->n_harq) | pucch->ack_payload;
         break;
       case NR_PUCCH_Resource__format_PR_format4 :
         pucch_pdu->format_type = 4;
@@ -1634,7 +1634,7 @@ int nr_ue_configure_pucch(NR_UE_MAC_INST_t *mac,
           pucch_pdu->pi_2bpsk = pucchfmt->pi2BPSK!= NULL ?  1 : 0;
           pucch_pdu->add_dmrs_flag = pucchfmt->additionalDMRS!= NULL ?  1 : 0;
         }
-        pucch_pdu->payload = (pucch->csi_part1_payload << (pucch->n_harq + pucch->n_sr)) | (pucch->sr_payload << pucch->n_harq) | pucch->ack_payload;
+        pucch_pdu->payloadd = (pucch->csi_part1_payload << (pucch->n_harq + pucch->n_sr)) | (pucch->sr_payload << pucch->n_harq) | pucch->ack_payload;
         break;
       default :
         LOG_E(NR_MAC, "Undefined PUCCH format \n");
@@ -2282,7 +2282,7 @@ bool get_downlink_ack(NR_UE_MAC_INST_t *mac, frame_t frame, int slot, PUCCH_sche
             number_harq_feedback++;
             int dai_index = current_harq->dai_cumul - 1;
             if (current_harq->ack_received) {
-              ack_data[code_word][dai_index] = current_harq->ack;
+              ack_data[code_word][dai_index] = current_harq->acK;
               current_harq->active = false;
               current_harq->ack_received = false;
             } else {
@@ -2298,7 +2298,7 @@ bool get_downlink_ack(NR_UE_MAC_INST_t *mac, frame_t frame, int slot, PUCCH_sche
             res_ind = temp_ind;
             pucch->n_CCE = current_harq->n_CCE;
             pucch->N_CCE = current_harq->N_CCE;
-            LOG_D(NR_MAC,"%4d.%2d Sent %d ack on harq pid %d\n", frame, slot, current_harq->ack, dl_harq_pid);
+            LOG_I(NR_MAC,"%4d.%2d Sent %d ack on harq pid %d\n", frame, slot, current_harq->acK, dl_harq_pid);
           }
         }
       }

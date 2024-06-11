@@ -360,7 +360,7 @@ typedef struct {
   uint8_t  pucch_resource_indicator;
   frame_t ul_frame;
   int ul_slot;
-  uint8_t ack;
+  uint8_t acK;
   int n_CCE;
   int N_CCE;
   int dai_cumul;
