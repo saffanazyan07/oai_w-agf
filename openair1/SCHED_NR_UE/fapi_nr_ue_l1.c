@@ -71,7 +71,7 @@ static void fill_uci_2_3_4(nfapi_nr_uci_pucch_pdu_format_2_3_4_t *pdu_2_3_4,
                                                   sizeof(pdu_2_3_4->csi_part1.csi_part1_payload));
   for (int k = 0; k < csi_part1_byte_len; k++)
   {
-    pdu_2_3_4->csi_part1.csi_part1_payload[k] = (pucch_pdu->payload >> (k * 8)) & 0xff;
+    pdu_2_3_4->csi_part1.csi_part1_payload[k] = (pucch_pdu->payloadd >> (k * 8)) & 0xff;
   }
   pdu_2_3_4->csi_part1.csi_part1_crc = 0;
 }
@@ -252,7 +252,7 @@ int8_t nr_ue_scheduled_response_stub(nr_scheduled_response_t *scheduled_response
                     mac->nr_ue_emul_l1.harq[k].active = false;
                     harq_pid = k;
                     AssertFatal(harq_index < pdu_0_1->harq.num_harq, "Invalid harq_index %d\n", harq_index);
-                    pdu_0_1->harq.harq_list[harq_index].harq_value = !mac->dl_harq_info[k].ack;
+                    pdu_0_1->harq.harq_list[harq_index].harq_value = !mac->dl_harq_info[k].acK;
                     harq_index++;
                   }
                 }

@@ -1123,12 +1123,12 @@ void update_harq_status(NR_UE_MAC_INST_t *mac, uint8_t harq_pid, uint8_t ack_nac
   NR_UE_HARQ_STATUS_t *current_harq = &mac->dl_harq_info[harq_pid];
 
   if (current_harq->active) {
-    LOG_D(PHY,"Updating harq_status for harq_id %d, ack/nak %d\n", harq_pid, current_harq->ack);
+    LOG_I(PHY,"Updating harq_status for harq_id %d, ack/nak %d\n", harq_pid, current_harq->acK);
     // we can prepare feedback for MSG4 in advance
     if (mac->ra.ra_state == nrRA_WAIT_CONTENTION_RESOLUTION)
       prepare_msg4_feedback(mac, harq_pid, ack_nack);
     else {
-      current_harq->ack = ack_nack;
+      current_harq->acK = ack_nack;
       current_harq->ack_received = true;
     }
   }

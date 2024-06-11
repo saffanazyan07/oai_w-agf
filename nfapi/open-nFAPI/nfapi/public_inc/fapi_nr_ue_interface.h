@@ -229,7 +229,7 @@ typedef struct {
   uint8_t pre_dft_occ_len;
   int16_t pucch_tx_power;
   uint32_t n_bit;
-  uint64_t payload;
+  uint64_t payloadd;
 } fapi_nr_ul_config_pucch_pdu;
 
 typedef struct
