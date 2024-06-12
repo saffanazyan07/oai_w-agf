@@ -705,6 +705,10 @@ void *UE_thread(void *arg)
   polarReturn(nr_polar_params(1,41,4,1));
   polarReturn(nr_polar_params(1,45,4,1));
   polarReturn(nr_polar_params(1,45,8,1));
+  polarReturn(nr_polar_params(1,43,4,1));
+  polarReturn(nr_polar_params(1,43,8,1));
+  polarReturn(nr_polar_params(2,12,8,1));
+  
   while (!oai_exit) {
     if (syncRunning) {
       notifiedFIFO_elt_t *res=tryPullTpool(&nf,&(get_nrUE_params()->Tpool));
