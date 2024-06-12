@@ -90,7 +90,6 @@ nrUE_params_t *get_nrUE_params(void) {
   return &nrUE_params;
 }
 
-void init_downlink_harq_status(NR_DL_UE_HARQ_t *dl_harq) {}
 NR_IF_Module_t *NR_IF_Module_init(int Mod_id) { return (NULL); }
 nfapi_mode_t nfapi_getmode(void) { return NFAPI_MODE_UNKNOWN; }
 

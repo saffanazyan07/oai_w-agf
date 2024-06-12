@@ -73,7 +73,6 @@ softmodem_params_t *get_softmodem_params(void) {
   return &softmodem_params;
 }
 
-void init_downlink_harq_status(NR_DL_UE_HARQ_t *dl_harq) {}
 NR_IF_Module_t *NR_IF_Module_init(int Mod_id) { return (NULL); }
 nfapi_mode_t nfapi_getmode(void) { return NFAPI_MODE_UNKNOWN; }
 
@@ -523,7 +522,7 @@ int main(int argc, char **argv)
     pucch_tx_pdu.format_type = 2;
     pucch_tx_pdu.rnti = 0x1234;
     pucch_tx_pdu.n_bit = nr_bit;
-    pucch_tx_pdu.payload = actual_payload;
+    pucch_tx_pdu.payloadd = actual_payload;
     pucch_tx_pdu.nr_of_symbols = nrofSymbols;
     pucch_tx_pdu.start_symbol_index = startingSymbolIndex;
     pucch_tx_pdu.bwp_start = 0;

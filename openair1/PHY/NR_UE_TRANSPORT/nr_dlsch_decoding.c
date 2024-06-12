@@ -167,7 +167,7 @@ static void nr_processDLSegment(void *arg)
   short* dlsch_llr = rdata->dlsch_llr;
   int8_t LDPCoutput[OAI_UL_LDPC_MAX_NUM_LLR] __attribute__((aligned(32)));
   int16_t z[68 * 384 + 16] __attribute__((aligned(16)));
-  int8_t   l [68*384 + 16] __attribute__ ((aligned(16)));
+  int8_t  l[68*384 + 16] __attribute__ ((aligned(16)));
 
   const int Kr = harq_process->K;
   const int K_bits_F = Kr - harq_process->F;
@@ -415,13 +415,12 @@ uint32_t nr_dlsch_decoding(PHY_VARS_NR_UE *phy_vars_ue,
     nbDecode--;
   }
   LOG_D(PHY,
-        "%d.%d DLSCH Decoded, harq_pid %d, round %d, result: %d TBS %d (%d) G %d nb_re_dmrs %d length dmrs %d mcs %d Nl %d "
-        "nb_symb_sch %d "
+        "%d.%d DLSCH Decoded, harq_pid %d, round %d, result: %d TBS %d (%d) G %d nb_re_dmrs %d length dmrs %d mcs %d Nl %d nb_symb_sch %d "
         "nb_rb %d Qm %d Coderate %f\n",
         frame,
         nr_slot_rx,
         harq_pid,
-        harq_process->DLround,
+	harq_process->DLround,
         harq_process->decodeResult,
         A,
         A / 8,
