@@ -190,7 +190,7 @@ int test_pucch_basic_error(PHY_VARS_NR_UE *ue, int gNB_id, UE_nr_rxtx_proc_t *pr
     v_return = -1;
   }
 
-  harq_status->ack = DL_ACK;
+  harq_status->ack = 1;
 
   printf("\n  => Test : Error due to DAI not set \n");
 
@@ -269,7 +269,7 @@ int test_pucch_common_config_single_transport_block(PHY_VARS_NR_UE *ue, int gNB_
   /* set a tx slot with no ack */
   NR_UE_HARQ_STATUS_t *harq_status = &ue->dlsch[proc->thread_id][gNB_id][0]->harq_processes[TST_DL_HARQ_PID_FIRST].harq_ack;
 
-  harq_status->ack = DL_ACK;
+  harq_status->ack = 1;
 
   printf("\n  => Test : PUCCH format from common config in prach mode: one positive downlink ACKnowledgment \n");
 
@@ -277,7 +277,7 @@ int test_pucch_common_config_single_transport_block(PHY_VARS_NR_UE *ue, int gNB_
    v_return = -1;
   }
 
-  harq_status->ack = DL_NACK;
+  harq_status->decodeResult = 0;
 
   printf("\n  => Test : PUCCH format from common config in prach mode: one negative downlink ACKnowledgment \n");
 
@@ -299,7 +299,7 @@ int test_pucch_common_config_single_transport_block(PHY_VARS_NR_UE *ue, int gNB_
   harq_status->pucch_resource_indicator = 1;
   harq_status->send_harq_status = 1;
   harq_status->vDAI_DL = 2;
-  harq_status->ack = DL_ACK;
+  harq_status->ack = 1;
   harq_status->slot_for_feedback_ack  = proc->nr_slot_tx;
 
   printf("\n  => Test : PUCCH format from common config in dedicated mode: two positive downlink ACKnowledgments \n");
@@ -308,7 +308,7 @@ int test_pucch_common_config_single_transport_block(PHY_VARS_NR_UE *ue, int gNB_
     v_return = -1;
   }
 
-  harq_status->ack = DL_NACK;
+  harq_status->decodeResult = 0;
 
   printf("\n  => Test : PUCCH format from common config in dedicated mode: one positive and one negative downlink ACKnowledgments \n");
 
@@ -316,7 +316,7 @@ int test_pucch_common_config_single_transport_block(PHY_VARS_NR_UE *ue, int gNB_
     v_return = -1;
   }
 
-  ue->dlsch[proc->thread_id][gNB_id][0]->harq_processes[TST_DL_HARQ_PID_FIRST].harq_ack.ack = DL_NACK;
+  ue->dlsch[proc->thread_id][gNB_id][0]->harq_processes[TST_DL_HARQ_PID_FIRST].harq_ack.ack = 0;
 
   printf("\n  => Test : PUCCH format from common config in dedicated mode: two negative downlink ACKnowledgments \n");
 
@@ -324,7 +324,7 @@ int test_pucch_common_config_single_transport_block(PHY_VARS_NR_UE *ue, int gNB_
     v_return = -1;
   }
 
-  harq_status->ack = DL_ACK;
+  harq_status->ack = 1;
   reset_harq = true;
 
   printf("\n  => Test : PUCCH format from common config in dedicated mode: no resource is found \n");
@@ -570,7 +570,7 @@ int test_pucch_dedicated_single_transport_block(PHY_VARS_NR_UE *ue, int gNB_id, 
   harq_status->slot_for_feedback_ack  = proc->nr_slot_tx;
   harq_status->send_harq_status = 1;
   harq_status->vDAI_DL = 1;
-  harq_status->ack = DL_ACK;
+  harq_status->ack = 1;
   harq_status->pucch_resource_indicator = MAX_PUCCH_RESOURCE_INDICATOR;
 
   printf("\n  => Test : PUCCH format from dedicated config : pucch resource indicator is invalid \n");
@@ -589,7 +589,7 @@ int test_pucch_dedicated_single_transport_block(PHY_VARS_NR_UE *ue, int gNB_id, 
     harq_status->slot_for_feedback_ack  = proc->nr_slot_tx;
     harq_status->send_harq_status = 1;
     harq_status->vDAI_DL = i+1;
-    harq_status->ack = DL_ACK;
+    harq_status->ack = 1;
 
     for (int j = 0 ; j < 2; j++) {
 
@@ -623,7 +623,7 @@ int test_pucch_dedicated_single_transport_block(PHY_VARS_NR_UE *ue, int gNB_id, 
     harq_status->slot_for_feedback_ack  = proc->nr_slot_tx;
     harq_status->send_harq_status = 1;
     harq_status->vDAI_DL = i+1;
-    harq_status->ack = DL_ACK;
+    harq_status->ack = 1;
     harq_status->pucch_resource_indicator = pucch_resource_indicator[i][0];
   }
 
@@ -687,7 +687,7 @@ int test_pucch_dedicated_two_transport_blocks(PHY_VARS_NR_UE *ue, int gNB_id, UE
       harq_status->slot_for_feedback_ack  = proc->nr_slot_tx;
       harq_status->send_harq_status = 1;
       harq_status->vDAI_DL = i+1;
-      harq_status->ack = DL_ACK;
+      harq_status->ack = 1;
     }
 
     for (int j = 0 ; j < 2; j++) {
@@ -730,7 +730,7 @@ int test_pucch_dedicated_two_transport_blocks(PHY_VARS_NR_UE *ue, int gNB_id, UE
       harq_status->slot_for_feedback_ack  = proc->nr_slot_tx;
       harq_status->send_harq_status = 1;
       harq_status->vDAI_DL = i+1;
-      harq_status->ack = DL_ACK;
+      harq_status->ack = 1;
 
       for (int j = 0 ; j < 2; j++) {
 
@@ -764,7 +764,7 @@ int test_pucch_dedicated_two_transport_blocks(PHY_VARS_NR_UE *ue, int gNB_id, UE
       harq_status->slot_for_feedback_ack  = proc->nr_slot_tx;
       harq_status->send_harq_status = 1;
       harq_status->vDAI_DL = i+1;
-      harq_status->ack = DL_ACK;
+      harq_status->ack = 1;
 
       for (int j = 0 ; j < 2; j++) {
 
@@ -982,7 +982,7 @@ int test_sr_ack_dedicated(PHY_VARS_NR_UE *ue, int gNB_id, UE_nr_rxtx_proc_t *pro
   harq_status->slot_for_feedback_ack  = proc->nr_slot_tx;
   harq_status->send_harq_status = 1;
   harq_status->vDAI_DL = 1;
-  harq_status->ack = DL_ACK;
+  harq_status->ack = 1;
   harq_status->pucch_resource_indicator = pucch_resource_indicator[0];
 
   tst_scheduling_request_payload = 0;  /* set sr payload */
@@ -1021,7 +1021,7 @@ int test_sr_ack_dedicated(PHY_VARS_NR_UE *ue, int gNB_id, UE_nr_rxtx_proc_t *pro
   harq_status->slot_for_feedback_ack  = proc->nr_slot_tx;
   harq_status->send_harq_status = 1;
   harq_status->vDAI_DL = 2;
-  harq_status->ack = DL_ACK;
+  harq_status->ack = 1;
   harq_status->pucch_resource_indicator = pucch_resource_indicator[0];
 
   tst_scheduling_request_payload = 1;  /* set sr payload */
@@ -1094,7 +1094,7 @@ int test_csi_dedicated(PHY_VARS_NR_UE *ue, int gNB_id, UE_nr_rxtx_proc_t *proc)
   harq_status->slot_for_feedback_ack  = proc->nr_slot_tx;
   harq_status->send_harq_status = 1;
   harq_status->vDAI_DL = 1;
-  harq_status->ack = DL_ACK;
+  harq_status->ack = 1;
   harq_status->pucch_resource_indicator = pucch_resource_indicator[3];
 
   ue->pucch_config_dedicated_nr[gNB_id].formatConfig[2-1]->simultaneousHARQ_ACK_CSI = enable_feature; /* format 2 */

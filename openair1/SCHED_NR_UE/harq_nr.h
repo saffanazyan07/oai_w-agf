@@ -33,34 +33,9 @@
 #ifndef HARQ_NR_H
 #define HARQ_NR_H
 
-/************** DEFINE ********************************************/
-
-#define NR_DEFAULT_DLSCH_HARQ_PROCESSES          (8)                      /* TS 38.214 5.1 */
-
-#define DL_ACKNACK_NO_SET                        (2)
-#define DL_NACK                                  (0)
-#define DL_ACK                                   (1)
-#define DL_DAI_NO_SET                            (0xFF)
-#define UL_DAI_NO_SET                            (DL_DAI_NO_SET)
-
-/************** INCLUDE *******************************************/
+#define NR_DEFAULT_DLSCH_HARQ_PROCESSES  (8)    /* TS 38.214 5.1 */
 
 #include "PHY/defs_nr_UE.h"
-
-/************* TYPE ***********************************************/
-
-
-/************** VARIABLES *****************************************/
-
-
-/*************** FUNCTIONS ****************************************/
-
-/** \brief This function initialises downlink HARQ status
-    @param pointer to downlink harq status
-    @returns none */
-
-void init_downlink_harq_status(NR_DL_UE_HARQ_t *dl_harq);
-
 
 /** \brief This function update downlink harq context and return reception type (new transmission or retransmission)
     @param dlsch downlink harq context

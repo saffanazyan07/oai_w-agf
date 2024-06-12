@@ -93,31 +93,6 @@
 #include "PHY/NR_UE_TRANSPORT/nr_transport_ue.h"
 #include "SCHED_NR_UE/harq_nr.h"
 
-/********************* define **************************************/
-
-#define DL_DCI              (1)
-#define UL_DCI              (0)
-
-/*******************************************************************
-*
-* NAME :         init_downlink_harq_status
-*
-* PARAMETERS :   pointer to dl harq status
-*
-* RETURN :       none
-*
-* DESCRIPTION :  initialisation of downlink HARQ status
-*
-*********************************************************************/
-
-void init_downlink_harq_status(NR_DL_UE_HARQ_t *dl_harq)
-{
-  dl_harq->status = SCH_IDLE;
-  dl_harq->first_rx = 1;
-  dl_harq->DLround  = 0;
-  dl_harq->ack = DL_ACKNACK_NO_SET;
-}
-
 /*******************************************************************
 *
 * NAME :         downlink_harq_process

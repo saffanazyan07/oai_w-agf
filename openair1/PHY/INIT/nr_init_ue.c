@@ -408,8 +408,7 @@ void nr_init_dl_harq_processes(NR_DL_UE_HARQ_t harq_list[2][NR_MAX_DLSCH_HARQ_PR
 
   for (int j=0; j<2; j++) {
     for (int i=0; i<number_of_processes; i++) {
-      memset(harq_list[j] + i, 0, sizeof(NR_DL_UE_HARQ_t));
-      init_downlink_harq_status(harq_list[j] + i);
+      harq_list[j][i]=(NR_DL_UE_HARQ_t){.status = SCH_IDLE,  .first_rx = 1};
 
       harq_list[j][i].c = malloc16(a_segments*sizeof(uint8_t *));
       harq_list[j][i].d = malloc16(a_segments*sizeof(int16_t *));
@@ -483,7 +482,7 @@ void clean_UE_harq(PHY_VARS_NR_UE *UE)
   for (int harq_pid = 0; harq_pid < NR_MAX_DLSCH_HARQ_PROCESSES; harq_pid++) {
     for (int i = 0; i < 2; i++) {
       NR_DL_UE_HARQ_t *dl_harq_process = &UE->dl_harq_processes[i][harq_pid];
-      init_downlink_harq_status(dl_harq_process);
+      *dl_harq_process=(NR_DL_UE_HARQ_t){.status = SCH_IDLE,  .first_rx = 1};
     }
   }
   for (int harq_pid = 0; harq_pid < NR_MAX_ULSCH_HARQ_PROCESSES; harq_pid++) {
