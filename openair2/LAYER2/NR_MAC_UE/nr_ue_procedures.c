@@ -744,8 +744,8 @@ static int nr_ue_process_dci_dl_10(NR_UE_MAC_INST_t *mac,
   /* VRB_TO_PRB_MAPPING */
   dlsch_pdu->vrb_to_prb_mapping =
       (dci->vrb_to_prb_mapping.val == 0) ? vrb_to_prb_mapping_non_interleaved : vrb_to_prb_mapping_interleaved;
-  /* MCS TABLE INDEX */
-  dlsch_pdu->mcs_table = (pdsch_config) ? ((pdsch_config->mcs_Table) ? (*pdsch_config->mcs_Table + 1) : 0) : 0;
+  /* MCS TABLE INDEX is always the default table in case of DCI 1_0 (fallback DCI format)*/
+  dlsch_pdu->mcs_table = 0;
   /* MCS */
   dlsch_pdu->mcs = dci->mcs;
 
