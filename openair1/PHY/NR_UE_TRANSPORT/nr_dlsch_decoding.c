@@ -415,7 +415,7 @@ uint32_t nr_dlsch_decoding(PHY_VARS_NR_UE *phy_vars_ue,
     delNotifiedFIFO_elt(req);
     nbDecode--;
   }
-  LOG_D(PHY,
+  LOG_W(PHY,
         "%d.%d DLSCH Decoded, harq_pid %d, round %d, result: %d TBS %d (%d) G %d nb_re_dmrs %d length dmrs %d mcs %d Nl %d nb_symb_sch %d "
         "nb_rb %d Qm %d Coderate %f\n",
         frame,
