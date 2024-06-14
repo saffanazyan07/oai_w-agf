@@ -27,51 +27,82 @@ uint32_t* gold_cache(uint32_t key, int length)
     int key;
     int length;
     int usage;
-    uint32_t* sequence;
   } gold_cache_t;
-#define GOLD_CACHE_SZ PAGE_SIZE / sizeof(gold_cache_t)
-  static __thread gold_cache_t table[GOLD_CACHE_SZ] = {0};
+  
+  static __thread uint32_t *table=NULL;
+  static __thread uint32_t tblSz=0;
   static __thread int calls = 0;
+  // align for AVX512
+  const int roundedHeaderSz = (((sizeof(gold_cache_t) + 63) / 64) * 64) / sizeof(*table);
+  const int grain = 64 / sizeof(*table);
+  length = ((length + grain - 1) / grain) * grain;
   calls++;
+  uint32_t *ptr = table;
   // check if already cached
-  for (int i = 0; i < GOLD_CACHE_SZ; i++)
-    if (table[i].length && table[i].key == key) {
-      if (table[i].length >= length) {
-        table[i].usage++;
-        return table[i].sequence;
-      } else {
-        // cached, but too short, let's recompute it
-        free(table[i].sequence);
-        table[i].length = 0;
-      }
+  for (; ptr < table+tblSz ; ptr+=roundedHeaderSz) {
+    gold_cache_t *tbl=(gold_cache_t*) ptr;
+    if (tbl->length && tbl->key == key) {
+      tbl->usage++;
+      return ptr+roundedHeaderSz;
     }
+    if (!tbl->length)
+      break;
+    ptr+=tbl->length;
+  }
 
-  // cleanup unused entries since last adding
-  if (calls > GOLD_CACHE_SZ)
-    for (int i = 0; i < GOLD_CACHE_SZ; i++) {
-      if (table[i].length && !table[i].usage) {
-        free(table[i].sequence);
-        table[i].length = 0;
+  // Allocate, also reorder to have the most frequent first, so the cache search is optimized
+  if (!ptr || ptr > table + tblSz - (2 * roundedHeaderSz + length) || calls > 100000) {
+    uint32_t *old = table;
+    uint oldSz = tblSz;
+    tblSz += max(length + 2 * roundedHeaderSz, PAGE_SIZE / sizeof(*table));
+    int ret = posix_memalign((void **)&table, 64, tblSz * sizeof(*table));
+    AssertFatal(ret == 0, "No more memory");
+    ;
+    LOG_I(PHY, "Increase gold sequence table to %lu pages of memory\n", tblSz * sizeof(*table) / PAGE_SIZE);
+    int maxUsage;
+    uint32_t *currentTmp = table;
+    do {
+      maxUsage=0;
+      gold_cache_t *entryToCopy=NULL;
+      for (uint32_t *searchmax = old; searchmax < old + oldSz; searchmax += roundedHeaderSz) {
+        gold_cache_t *tbl = (gold_cache_t *)searchmax;
+        if (!tbl->length)
+          break;
+        if (tbl->usage > maxUsage) {
+          maxUsage = tbl->usage;
+          entryToCopy = tbl;
+        }
+        searchmax += tbl->length;
       }
-      table[i].usage = 0;
-    }
-  calls = 0;
+      if (maxUsage) {
+	memcpy(currentTmp, entryToCopy, (roundedHeaderSz+ entryToCopy->length)*sizeof(*table));
+	currentTmp+=roundedHeaderSz+ entryToCopy->length;
+	entryToCopy->usage=0;
+      }
+    } while (maxUsage);
+    const uint usedSz = currentTmp - table;
+    memset(table + usedSz, 0, (tblSz - usedSz) * sizeof(*table));
+    free(old);
+  }
 
   // We will add a new entry
-  for (int i = 0; i < GOLD_CACHE_SZ; i++)
-    if (table[i].length == 0) {
-      table[i].key = key;
-      table[i].length = length;
-      table[i].usage = 1;
-      table[i].sequence = malloc(length * sizeof(*table[i].sequence));
-      unsigned int x1 = 0, x2 = key;
-      table[i].sequence[0] = lte_gold_generic(&x1, &x2, 1);
-      for (int n = 1; n < length; n++)
-        table[i].sequence[n] = lte_gold_generic(&x1, &x2, 0);
-      LOG_D(PHY, "created a gold sequence, start %d; len %d\n", key, length);
-      return table[i].sequence;
-    }
-  AssertFatal(PHY, "gold sequence table full\n");
+  uint32_t * firstFree;
+  for (firstFree=table; firstFree < table+tblSz ; firstFree+=roundedHeaderSz) {
+    gold_cache_t *tbl=(gold_cache_t*) firstFree;
+    if (!tbl->length)
+      break;
+    firstFree+=tbl->length;
+  }
+
+  gold_cache_t *new=(gold_cache_t*) firstFree;
+  *new= (gold_cache_t) {.key = key,  .length = length,.usage = 1};
+  unsigned int x1 = 0, x2 = key;
+  uint32_t *sequence=firstFree+roundedHeaderSz;
+  *sequence++ = lte_gold_generic(&x1, &x2, 1);
+  for (int n = 1; n < length; n++)
+    *sequence++ = lte_gold_generic(&x1, &x2, 0);
+  LOG_W(PHY, "created a gold sequence, start %d; len %d\n", key, length);
+  return firstFree+roundedHeaderSz;
 }
 
 uint32_t* nr_gold_pbch(int Lmax, int Nid, int n_hf, int l)
@@ -85,7 +116,7 @@ uint32_t* nr_gold_pbch(int Lmax, int Nid, int n_hf, int l)
 uint32_t* nr_gold_pdcch(int N_RB_DL, int symbols_per_slot, unsigned short nid, int ns, int l)
 {
   int pdcch_dmrs_init_length = (((N_RB_DL << 1) * 3) >> 5) + 1;
-  uint64_t x2tmp0 = ((symbols_per_slot * ns + l + 1) * ((nid << 1) + 1));
+  uint64_t x2tmp0 = (((uint64_t)symbols_per_slot * ns + l + 1) * ((nid << 1) + 1));
   x2tmp0 <<= 17;
   x2tmp0 += (nid << 1);
   uint32_t x2 = x2tmp0 % (1U << 31); // cinit
@@ -96,7 +127,7 @@ uint32_t* nr_gold_pdcch(int N_RB_DL, int symbols_per_slot, unsigned short nid, i
 uint32_t* nr_gold_pdsch(int N_RB_DL, int symbols_per_slot, int nid, int nscid, int slot, int symbol)
 {
   int pdsch_dmrs_init_length = ((N_RB_DL * 24) >> 5) + 1;
-  uint64_t x2tmp0 = ((symbols_per_slot * slot + symbol + 1) * ((nid << 1) + 1)) << 17;
+  uint64_t x2tmp0 = (((uint64_t)symbols_per_slot * slot + symbol + 1) * (((uint64_t)nid << 1) + 1)) << 17;
   uint32_t x2 = (x2tmp0 + (nid << 1) + nscid) % (1U << 31); // cinit
   LOG_D(PHY, "UE DMRS slot %d, symb %d, nscid %d, x2 %x\n", slot, symbol, nscid, x2);
   return gold_cache(x2, pdsch_dmrs_init_length);
@@ -105,7 +136,7 @@ uint32_t* nr_gold_pdsch(int N_RB_DL, int symbols_per_slot, int nid, int nscid, i
 uint32_t* nr_gold_pusch(int N_RB_UL, int symbols_per_slot, int Nid, int nscid, int ns, int l)
 {
   int pusch_dmrs_init_length = ((N_RB_UL * 12) >> 5) + 1;
-  uint64_t temp_x2 = ((1UL << 17) * (symbols_per_slot * ns + l + 1) * ((Nid << 1) + 1) + ((Nid << 1) + nscid));
+  uint64_t temp_x2 = ((1ULL << 17) * (symbols_per_slot * ns + l + 1) * ((Nid << 1) + 1) + ((Nid << 1) + nscid));
   uint32_t x2 = temp_x2 % (1U << 31);
   LOG_D(PHY, "DMRS slot %d, symb %d, nscid %d, nid %d, x2 %x\n", ns, l, nscid, Nid, x2);
   return gold_cache(x2, pusch_dmrs_init_length);
@@ -114,7 +145,7 @@ uint32_t* nr_gold_pusch(int N_RB_UL, int symbols_per_slot, int Nid, int nscid, i
 uint32_t* nr_gold_csi_rs(const NR_DL_FRAME_PARMS* fp, int slot, int symb, uint32_t Nid)
 {
   int csi_dmrs_init_length =  ((fp->N_RB_DL<<4)>>5)+1;
-  uint32_t x2 = ((1<<10) * (fp->symbols_per_slot*slot+symb+1) * ((Nid<<1)+1) + (Nid));
+  uint32_t x2 = ((1ULL << 10) * (fp->symbols_per_slot * slot + symb + 1) * ((Nid << 1) + 1) + (Nid));
   return gold_cache(x2, csi_dmrs_init_length);
 }
 
