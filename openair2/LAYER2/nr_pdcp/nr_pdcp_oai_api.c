@@ -806,6 +806,7 @@ srb_found:
           int max_size = nr_max_pdcp_pdu_size(returned->sz[i]);
           char pdu_buf[max_size];
           int pdu_size = rb->process_sdu(rb, ptr, returned->sz[i], 0, pdu_buf, max_size);
+	  LOG_E(PHY, "pushing in ul, srb %d, pdu sz: %d\n", returned->srbID,pdu_size);
           deliver_pdu_srb_rlc(NULL, ue->ue_id, returned->srbID, pdu_buf, pdu_size, 0);
           ptr += returned->sz[i];
         }
