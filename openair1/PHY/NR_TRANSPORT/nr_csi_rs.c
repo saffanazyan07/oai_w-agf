@@ -61,7 +61,11 @@ void nr_generate_csi_rs(const NR_DL_FRAME_PARMS *frame_parms,
   int csi_rs_length =  frame_parms->N_RB_DL << 4;
   int16_t mod_csi[frame_parms->symbols_per_slot][csi_rs_length>>1] __attribute__((aligned(16)));
   uint16_t b = csi_params->freq_domain;
-  uint32_t beta = amp;
+  uint8_t size, ports, kprime, lprime;
+  uint8_t j[16], k_n[6], koverline[16], loverline[16];
+  int found = 0;
+  int  lp, symb;
+  uint8_t fi = 0;
   nr_csi_info->csi_rs_generated_signal_bits = log2_approx(amp);
 
   AssertFatal(b!=0, "Invalid CSI frequency domain mapping: no bit selected in bitmap\n");
@@ -449,12 +453,11 @@ void nr_generate_csi_rs(const NR_DL_FRAME_PARMS *frame_parms,
     default:
       AssertFatal(false, "Invalid frequency density index for CSI\n");
   }
-
-  double alpha = 0;
+  double alpha;
   if (ports == 1)
     alpha = rho;
   else
-    alpha = 2 * rho;
+    alpha = 2*rho; 
 
 #ifdef NR_CSIRS_DEBUG
   printf(" rho %f, alpha %f\n", rho, alpha);
@@ -533,6 +536,7 @@ void nr_generate_csi_rs(const NR_DL_FRAME_PARMS *frame_parms,
     return;
 
   // assuming amp is the amplitude of SSB channels
+  int beta;
   switch (csi_params->power_control_offset_ss) {
     case 0:
       beta = (amp*ONE_OVER_SQRT2_Q15)>>15;
@@ -550,25 +554,36 @@ void nr_generate_csi_rs(const NR_DL_FRAME_PARMS *frame_parms,
       AssertFatal(false, "Invalid SS power offset density index for CSI\n");
   }
 
-
-  for (int lp = 0; lp <= lprime; lp++) {
-    int symb = csi_params->symb_l0;
-    nr_modulation(nr_gold_csi_rs[symb + lp], csi_length, DMRS_MOD_ORDER, mod_csi[symb + lp]);
+    for (lp=0; lp<=lprime; lp++){
+      symb = csi_params->symb_l0;
+      nr_modulation(nr_gold_csi_rs(frame_parms, slot, symb + lp, csi_params->scramb_id),
+                    csi_length,
+                    DMRS_MOD_ORDER,
+                    mod_csi[symb + lp]);
     if ((csi_params->row == 5) || (csi_params->row == 7) || (csi_params->row == 11) || (csi_params->row == 13) || (csi_params->row == 16))
-      nr_modulation(nr_gold_csi_rs[symb + 1], csi_length, DMRS_MOD_ORDER, mod_csi[symb + 1]);
+        nr_modulation(nr_gold_csi_rs(frame_parms, slot, symb + 1, csi_params->scramb_id),
+                      csi_length,
+                      DMRS_MOD_ORDER,
+                      mod_csi[symb + 1]);
     if ((csi_params->row == 14) || (csi_params->row == 13) || (csi_params->row == 16) || (csi_params->row == 17)) {
       symb = csi_params->symb_l1;
-      nr_modulation(nr_gold_csi_rs[symb + lp], csi_length, DMRS_MOD_ORDER, mod_csi[symb + lp]);
+        nr_modulation(nr_gold_csi_rs(frame_parms, slot, symb + lp, csi_params->scramb_id),
+                      csi_length,
+                      DMRS_MOD_ORDER,
+                      mod_csi[symb + lp]);
       if ((csi_params->row == 13) || (csi_params->row == 16))
-        nr_modulation(nr_gold_csi_rs[symb + 1], csi_length, DMRS_MOD_ORDER, mod_csi[symb + 1]);
+          nr_modulation(nr_gold_csi_rs(frame_parms, slot, symb + 1, csi_params->scramb_id),
+                        csi_length,
+                        DMRS_MOD_ORDER,
+                        mod_csi[symb + 1]);
+      }
     }
-  }
 
-  uint16_t start_sc = frame_parms->first_carrier_offset;
-
-  // resource mapping according to 38.211 7.4.1.5.3
-  for (int n = csi_params->start_rb; n < (csi_params->start_rb + csi_params->nr_of_rbs); n++) {
-   if ((csi_params->freq_density > 1) || (csi_params->freq_density == (n % 2))) {  // for freq density 0.5 checks if even or odd RB
+    uint16_t start_sc = frame_parms->first_carrier_offset;
+    
+    // resource mapping according to 38.211 7.4.1.5.3
+    for (int n = csi_params->start_rb; n < (csi_params->start_rb + csi_params->nr_of_rbs); n++) {
+      if ((csi_params->freq_density > 1) || (csi_params->freq_density == (n % 2))) {  // for freq density 0.5 checks if even or odd RB
     for (int ji = 0; ji < size; ji++) { // loop over CDM groups
       for (int s = 0 ; s < gs; s++)  { // loop over each CDM group size
         int p = s + j[ji] * gs; // port index

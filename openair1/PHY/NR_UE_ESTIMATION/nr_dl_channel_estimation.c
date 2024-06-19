@@ -126,7 +126,9 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
   LOG_D(PHY, "start_offset %d, first_half %d, second_half %d\n", start_offset, first_half, second_half);
 
   int16_t k_prime_table[K_PRIME_TABLE_ROW_SIZE][K_PRIME_TABLE_COL_SIZE] = PRS_K_PRIME_TABLE;
-  for (int l = prs_cfg->SymbolStart; l < prs_cfg->SymbolStart + prs_cfg->NumPRSSymbols; l++) {
+  for(int l = prs_cfg->SymbolStart; l < prs_cfg->SymbolStart+prs_cfg->NumPRSSymbols; l++)
+  {
+    uint32_t *gold_prs = nr_gold_prs(ue->prs_vars[gNB_id]->prs_resource[rsc_id].prs_cfg.NPRSID, slot_prs, l);
     int symInd = l - prs_cfg->SymbolStart;
     int k_prime;
     switch (prs_cfg->CombSize) {
@@ -164,7 +166,7 @@ int nr_prs_channel_estimation(uint8_t gNB_id,
     c16_t mod_prs[NR_MAX_PRS_LENGTH];
     AssertFatal(num_pilots > 0, "num_pilots needs to be gt 0 or mod_prs[0] UB");
     for (int m = 0; m < num_pilots; m++) {
-      int idx = (((nr_gold_prs[l][(m << 1) >> 5]) >> ((m << 1) & 0x1f)) & 3);
+      int idx = ((gold_prs[(m << 1) >> 5]) >> ((m << 1) & 0x1f)) & 3;
       mod_prs[m].r = nr_qpsk_mod_table[idx << 1];
       mod_prs[m].i = nr_qpsk_mod_table[(idx << 1) + 1];
     }
@@ -778,7 +780,6 @@ void nr_pdcch_channel_estimation(PHY_VARS_NR_UE *ue,
 {
 
   int Ns = proc->nr_slot_rx;
-  int gNB_id = proc->gNB_id;
   const int symbolSz = ue->frame_parms.ofdm_symbol_size;
   const int ch_offset = symbolSz * symbol;
   const int symbol_offset = symbolSz * symbol;
@@ -820,8 +821,8 @@ void nr_pdcch_channel_estimation(PHY_VARS_NR_UE *ue,
   c16_t pilot[(nb_rb_coreset + dmrs_ref) * 3] __attribute__((aligned(16)));
   // Note: pilot returned by the following function is already the complex conjugate of the transmitted DMRS
   nr_pdcch_dmrs_rx(ue,
-                   slot,
-                   nr_gold_pdcch(ue->frame_parms.N_RB_DL, ue->frame_parms.symbols_per_slot, scrambling_id, slot, symbol),
+                   Ns,
+                   nr_gold_pdcch(ue->frame_parms.N_RB_DL, ue->frame_parms.symbols_per_slot, scrambling_id, Ns, symbol),
                    (c16_t *)pilot,
                    2000,
                    (nb_rb_coreset + dmrs_ref));
@@ -1259,7 +1260,6 @@ int nr_pdsch_channel_estimation(PHY_VARS_NR_UE *ue,
                                 c16_t rxdataF[][rxdataFsize],
                                 uint32_t *nvar)
 {
-  int gNB_id = proc->gNB_id;
   int Ns = proc->nr_slot_rx;
   const int symbolSz = ue->frame_parms.ofdm_symbol_size;
   const int ch_offset = symbolSz * symbol;
@@ -1285,8 +1285,8 @@ int nr_pdsch_channel_estimation(PHY_VARS_NR_UE *ue,
   c16_t pilot[3280] __attribute__((aligned(16)));
   // Note: pilot returned by the following function is already the complex conjugate of the transmitted DMRS
   nr_pdsch_dmrs_rx(ue,
-                   slot,
-                   nr_gold_pdsch(fp->N_RB_DL, fp->symbols_per_slot, scrambling_id, nscid, slot, symbol),
+                   Ns,
+                   nr_gold_pdsch(ue->frame_parms.N_RB_DL, ue->frame_parms.symbols_per_slot, scrambling_id, nscid, Ns, symbol),
                    pilot,
                    1000 + p,
                    0,
@@ -1295,7 +1295,7 @@ int nr_pdsch_channel_estimation(PHY_VARS_NR_UE *ue,
 
   delay_t delay = {0};
 
-  for (int aarx = 0; aarx < fp->nb_antennas_rx; aarx++) {
+  for (int aarx = 0; aarx < ue->frame_parms.nb_antennas_rx; aarx++) {
 #ifdef DEBUG_PDSCH
     printf("\n============================================\n");
     printf("==== Tx port %i, Rx antenna %i, Symbol %i ====\n", p, aarx, symbol);
@@ -1318,7 +1318,7 @@ int nr_pdsch_channel_estimation(PHY_VARS_NR_UE *ue,
                                         nvar);
 
     } else if (config_type == NFAPI_NR_DMRS_TYPE2 && ue->chest_freq == 0) {
-      NFAPI_NR_DMRS_TYPE2_linear_interp(fp,
+      NFAPI_NR_DMRS_TYPE2_linear_interp(&ue->frame_parms,
                                         rxF,
                                         &pilot[4 * rb_offset],
                                         dl_ch,
@@ -1330,10 +1330,10 @@ int nr_pdsch_channel_estimation(PHY_VARS_NR_UE *ue,
                                         nvar);
 
     } else if (config_type == NFAPI_NR_DMRS_TYPE1) {
-      NFAPI_NR_DMRS_TYPE1_average_prb(fp, rxF, &pilot[6 * rb_offset], dl_ch, bwp_start_subcarrier, nb_rb_pdsch);
+      NFAPI_NR_DMRS_TYPE1_average_prb(&ue->frame_parms, rxF, &pilot[6 * rb_offset], dl_ch, bwp_start_subcarrier, nb_rb_pdsch);
 
     } else {
-      NFAPI_NR_DMRS_TYPE2_average_prb(fp, rxF, &pilot[4 * rb_offset], dl_ch, bwp_start_subcarrier, nb_rb_pdsch);
+      NFAPI_NR_DMRS_TYPE2_average_prb(&ue->frame_parms, rxF, &pilot[4 * rb_offset], dl_ch, bwp_start_subcarrier, nb_rb_pdsch);
     }
 
 #ifdef DEBUG_PDSCH
