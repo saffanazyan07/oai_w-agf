@@ -2634,19 +2634,27 @@ long get_transformPrecoding(const NR_UE_UL_BWP_t *current_UL_BWP, nr_dci_format_
   if (configuredGrant
       && current_UL_BWP
       && current_UL_BWP->configuredGrantConfig
-      && current_UL_BWP->configuredGrantConfig->transformPrecoder)
+      && current_UL_BWP->configuredGrantConfig->transformPrecoder) {
+    LOG_W(PHY,"return configured grant %ld\n", *current_UL_BWP->configuredGrantConfig->transformPrecoder);
     return *current_UL_BWP->configuredGrantConfig->transformPrecoder;
+  }
 
   if (dci_format == NR_UL_DCI_FORMAT_0_1
       && current_UL_BWP
       && current_UL_BWP->pusch_Config
-      && current_UL_BWP->pusch_Config->transformPrecoder)
+      && current_UL_BWP->pusch_Config->transformPrecoder) {
+    LOG_W(PHY,"return configuredDCI01 grant %ld\n",*current_UL_BWP->pusch_Config->transformPrecoder);
     return *current_UL_BWP->pusch_Config->transformPrecoder;
+  }
 
-  if (current_UL_BWP && current_UL_BWP->rach_ConfigCommon && current_UL_BWP->rach_ConfigCommon->msg3_transformPrecoder)
+  if (current_UL_BWP && current_UL_BWP->rach_ConfigCommon && current_UL_BWP->rach_ConfigCommon->msg3_transformPrecoder) {
+    LOG_W(PHY,"return configured RACH %d\n",  NR_PUSCH_Config__transformPrecoder_enabled);
     return NR_PUSCH_Config__transformPrecoder_enabled;
+  }
 
+  LOG_W(PHY,"return precoded disabled %dn", NR_PUSCH_Config__transformPrecoder_disabled);
   return NR_PUSCH_Config__transformPrecoder_disabled;
+  
 }
 
 uint8_t get_pusch_nb_antenna_ports(NR_PUSCH_Config_t *pusch_Config,

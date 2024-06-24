@@ -181,7 +181,7 @@ int nr_get_Pcmax(NR_UE_MAC_INST_t *mac, int Qm, bool powerBoostPi2BPSK, int scs,
     }
     // TODO we need a strategy to select a value between minimum and maximum allowed PC_max
     int pcmax = (pcmax_low + pcmax_high) / 2;
-    LOG_D(MAC, "Configured maximum output power:  %d dBm <= PCMAX %d dBm <= %d dBm \n", pcmax_low, pcmax, pcmax_high);
+    LOG_W(MAC, "Configured maximum output power:  %d dBm <= PCMAX %d dBm <= %d dBm, is precoding %d \n", pcmax_low, pcmax, pcmax_high,is_transform_precoding );
     return pcmax;
   }
   else {
