@@ -2999,12 +2999,13 @@ static void extract_10_c_rnti(dci_pdu_rel15_t *dci_pdu_rel15, const uint8_t *dci
   } // end else
 }
 
-static void extract_00_c_rnti(dci_pdu_rel15_t *dci_pdu_rel15, const uint8_t *dci_pdu, int pos)
+static void extract_00_c_rnti(dci_pdu_rel15_t *dci_pdu_rel15, const uint8_t *dci_pdu, int pos, const int N_RB)
 {
   LOG_D(NR_MAC_DCI, "Received dci 0_0 C rnti\n");
 
   // Frequency domain assignment
-  EXTRACT_DCI_ITEM(dci_pdu_rel15->frequency_domain_assignment.val, dci_pdu_rel15->frequency_domain_assignment.nbits);
+  EXTRACT_DCI_ITEM(dci_pdu_rel15->frequency_domain_assignment.val, (int)ceil(log2((N_RB * (N_RB + 1)) >> 1)));
+  //EXTRACT_DCI_ITEM(dci_pdu_rel15->frequency_domain_assignment.val, dci_pdu_rel15->frequency_domain_assignment.nbits);
   // Time domain assignment 4bit
   EXTRACT_DCI_ITEM(dci_pdu_rel15->time_domain_assignment.val, 4);
   // Frequency hopping flag  E1 bit
@@ -3258,7 +3259,7 @@ static nr_dci_format_t nr_extract_dci_00_10(NR_UE_MAC_INST_t *mac,
       }
       else {
         format = NR_UL_DCI_FORMAT_0_0;
-        extract_00_c_rnti(dci_pdu_rel15 + format, dci_pdu, pos);
+        extract_00_c_rnti(dci_pdu_rel15 + format, dci_pdu, pos, n_RB);
       }
       dci_pdu_rel15[format].format_indicator = format_indicator;
       break;
