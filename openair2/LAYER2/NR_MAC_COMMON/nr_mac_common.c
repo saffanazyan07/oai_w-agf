@@ -2635,7 +2635,7 @@ long get_transformPrecoding(const NR_UE_UL_BWP_t *current_UL_BWP, nr_dci_format_
       && current_UL_BWP
       && current_UL_BWP->configuredGrantConfig
       && current_UL_BWP->configuredGrantConfig->transformPrecoder) {
-    LOG_W(PHY,"return configured grant %ld\n", *current_UL_BWP->configuredGrantConfig->transformPrecoder);
+    LOG_D(PHY,"return configured grant %ld\n", *current_UL_BWP->configuredGrantConfig->transformPrecoder);
     return *current_UL_BWP->configuredGrantConfig->transformPrecoder;
   }
 
@@ -2643,16 +2643,16 @@ long get_transformPrecoding(const NR_UE_UL_BWP_t *current_UL_BWP, nr_dci_format_
       && current_UL_BWP
       && current_UL_BWP->pusch_Config
       && current_UL_BWP->pusch_Config->transformPrecoder) {
-    LOG_W(PHY,"return configuredDCI01 grant %ld\n",*current_UL_BWP->pusch_Config->transformPrecoder);
+    LOG_D(PHY,"return configuredDCI01 grant %ld\n",*current_UL_BWP->pusch_Config->transformPrecoder);
     return *current_UL_BWP->pusch_Config->transformPrecoder;
   }
 
   if (current_UL_BWP && current_UL_BWP->rach_ConfigCommon && current_UL_BWP->rach_ConfigCommon->msg3_transformPrecoder) {
-    LOG_W(PHY,"return configured RACH %d\n",  NR_PUSCH_Config__transformPrecoder_enabled);
+    LOG_D(PHY,"return configured RACH %d\n",  NR_PUSCH_Config__transformPrecoder_enabled);
     return NR_PUSCH_Config__transformPrecoder_enabled;
   }
 
-  LOG_W(PHY,"return precoded disabled %dn", NR_PUSCH_Config__transformPrecoder_disabled);
+  LOG_D(PHY,"return precoded disabled %dn", NR_PUSCH_Config__transformPrecoder_disabled);
   return NR_PUSCH_Config__transformPrecoder_disabled;
   
 }
@@ -3135,10 +3135,11 @@ uint16_t nr_dci_size(const NR_UE_DL_BWP_t *DL_BWP,
                           sc_info->initial_dl_BWPSize);
 
   switch(format) {
-    case NR_UL_DCI_FORMAT_0_0:
+  case NR_UL_DCI_FORMAT_0_0: {
       /// fixed: Format identifier 1, Hop flag 1, MCS 5, NDI 1, RV 2, HARQ PID 4, PUSCH TPC 2 Time Domain assgnmt 4 --20
       size += 20;
-      dci_pdu->frequency_domain_assignment.nbits = (uint8_t)ceil(log2((N_RB * (N_RB + 1)) >>1)); // Freq domain assignment -- hopping scenario to be updated
+    dci_pdu->frequency_domain_assignment.nbits =
+        (uint8_t)ceil(log2((N_RB * (N_RB + 1)) >> 1)); // Freq domain assignment -- hopping scenario to be updated
       size += dci_pdu->frequency_domain_assignment.nbits;
       if(alt_size >= size)
         size += alt_size - size; // Padding to match 1_0 size
@@ -3146,8 +3147,7 @@ uint16_t nr_dci_size(const NR_UE_DL_BWP_t *DL_BWP,
         dci_pdu->frequency_domain_assignment.nbits -= (size - alt_size);
         size = alt_size;
       }
-      // UL/SUL indicator assumed to be 0
-      break;
+  } break;
 
     case NR_UL_DCI_FORMAT_0_1:
       if (!UL_BWP) {
@@ -3185,22 +3185,22 @@ uint16_t nr_dci_size(const NR_UE_DL_BWP_t *DL_BWP,
         else if (pusch_Config->resourceAllocation == 1)
           dci_pdu->frequency_domain_assignment.nbits = (int)ceil(log2((N_RB * (N_RB + 1)) >> 1));
         else
-          dci_pdu->frequency_domain_assignment.nbits = ((int)ceil(log2((N_RB * (N_RB + 1)) >> 1)) > numRBG) ? (int)ceil(log2((N_RB * (N_RB + 1)) >> 1)) + 1 : numRBG + 1;
-      }
-      else
+        dci_pdu->frequency_domain_assignment.nbits =
+            ((int)ceil(log2((N_RB * (N_RB + 1)) >> 1)) > numRBG) ? (int)ceil(log2((N_RB * (N_RB + 1)) >> 1)) + 1 : numRBG + 1;
+    } else
         dci_pdu->frequency_domain_assignment.nbits = (int)ceil(log2((N_RB * (N_RB + 1)) >> 1));
       LOG_D(NR_MAC, "PUSCH Frequency Domain Assignment nbits %d, N_RB %d\n", dci_pdu->frequency_domain_assignment.nbits, N_RB);
       size += dci_pdu->frequency_domain_assignment.nbits;
       // Time domain assignment
-      NR_PUSCH_TimeDomainResourceAllocationList_t *tdalistul = get_ul_tdalist(UL_BWP, coreset->controlResourceSetId, ss_type, rnti_type);
+    NR_PUSCH_TimeDomainResourceAllocationList_t *tdalistul =
+        get_ul_tdalist(UL_BWP, coreset->controlResourceSetId, ss_type, rnti_type);
       num_entries = tdalistul ?  tdalistul->list.count : 16; // 16 in default table
       dci_pdu->time_domain_assignment.nbits = (int)ceil(log2(num_entries));
       LOG_D(NR_MAC, "PUSCH Time Domain Allocation nbits %d, pusch_Config %p\n", dci_pdu->time_domain_assignment.nbits, pusch_Config);
       size += dci_pdu->time_domain_assignment.nbits;
       // Frequency Hopping flag
-      if (pusch_Config && 
-          pusch_Config->frequencyHopping!=NULL && 
-          pusch_Config->resourceAllocation != NR_PUSCH_Config__resourceAllocation_resourceAllocationType0) {
+    if (pusch_Config && pusch_Config->frequencyHopping != NULL
+        && pusch_Config->resourceAllocation != NR_PUSCH_Config__resourceAllocation_resourceAllocationType0) {
         dci_pdu->frequency_hopping_flag.nbits = 1;
         size += 1;
       }
@@ -3446,7 +3446,7 @@ uint16_t nr_dci_size(const NR_UE_DL_BWP_t *DL_BWP,
     default:
       AssertFatal(1==0, "Invalid NR DCI format %d\n", format);
   }
-  LOG_D(NR_MAC, "DCI size: %d\n", size);
+  LOG_D(NR_MAC_DCI, "DCI size: %d, for format %s, rnti type %s\n", size, dci_txt[format], rnti_types(rnti_type));
   return size;
 }
 

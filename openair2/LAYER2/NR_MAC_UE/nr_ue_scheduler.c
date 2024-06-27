@@ -662,9 +662,14 @@ int nr_config_pusch_pdu(NR_UE_MAC_INST_t *mac,
 
     pusch_config_pdu->pusch_uci.harq_ack_bit_length = 0;
 
-    pusch_config_pdu->bwp_start = current_UL_BWP->BWPStart;
-    pusch_config_pdu->bwp_size = current_UL_BWP->BWPSize;
-
+    if (dci_format == NR_UL_DCI_FORMAT_0_0) {
+      pusch_config_pdu->bwp_start  = sc_info->initial_ul_BWPStart;
+      pusch_config_pdu->bwp_size  = sc_info->initial_ul_BWPSize;
+    } else {
+      pusch_config_pdu->bwp_start = current_UL_BWP->BWPStart;
+      pusch_config_pdu->bwp_size = current_UL_BWP->BWPSize;
+    }
+    
     pusch_config_pdu->start_symbol_index = tda_info->startSymbolIndex;
     pusch_config_pdu->nr_of_symbols = tda_info->nrOfSymbols;
 
@@ -750,10 +755,12 @@ int nr_config_pusch_pdu(NR_UE_MAC_INST_t *mac,
 
     /* IDENTIFIER_DCI_FORMATS */
     /* FREQ_DOM_RESOURCE_ASSIGNMENT_UL */
+    if (dci_format==NR_UL_DCI_FORMAT_0_0)
+      LOG_W(PHY,"processing DCI 00 with n rb= %d\n", mac->sc_info.initial_ul_BWPSize);
     if (nr_ue_process_dci_freq_dom_resource_assignment(pusch_config_pdu,
                                                        NULL,
                                                        NULL,
-                                                       current_UL_BWP->BWPSize,
+                                                      dci_format!=NR_UL_DCI_FORMAT_0_0 ? current_UL_BWP->BWPSize :mac->sc_info.initial_ul_BWPSize ,
                                                        0,
                                                        0,
                                                        dci->frequency_domain_assignment) < 0) {

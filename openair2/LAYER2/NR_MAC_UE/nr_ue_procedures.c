@@ -645,9 +645,11 @@ static int nr_ue_process_dci_dl_10(NR_UE_MAC_INST_t *mac,
     dlsch_pdu->BWPSize =
         mac->type0_PDCCH_CSS_config.num_rbs ? mac->type0_PDCCH_CSS_config.num_rbs : mac->sc_info.initial_dl_BWPSize;
     dlsch_pdu->BWPStart = dci_ind->cset_start;
-  } else {
+  } else if (current_DL_BWP) {
     dlsch_pdu->BWPSize = current_DL_BWP->BWPSize;
     dlsch_pdu->BWPStart = current_DL_BWP->BWPStart;
+  } else {
+    LOG_E(MAC, " try to decode DCI 10, but  mac->current_DL_BWP is null\n");
   }
 
   int rnti_type = get_rnti_type(mac, dci_ind->rnti);
@@ -1307,8 +1309,7 @@ static int8_t nr_ue_process_dci(NR_UE_MAC_INST_t *mac,
                                 fapi_nr_dci_indication_pdu_t *dci_ind,
                                 const nr_dci_format_t format)
 {
-  const char *dci_formats[] = {"1_0", "1_1", "2_0", "2_1", "2_2", "2_3", "0_0", "0_1"};
-  LOG_D(MAC, "Processing received DCI format %s\n", dci_formats[format]);
+  LOG_D(MAC, "Processing received DCI format %s\n", dci_txt[format]);
 
   switch (format) {
     case NR_UL_DCI_FORMAT_0_0:
@@ -2906,8 +2907,10 @@ void nr_ue_send_sdu(NR_UE_MAC_INST_t *mac, nr_downlink_indication_t *dl_info, in
 // #define EXTRACT_DCI_ITEM(val,size) val= readBits(dci_pdu, &pos, size);
 #define EXTRACT_DCI_ITEM(val, size)    \
   val = readBits(dci_pdu, &pos, size); \
-  LOG_D(NR_MAC_DCI, "     " #val ": %d\n", val);
-
+  LOG_D(NR_MAC_DCI, "     " #val ": %d (size: %d)\n", val, size);
+#define wEXTRACT_DCI_ITEM(val, size)    \
+  val = readBits(dci_pdu, &pos, size); \
+  LOG_W(NR_MAC_DCI, "     " #val ": %d (size: %d)\n", val, size);
 // Fixme: Intel Endianess only procedure
 static inline int readBits(const uint8_t *dci, int *start, int length)
 {
@@ -2999,27 +3002,26 @@ static void extract_10_c_rnti(dci_pdu_rel15_t *dci_pdu_rel15, const uint8_t *dci
   } // end else
 }
 
-static void extract_00_c_rnti(dci_pdu_rel15_t *dci_pdu_rel15, const uint8_t *dci_pdu, int pos, const int N_RB)
+static void extract_00_c_rnti(dci_pdu_rel15_t *dci_pdu_rel15, const uint8_t *dci_pdu, int pos)
 {
-  LOG_D(NR_MAC_DCI, "Received dci 0_0 C rnti\n");
+  LOG_W(NR_MAC_DCI, "Received dci 0_0 C rnti\n");
 
   // Frequency domain assignment
-  EXTRACT_DCI_ITEM(dci_pdu_rel15->frequency_domain_assignment.val, (int)ceil(log2((N_RB * (N_RB + 1)) >> 1)));
-  //EXTRACT_DCI_ITEM(dci_pdu_rel15->frequency_domain_assignment.val, dci_pdu_rel15->frequency_domain_assignment.nbits);
+  wEXTRACT_DCI_ITEM(dci_pdu_rel15->frequency_domain_assignment.val, dci_pdu_rel15->frequency_domain_assignment.nbits);
   // Time domain assignment 4bit
-  EXTRACT_DCI_ITEM(dci_pdu_rel15->time_domain_assignment.val, 4);
+  wEXTRACT_DCI_ITEM(dci_pdu_rel15->time_domain_assignment.val, 4);
   // Frequency hopping flag  E1 bit
-  EXTRACT_DCI_ITEM(dci_pdu_rel15->frequency_hopping_flag.val, 1);
+  wEXTRACT_DCI_ITEM(dci_pdu_rel15->frequency_hopping_flag.val, 1);
   // MCS  5 bit
-  EXTRACT_DCI_ITEM(dci_pdu_rel15->mcs, 5);
+  wEXTRACT_DCI_ITEM(dci_pdu_rel15->mcs, 5);
   // New data indicator 1bit
-  EXTRACT_DCI_ITEM(dci_pdu_rel15->ndi, 1);
+  wEXTRACT_DCI_ITEM(dci_pdu_rel15->ndi, 1);
   // Redundancy version  2bit
-  EXTRACT_DCI_ITEM(dci_pdu_rel15->rv, 2);
+  wEXTRACT_DCI_ITEM(dci_pdu_rel15->rv, 2);
   // HARQ process number  4bit
-  EXTRACT_DCI_ITEM(dci_pdu_rel15->harq_pid, 4);
+  wEXTRACT_DCI_ITEM(dci_pdu_rel15->harq_pid, 4);
   // TPC command for scheduled PUSCH  E2 bits
-  EXTRACT_DCI_ITEM(dci_pdu_rel15->tpc, 2);
+  wEXTRACT_DCI_ITEM(dci_pdu_rel15->tpc, 2);
   // UL/SUL indicator  E1 bit
   /* commented for now (RK): need to get this from BWP descriptor
      if (cfg->pucch_config.pucch_GroupHopping.value)
@@ -3226,9 +3228,8 @@ static nr_dci_format_t nr_extract_dci_00_10(NR_UE_MAC_INST_t *mac,
                                             dci_pdu_rel15_t *dci_pdu_rel15)
 {
   nr_dci_format_t format = NR_DCI_NONE;
-  int format_indicator = -1;
   int n_RB = 0;
-
+  int format_indicator = -1 ;
   switch (rnti_type) {
     case TYPE_RA_RNTI_ :
       format = NR_DL_DCI_FORMAT_1_0;
@@ -3259,9 +3260,9 @@ static nr_dci_format_t nr_extract_dci_00_10(NR_UE_MAC_INST_t *mac,
       }
       else {
         format = NR_UL_DCI_FORMAT_0_0;
-        extract_00_c_rnti(dci_pdu_rel15 + format, dci_pdu, pos, n_RB);
+        extract_00_c_rnti(dci_pdu_rel15 + format, dci_pdu, pos);
       }
-      dci_pdu_rel15[format].format_indicator = format_indicator;
+      dci_pdu_rel15[format].format_indicator=format_indicator;
       break;
     case TYPE_TC_RNTI_ :
       // Identifier for DCI formats
@@ -3275,9 +3276,12 @@ static nr_dci_format_t nr_extract_dci_00_10(NR_UE_MAC_INST_t *mac,
       }
       else {
         format = NR_UL_DCI_FORMAT_0_0;
+	n_RB = get_nrb_for_dci(mac, format, ss_type);
+        if (n_RB == 0)
+          return NR_DCI_NONE;
         extract_00_tc_rnti(dci_pdu_rel15 + format, dci_pdu, pos);
       }
-      dci_pdu_rel15[format].format_indicator = format_indicator;
+      dci_pdu_rel15[format].format_indicator=format_indicator;
       break;
     default :
       AssertFatal(false, "Invalid RNTI type\n");
@@ -3330,6 +3334,7 @@ static nr_dci_format_t nr_extract_dci_info(NR_UE_MAC_INST_t *mac,
     default :
       LOG_E(NR_MAC_DCI, "DCI format not supported\n");
   }
+  LOG_D(NR_MAC_DCI, "extracted dci format %s\n", dci_txt[format]); 
   return format;
 }
 
