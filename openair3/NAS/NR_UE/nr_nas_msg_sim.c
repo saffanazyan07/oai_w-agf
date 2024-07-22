@@ -79,7 +79,7 @@ typedef enum {
   NAS_SECURITY_BAD_INPUT
 } security_state_t;
 
-security_state_t nas_security_rx_process(nr_ue_nas_t *nas, uint8_t *pdu_buffer, int pdu_length)
+static security_state_t nas_security_rx_process(nr_ue_nas_t *nas, uint8_t *pdu_buffer, int pdu_length)
 {
   if (nas->security_container == NULL)
     return NAS_SECURITY_NO_SECURITY_CONTEXT;
@@ -249,7 +249,8 @@ static int fill_imeisv(FGSMobileIdentity *mi, const uicc_t *uicc)
   return 19;
 }
 
-int mm_msg_encode(MM_msg *mm_msg, uint8_t *buffer, uint32_t len) {
+static int mm_msg_encode(MM_msg *mm_msg, uint8_t *buffer, uint32_t len)
+{
   LOG_FUNC_IN;
   int header_result;
   int encode_result;
