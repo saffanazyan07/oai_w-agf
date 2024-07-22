@@ -40,6 +40,8 @@ typedef struct {
   uint32_t message_length;
 } fapi_message_header_t;
 
+bool isFAPIMessageIDValid(uint16_t id);
+
 int fapi_nr_message_header_unpack(uint8_t **pMessageBuf,
                                   uint32_t messageBufLen,
                                   void *pUnpackedBuf,
