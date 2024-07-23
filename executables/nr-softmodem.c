@@ -88,6 +88,7 @@ unsigned short config_frames[4] = {2,9,11,13};
 #include "openair2/E2AP/flexric/src/agent/e2_agent_api.h"
 #include "openair2/E2AP/RAN_FUNCTION/init_ran_func.h"
 #endif
+#include "common/utils/LATSEQ/latseq.h"
 
 pthread_cond_t nfapi_sync_cond;
 pthread_mutex_t nfapi_sync_mutex;
@@ -648,6 +649,8 @@ int main( int argc, char **argv ) {
     pthread_mutex_init(&sync_mutex, NULL);
   }
 
+  init_latseq("/tmp/latseq", (uint64_t)(cpuf*1000000000LL));
+  printf("START MAIN THREADS\n");
   // start the main threads
   number_of_cards = 1;
 
@@ -738,6 +741,11 @@ int main( int argc, char **argv ) {
   itti_wait_tasks_end(NULL);
   printf("Returned from ITTI signal handler\n");
   oai_exit=1;
+<<<<<<< HEAD
+=======
+  printf("oai_exit=%d\n",oai_exit);
+  close_latseq(); //close before end of threads
+>>>>>>> 231ff0293d (added init_latseq and close_latseq to nr-softmodem.c)
 
   // cleanup
   if (RC.nb_nr_L1_inst > 0)
