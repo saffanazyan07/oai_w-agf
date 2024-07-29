@@ -29,6 +29,7 @@
 #include "LOG/log.h"
 #include "common/utils/time_stat.h"
 #include "common/utils/assertions.h"
+#include "common/utils/LATSEQ/latseq.h"
 
 /* for a given SDU/SDU segment, computes the corresponding PDU header size */
 static int compute_pdu_header_size(nr_rlc_entity_am_t *entity,
@@ -246,6 +247,7 @@ static void reassemble_and_deliver(nr_rlc_entity_am_t *entity, int sn)
     return;
 
   /* deliver */
+  LATSEQ_P("U rlc.reassembled--pdcp.decoded", "::sn%u.rlcpacketsize%u", sn, pdu->size);
   entity->common.deliver_sdu(entity->common.deliver_sdu_data,
                              (nr_rlc_entity_t *)entity,
                              sdu, so);
@@ -823,6 +825,7 @@ void nr_rlc_entity_am_recv_pdu(nr_rlc_entity_t *_entity,
   }
 
   data_size = size - decoder.byte;
+  LATSEQ_P("U rlc.decoded--rlc.reassembled", "::MRbuf%u.si%u.sn%u.so%u.rlcsegsize%u", buffer, si, sn, so, data_size);
 
   /* dicard PDU if no data */
   if (data_size <= 0) {
@@ -1649,6 +1652,7 @@ static int generate_tx_pdu(nr_rlc_entity_am_t *entity, char *buffer, int size)
   }
 
   sdu = entity->tx_list;
+  LATSEQ_P("D rlc.genpdu--rlc.seg", "::Rbuf%u", sdu->sdu);
 
   pdu_header_size = compute_pdu_header_size(entity, sdu);
 
@@ -1720,6 +1724,7 @@ static int generate_tx_pdu(nr_rlc_entity_am_t *entity, char *buffer, int size)
     entity->force_poll = 0;
   }
   int ret_size = serialize_sdu(entity, sdu, buffer, size, p);
+  LATSEQ_P("D rlc.seg--mac.hdr", "::rlcsegsize%u.Rbuf%u.sn%u.so%u.RMbuf%u", ret_size, sdu->sdu, sdu->sdu->sn, sdu->so, buffer);
 
   entity->common.stats.txpdu_pkts++;
   entity->common.stats.txpdu_bytes += ret_size;
@@ -1819,6 +1824,7 @@ void nr_rlc_entity_am_recv_sdu(nr_rlc_entity_t *_entity,
   entity->common.stats.rxsdu_bytes += size;
 
   sdu = nr_rlc_new_sdu(buffer, size, sdu_id);
+  LATSEQ_P("D rlc.buf--rlc.genpdu", "::PRbuf%u.Rbuf%u.rlcpacketsize%u", buffer, sdu->sdu, size);
 
   LOG_D(RLC, "Created new RLC SDU and append it to the RLC list \n");
 

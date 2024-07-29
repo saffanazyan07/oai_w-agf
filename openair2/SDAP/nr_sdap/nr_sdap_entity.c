@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include "common/utils/LATSEQ/latseq.h"
 
 typedef struct {
   nr_sdap_entity_t *sdap_entity_llist;
@@ -97,6 +98,7 @@ static bool nr_sdap_tx_entity(nr_sdap_entity_t *entity,
                               const uint32_t *destinationL2Id,
                               const uint8_t qfi,
                               const bool rqi) {
+  LATSEQ_P("D sdap.pdu--pdcp.hdr", "::sdappdusize%u.SPbuf%u.ueid%u", sdu_buffer_size, sdu_buffer, entity->ue_id);
   /* The offset of the SDAP header, it might be 0 if has_sdap_tx is not true in the pdcp entity. */
   int offset=0;
   bool ret = false;
@@ -254,6 +256,7 @@ static void nr_sdap_rx_entity(nr_sdap_entity_t *entity,
     LOG_D(SDAP, "%s()  sending message to gtp size %d\n", __func__,  size-offset);
     // very very dirty hack gloabl var N3GTPUInst
     itti_send_msg_to_task(TASK_GTPV1_U, *N3GTPUInst, message_p);
+    LATSEQ_P("U sdap.sdu--gtp.out", "::sdapsdusize%u.ueid%u.PSbuf%u", size-offset, ue_id, buf);
   } else { //nrUE
     /*
      * TS 37.324 5.2 Data transfer

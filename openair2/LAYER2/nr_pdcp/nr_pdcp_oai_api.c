@@ -43,6 +43,7 @@
 #include "gnb_config.h"
 #include "executables/softmodem-common.h"
 #include "cuup_cucp_if.h"
+#include "common/utils/LATSEQ/latseq.h"
 
 #define TODO do { \
     printf("%s:%d:%s: todo\n", __FILE__, __LINE__, __FUNCTION__); \
@@ -716,6 +717,7 @@ static void deliver_pdu_drb_gnb(void *deliver_pdu_data, ue_id_t ue_id, int rb_id
     uint8_t *memblock = malloc16(size);
     memcpy(memblock, buf, size);
     LOG_D(PDCP, "%s(): (drb %d) calling rlc_data_req size %d\n", __func__, rb_id, size);
+    LATSEQ_P("D pdcp.enqueue--rlc.buf", "::pdcppdusize%u.Pbuf%u.PRbuf%u.ueid%u", size, buf, memblock, ue_id);
     enqueue_rlc_data_req(&ctxt, 0, MBMS_FLAG_NO, rb_id, sdu_id, 0, size, memblock);
   }
 }

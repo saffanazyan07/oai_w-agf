@@ -39,6 +39,7 @@
 #include "nfapi/oai_integration/vendor_ext.h"
 #include "assertions.h"
 #include <time.h>
+#include "common/utils/LATSEQ/latseq.h"
 
 //#define DEBUG_RXDATA
 //#define SRS_IND_DEBUG
@@ -246,6 +247,7 @@ void phy_procedures_gNB_TX(processingData_L1tx_t *msgTx,
   if (msgTx->num_pdsch_slot > 0) {
     VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_GENERATE_DLSCH,1);
     LOG_D(PHY, "PDSCH generation started (%d) in frame %d.%d\n", msgTx->num_pdsch_slot,frame,slot);
+    LATSEQ_P("D mac.dci--phy.crc", "::fm%u.sl%u", frame, slot);
     nr_generate_pdsch(msgTx, frame, slot);
     VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_GENERATE_DLSCH,0);
   }
@@ -293,6 +295,7 @@ void phy_procedures_gNB_TX(processingData_L1tx_t *msgTx,
   }
 
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_PHY_PROCEDURES_gNB_TX + gNB->CC_id, 0);
+  LATSEQ_P("D phy.rotated--phy.ofdmidft", "::fm%u.sl%u", frame, slot);
 }
 
 static void nr_postDecode(PHY_VARS_gNB *gNB, notifiedFIFO_elt_t *req)
@@ -312,6 +315,7 @@ static void nr_postDecode(PHY_VARS_gNB *gNB, notifiedFIFO_elt_t *req)
         decodeSuccess ? "Decoded Successfully" : "Decoding Unsuccessful");
 
   if (decodeSuccess) {
+    LATSEQ_P("U phy.CBdec--phy.TBdec","::fm%u.sl%u.hqpid%u.ldpciter%u.segmentnb%u.rnti%u", ulsch->frame, ulsch->slot, rdata->harq_pid, rdata->decodeIterations, r, pusch_pdu->rnti);
     memcpy(ulsch_harq->b + rdata->offset, ulsch_harq->c[r], rdata->Kr_bytes - (ulsch_harq->F >> 3) - ((ulsch_harq->C > 1) ? 3 : 0));
 
   } else {
@@ -343,6 +347,7 @@ static void nr_postDecode(PHY_VARS_gNB *gNB, notifiedFIFO_elt_t *req)
             ulsch_harq->round,
             ulsch_harq->TBS,
             rdata->decodeIterations);
+      LATSEQ_P("U phy.TBdec--phy.srs", "::fm%u.sl%u.hqpid%u.hqround%u.rnti%u.CBbits%u.Fbits%u.TBS%u", ulsch->frame, ulsch->slot, rdata->harq_pid, ulsch_harq->round, pusch_pdu->rnti, ulsch_harq->K, ulsch_harq->F, ulsch_harq->TBS);
       nr_fill_indication(gNB, ulsch->frame, ulsch->slot, rdata->ulsch_id, rdata->harq_pid, 0, 0);
       LOG_D(PHY, "ULSCH received ok \n");
       ulsch->active = false;
@@ -367,6 +372,12 @@ static void nr_postDecode(PHY_VARS_gNB *gNB, notifiedFIFO_elt_t *req)
       nr_fill_indication(gNB, ulsch->frame, ulsch->slot, rdata->ulsch_id, rdata->harq_pid, 1, 0);
       ulsch->handled = 1;
       LOG_D(PHY, "ULSCH %d in error\n",rdata->ulsch_id);
+      if (ulsch_harq->round == 3) {
+        LATSEQ_P("U phy.CBdec--phy.retxdrop","::fm%u.sl%u.hqpid%u.segmentnb%u.rnti%u", ulsch->frame, ulsch->slot, rdata->harq_pid, r, pusch_pdu->rnti);
+      } else {
+        LATSEQ_P("U phy.CBdec--phy.retxdecfail","::fm%u.sl%u.hqpid%u.segmentnb%u.rnti%u", ulsch->frame, ulsch->slot, rdata->harq_pid, r, pusch_pdu->rnti, ulsch_harq->round);
+        LATSEQ_P("U phy.retxdecfail--phy.prachpucch","::hqpid%u.rnti%u", rdata->harq_pid, pusch_pdu->rnti);
+      }
       //      dumpsig=1;
     }
     ulsch->last_iteration_cnt = rdata->decodeIterations;
@@ -1154,6 +1165,7 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx)
     }
   }
 
+  LATSEQ_P("U phy.srs--phy.rachuci", "::fm%u.sl%u", frame_rx, slot_rx);
   stop_meas(&gNB->phy_proc_rx);
 
   if (pucch_decode_done || pusch_decode_done) {
