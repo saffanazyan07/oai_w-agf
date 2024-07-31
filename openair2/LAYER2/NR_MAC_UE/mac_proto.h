@@ -237,7 +237,8 @@ int get_pusch_tx_power_ue(
   uint32_t sum_bits_in_codeblocks,
   int delta_pusch,
   bool is_rar_tx_retx,
-  bool transform_precoding);
+  bool transform_precoding,
+  int P_CMAX);
 
 int nr_ue_configure_pucch(NR_UE_MAC_INST_t *mac,
                            int slot,
@@ -404,7 +405,8 @@ int nr_config_pusch_pdu(NR_UE_MAC_INST_t *mac,
                         RAR_grant_t *rar_grant,
                         uint16_t rnti,
                         int ss_type,
-                        const nr_dci_format_t dci_format);
+                        const nr_dci_format_t dci_format,
+                        uint32_t transaction_id);
 
 int nr_rrc_mac_config_req_sl_preconfig(module_id_t module_id,
                                        NR_SL_PreconfigurationNR_r16_t *sl_preconfiguration,

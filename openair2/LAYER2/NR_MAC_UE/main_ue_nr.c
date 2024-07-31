@@ -158,6 +158,7 @@ NR_UE_MAC_INST_t *nr_l2_init_ue(int nb_inst)
     NR_UE_MAC_INST_t *mac = &nr_ue_mac_inst[j];
     mac->ue_id = j;
     nr_ue_init_mac(mac);
+    mac->fapi_transaction_data = init_fapi_transaction_data();
     nr_ue_mac_default_configs(mac);
     if (get_softmodem_params()->sa)
       ue_init_config_request(mac, get_softmodem_params()->numerology);

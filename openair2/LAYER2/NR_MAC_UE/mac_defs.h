@@ -45,6 +45,7 @@
 /* MAC */
 #include "LAYER2/NR_MAC_COMMON/nr_mac.h"
 #include "LAYER2/NR_MAC_COMMON/nr_mac_common.h"
+#include "mac_fapi_transaction.h"
 #include "NR_MAC_COMMON/nr_mac_extern.h"
 #include "mac_defs_sl.h"
 
@@ -604,6 +605,10 @@ typedef struct NR_UE_MAC_INST_s {
   bool pucch_power_control_initialized;
   int f_b_f_c;
   bool pusch_power_control_initialized;
+
+  // Contains extra data for fapi messages - data that is not needed by the fapi interface
+  // but is necessary for MAC to process responses correctly.
+  struct fapi_transactions_t *fapi_transaction_data;
 } NR_UE_MAC_INST_t;
 
 /*@}*/
