@@ -851,3 +851,179 @@ do
         fi
 done
 }
+
+############################################
+# FHI7.2 M-plane packages
+############################################
+install_mplane_v1() {
+  rm -rf /tmp/build_mplane_v1
+  mkdir /tmp/build_mplane_v1 && cd /tmp/build_mplane_v1
+
+  # libyang
+  git clone https://github.com/CESNET/libyang.git
+  cd libyang
+  git checkout v1.0.240
+  mkdir build && cd build
+  cmake -DENABLE_BUILD_TESTS=OFF \
+        -DCMAKE_INSTALL_PREFIX=$HOME/mplane-v1 \
+        -DPLUGINS_DIR=$HOME/mplane-v1/lib/libyang1 ..
+  make -j8
+  $SUDO make install
+  $SUDO ldconfig
+
+  #libnetconf
+  cd /tmp/build_mplane_v1
+  git clone https://github.com/CESNET/libnetconf2.git
+  cd libnetconf2
+  git checkout v1.1.46
+  mkdir build && cd build
+  cmake -DENABLE_BUILD_TESTS=OFF \
+        -DENABLE_VALGRIND_TESTS=OFF \
+        -DCMAKE_INSTALL_PREFIX=$HOME/mplane-v1 \
+        -DLIBYANG_INCLUDE_DIR=$HOME/mplane-v1/include \
+        -DLIBYANG_LIBRARY=$HOME/mplane-v1/lib/libyang.so \
+        -DLY_HEADER_PATH=$HOME/mplane-v1/include \
+        -DYANG_MODULE_DIR=$HOME/mplane-v1/share/yang/modules ..
+  make -j8
+  $SUDO make install
+  $SUDO ldconfig
+
+  #sysrepo
+  cd /tmp/build_mplane_v1
+  git clone https://github.com/sysrepo/sysrepo.git
+  cd sysrepo
+  git checkout v1.4.140
+  mkdir build && cd build
+  cmake -DBUILD_CPP_EXAMPLES=OFF \
+        -DBUILD_EXAMPLES=OFF \
+        -DENABLE_PYTHON_TESTS=OFF \
+        -DENABLE_TESTS=OFF \
+        -DENABLE_VALGRIND_TESTS=OFF \
+        -DCMAKE_INSTALL_PREFIX=$HOME/mplane-v1 \
+        -DLIBYANG_INCLUDE_DIR=$HOME/mplane-v1/include \
+        -DLIBYANG_LIBRARY=$HOME/mplane-v1/lib/libyang.so \
+        -DLY_HEADER_PATH=$HOME/mplane-v1/include \
+        -DPLUGINS_PATH=$HOME/mplane-v1/lib/sysrepo/plugins ..
+  make -j8
+  $SUDO make install
+  $SUDO ldconfig
+
+  #netopeer2
+  cd /tmp/build_mplane_v1
+  git clone https://github.com/CESNET/netopeer2.git
+  cd netopeer2
+  git checkout v1.1.76
+  mkdir build && cd build
+  cmake -DBUILD_TESTS=OFF \
+        -DGENERATE_HOSTKEY=OFF \
+        -DINSTALL_MODULES=OFF \
+        -DMERGE_LISTEN_CONFIG=OFF \
+        -DVALGRIND_TESTS=OFF \
+        -DCMAKE_INSTALL_PREFIX=$HOME/mplane-v1 \
+        -DCMAKE_INSTALL_RPATH=$HOME/mplane-v1/lib \
+        -DLIBNETCONF2_INCLUDE_DIR=$HOME/mplane-v1/include \
+        -DLIBNETCONF2_LIBRARY=$HOME/mplane-v1/lib/libnetconf2.so \
+        -DLIBYANG_INCLUDE_DIR=$HOME/mplane-v1/include \
+        -DLIBYANG_LIBRARY=$HOME/mplane-v1/lib/libyang.so \
+        -DLY_HEADER_PATH=$HOME/mplane-v1/include \
+        -DSYSREPO_INCLUDE_DIR=$HOME/mplane-v1/include \
+        -DSYSREPO_LIBRARY=$HOME/mplane-v1/lib/libsysrepo.so \
+        -DYANG_MODULE_DIR=$HOME/mplane-v1/share/yang/modules/netopeer2 ..
+  make -j8
+  $SUDO make install
+  $SUDO ldconfig
+
+  rm -rf /tmp/build_mplane_v1
+}
+
+install_mplane_v2() {
+  rm -rf /tmp/build_mplane_v2
+  mkdir /tmp/build_mplane_v2 && cd /tmp/build_mplane_v2
+
+  # libyang
+  git clone https://github.com/CESNET/libyang.git
+  cd libyang
+  git checkout v2.1.30
+  mkdir build && cd build
+  cmake -DENABLE_TESTS=OFF \
+        -DENABLE_VALGRIND_TESTS=OFF \
+        -DCMAKE_INSTALL_PREFIX=$HOME/mplane-v2 \
+        -DPLUGINS_DIR=$HOME/mplane-v2/lib/libyang \
+        -DPLUGINS_DIR_EXTENSIONS=$HOME/mplane-v2/lib/libyang/extensions \
+        -DPLUGINS_DIR_TYPES=$HOME/mplane-v2/lib/libyang/types \
+        -DYANG_MODULE_DIR=$HOME/mplane-v2/share/yang/modules/libyang ..
+  make -j8
+  $SUDO make install
+  $SUDO ldconfig
+
+  #libnetconf
+  cd /tmp/build_mplane_v2
+  git clone https://github.com/CESNET/libnetconf2.git
+  cd libnetconf2
+  git checkout v2.1.28
+  mkdir build && cd build
+  cmake -DENABLE_TESTS=OFF \
+        -DENABLE_EXAMPLES=OFF \
+        -DENABLE_VALGRIND_TESTS=OFF \
+        -DCLIENT_SEARCH_DIR=$HOME/mplane-v2/share/yang/modules \
+        -DCMAKE_INSTALL_PREFIX=$HOME/mplane-v2 \
+        -DLIBYANG_INCLUDE_DIR=$HOME/mplane-v2/include \
+        -DLIBYANG_LIBRARY=$HOME/mplane-v2/lib/libyang.so \
+        -DLY_VERSION_PATH=$HOME/mplane-v2/include \
+        -DYANG_MODULE_DIR=$HOME/mplane-v2/share/yang/modules/libnetconf2 ..
+  make -j8
+  $SUDO make install
+  $SUDO ldconfig
+
+  #sysrepo
+  cd /tmp/build_mplane_v2
+  git clone https://github.com/sysrepo/sysrepo.git
+  cd sysrepo
+  git checkout v2.2.36
+  mkdir build && cd build
+  cmake -DENABLE_EXAMPLES=OFF \
+        -DENABLE_TESTS=OFF \
+        -DENABLE_VALGRIND_TESTS=OFF \
+        -DCMAKE_INSTALL_PREFIX=$HOME/mplane-v2 \
+        -DLIBYANG_INCLUDE_DIR=$HOME/mplane-v2/include \
+        -DLIBYANG_LIBRARY=$HOME/mplane-v2/lib/libyang.so \
+        -DLY_VERSION_PATH=$HOME/mplane-v2/include \
+        -DSRPD_PLUGINS_PATH=$HOME/mplane-v2/lib/sysrepo-plugind/plugins \
+        -DSR_PLUGINS_PATH=$HOME/mplane-v2/lib/sysrepo/plugins \
+        -DYANG_MODULE_DIR=$HOME/mplane-v2/share/yang/modules/sysrepo ..
+  make -j8
+  $SUDO make install
+  $SUDO ldconfig
+
+  #netopeer2
+  cd /tmp/build_mplane_v2
+  git clone https://github.com/CESNET/netopeer2.git
+  cd netopeer2
+  git checkout v2.1.49
+  mkdir build && cd build
+  cmake -DENABLE_TESTS=OFF \
+        -DENABLE_VALGRIND_TESTS=OFF \
+        -DGENERATE_HOSTKEY=OFF \
+        -DINSTALL_MODULES=OFF \
+        -DMERGE_LISTEN_CONFIG=OFF \
+        -DCMAKE_INSTALL_PREFIX=$HOME/mplane-v2 \
+        -DCMAKE_INSTALL_RPATH=$HOME/mplane-v2/lib \
+        -DLIBNETCONF2_INCLUDE_DIR=$HOME/mplane-v2/include \
+        -DLIBNETCONF2_LIBRARY=$HOME/mplane-v2/lib/libnetconf2.so \
+        -DLIBYANG_INCLUDE_DIR=$HOME/mplane-v2/include \
+        -DLIBYANG_LIBRARY=$HOME/mplane-v2/lib/libyang.so \
+        -DLY_VERSION_PATH=$HOME/mplane-v2/include \
+        -DNC_VERSION_PATH=$HOME/mplane-v2/include \
+        -DSCRIPT_DIR=$HOME/mplane-v2/share/netopeer2 \
+        -DSR_VERSION_PATH=$HOME/mplane-v2/include \
+        -DSYSREPOCFG_EXECUTABLE=$HOME/mplane-v2/bin/sysrepocfg \
+        -DSYSREPOCTL_EXECUTABLE=$HOME/mplane-v2/bin/sysrepoctl \
+        -DSYSREPO_INCLUDE_DIR=$HOME/mplane-v2/include \
+        -DSYSREPO_LIBRARY=$HOME/mplane-v2/lib/libsysrepo.so \
+        -DYANG_MODULE_DIR=$HOME/mplane-v2/share/yang/modules/netopeer2 ..
+  make -j8
+  $SUDO make install
+  $SUDO ldconfig
+
+  rm -rf /tmp/build_mplane_v2
+}
