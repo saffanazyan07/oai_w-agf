@@ -599,7 +599,9 @@ check_install_oai_software() {
 	patch \
 	openssl \
         zlib1g-dev \
-        xxd
+        xxd \
+  libpcre3-dev \
+  libssh-dev
 
   elif [[ "$OS_BASEDISTRO" == "fedora" ]]; then
     if [[ "$OS_DISTRO" == "rhel" ]] || [[ "$OS_DISTRO" == "centos" ]] || [[ "$OS_DISTRO" == "rocky" ]]; then
@@ -634,7 +636,10 @@ check_install_oai_software() {
       blas \
       blas-devel \
       vim-common \
-      zlib-devel
+      zlib-devel \
+      pcre-devel \
+      libssh-devel
+
   fi
 
     install_asn1c_from_source $1
