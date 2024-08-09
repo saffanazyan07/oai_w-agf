@@ -819,6 +819,17 @@ bool set_fh_config(int ru_idx, int num_rus, const openair0_config_t *oai0, struc
 
   memset(fh_config, 0, sizeof(*fh_config));
 
+#ifdef FHI72_MPLANE
+#include "mplane/oai-mplane.h"
+  ru_config_t ru_config = get_ru_config_mplane();
+  printf("[MPLANE] getting RU config\n"); // this is temporary log
+  /* set fh_config->Tadv_cp_dl
+     fh_config->T2a_min_cp_dl
+     fh_config->T2a_max_cp_dl ...
+    and add some logs */
+
+#endif
+
   fh_config->dpdk_port = ru_idx;
   fh_config->sector_id = 0;
   fh_config->nCC = 1;

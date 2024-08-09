@@ -280,6 +280,17 @@ target_link_libraries(ITTI PRIVATE asn1_lte_rrc_hdrs asn1_nr_rrc_hdrs)
 # asn1c skeletons need this
 add_definitions(-DHAVE_NETINET_IN_H)
 
+##########################
+# OAI FHI7.2 M-plane
+##########################
+set(FHI72_MPLANE "OFF" CACHE STRING "Open Fronthaul M-plane")
+set_property(CACHE FHI72_MPLANE PROPERTY STRINGS "ON" "OFF")
+
+if(FHI72_MPLANE)
+  find_program(NETOPEER2_CLI_PATH netopeer2-cli HINTS $HOME/mplane-v1/bin/netopeer2-cli)
+  add_compile_definitions(NETOPEER2_CLI_EXEC="${NETOPEER2_CLI_PATH}")
+endif()
+
 #########################
 ##### E2 AGENT
 #########################
@@ -2043,7 +2054,10 @@ endif()
 if(E2_AGENT)
   target_compile_definitions(nr-softmodem PRIVATE ${E2AP_VERSION} ${KPM_VERSION} E2_AGENT)
 endif()
-
+if(FHI72_MPLANE)
+  target_link_libraries(nr-softmodem PRIVATE oai_fhi72_mplane)
+  target_compile_definitions(nr-softmodem PRIVATE FHI72_MPLANE)
+endif()
 
 add_dependencies(nr-softmodem ldpc_orig ldpc_optim ldpc_optim8seg ldpc)
 

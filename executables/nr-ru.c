@@ -40,6 +40,10 @@
 #include "radio/COMMON/common_lib.h"
 #include "radio/ETHERNET/ethernet_lib.h"
 
+#ifdef FHI72_MPLANE
+#include "radio/fhi_72/mplane/oai-mplane.h"
+#endif
+
 #include "PHY/LTE_TRANSPORT/if4_tools.h"
 
 #include "PHY/types.h"
@@ -1161,6 +1165,12 @@ void *ru_thread( void *param ) {
   fill_rf_config(ru, ru->rf_config_file);
   fill_split7_2_config(&ru->openair0_cfg.split7, &ru->config, fp->slots_per_frame, fp->ofdm_symbol_size);
 
+#ifdef FHI72_MPLANE
+  int ret_m1 = init_mplane();
+  AssertFatal(ret_m1 == 0, "Unable to initialize M-plane\n");
+  /* here add some logs */
+#endif
+
   if(!emulate_rf) {
     // Start IF device if any
     if (ru->nr_start_if) {
@@ -1210,6 +1220,16 @@ void *ru_thread( void *param ) {
       AssertFatal(ret==0,"Cannot connect to local radio\n");
     }
   }
+
+#ifdef FHI72_MPLANE
+  int ret_m2 = edit_ru_config_mplane();
+  AssertFatal(ret_m2 == 0, "RU not configured properly\n");
+  /* here add some logs */
+
+  int ret_m3 = free_mplane();
+  AssertFatal(ret_m3 == 0, "Error closing M-plane connection\n");
+  /* here add some logs */
+#endif
 
   if (setup_RU_buffers(ru)!=0) {
     printf("Exiting, cannot initialize RU Buffers\n");

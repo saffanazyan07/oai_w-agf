@@ -39,3 +39,8 @@ add_custom_command(TARGET oran_fhlib_5g POST_BUILD
 
 message(STATUS "Temporary added -DOAI_FHI72")
 target_compile_definitions(nr-softmodem PUBLIC OAI_FHI72)
+
+if(FHI72_MPLANE)
+  add_subdirectory(mplane)
+  target_compile_definitions(oran_fhlib_5g PUBLIC FHI72_MPLANE)
+endif()
