@@ -814,9 +814,9 @@ static int nr_ue_process_dci_dl_10(NR_UE_MAC_INST_t *mac,
     dlsch_pdu->new_data_indicator = true;
     current_harq->R = 0;
     current_harq->TBS = 0;
-  }
-  else
+  } else {
     dlsch_pdu->new_data_indicator = false;
+  }
 
   if (dl_conf_req->pdu_type != FAPI_NR_DL_CONFIG_TYPE_SI_DLSCH &&
       dl_conf_req->pdu_type != FAPI_NR_DL_CONFIG_TYPE_RA_DLSCH) {
@@ -934,6 +934,11 @@ static int nr_ue_process_dci_dl_10(NR_UE_MAC_INST_t *mac,
                     dci_ind->N_CCE,
                     frame,
                     slot);
+    if (dlsch_pdu->new_data_indicator)
+      current_harq->round = 0;
+    else
+      current_harq->round++;
+    mac->stats.dl.rounds[current_harq->round]++;
   }
 
   LOG_D(MAC,
@@ -1274,6 +1279,11 @@ static int nr_ue_process_dci_dl_11(NR_UE_MAC_INST_t *mac,
                   dci_ind->N_CCE,
                   frame,
                   slot);
+  if (dlsch_pdu->new_data_indicator)
+    current_harq->round = 0;
+  else
+    current_harq->round++;
+  mac->stats.dl.rounds[current_harq->round]++;
   // send the ack/nack slot number to phy to indicate tx thread to wait for DLSCH decoding
   dlsch_pdu->k1_feedback = feedback_ti;
 
@@ -1433,8 +1443,13 @@ nr_dci_format_t nr_ue_process_dci_indication_pdu(NR_UE_MAC_INST_t *mac, frame_t 
     return NR_DCI_NONE;
   dci_pdu_rel15_t *def_dci_pdu_rel15 = &mac->def_dci_pdu_rel15[slot][format];
   int ret = nr_ue_process_dci(mac, frame, slot, def_dci_pdu_rel15, dci, format);
-  if (ret < 0)
+  if (ret < 0) {
+    if (format == NR_UL_DCI_FORMAT_0_0 || format == NR_UL_DCI_FORMAT_0_1)
+      mac->stats.ul.bad_dci++;
+    if (format == NR_DL_DCI_FORMAT_1_0 || format == NR_DL_DCI_FORMAT_1_1)
+      mac->stats.dl.bad_dci++;
     return NR_DCI_NONE;
+  }
   return format;
 }
 
