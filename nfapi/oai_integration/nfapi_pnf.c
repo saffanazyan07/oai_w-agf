@@ -1741,19 +1741,28 @@ int nr_start_request(nfapi_pnf_config_t *config, nfapi_pnf_phy_config_t *phy,  n
   p7_config->codec_config.pack_p7_vendor_extension = &pnf_nr_phy_pack_p7_vendor_extension;
   p7_config->codec_config.unpack_vendor_extension_tlv = &pnf_nr_phy_unpack_vendor_extension_tlv;
   p7_config->codec_config.pack_vendor_extension_tlv = &pnf_nr_phy_pack_vendor_extention_tlv;
+
+#ifndef ENABLE_WLS
   NFAPI_TRACE(NFAPI_TRACE_INFO, "[PNF] Creating P7 thread %s\n", __FUNCTION__);
   pthread_t p7_thread;
   threadCreate(&p7_thread, &pnf_nr_p7_thread_start, p7_config, "pnf_p7_thread", -1, OAI_PRIORITY_RT);
+#else
+
+#endif
+  printf("[PNF] %s %d\n", __FUNCTION__, __LINE__);
   NFAPI_TRACE(NFAPI_TRACE_INFO, "[PNF] Calling l1_north_init_eNB() %s\n", __FUNCTION__);
   l1_north_init_gNB();
+  printf("[PNF] %s %d\n", __FUNCTION__, __LINE__);
   NFAPI_TRACE(NFAPI_TRACE_INFO, "[PNF] HACK - Set p7_config global ready for subframe ind%s\n", __FUNCTION__);
   p7_config_g = p7_config;
+  printf("[PNF] %s %d\n", __FUNCTION__, __LINE__);
 
   // Need to wait for main thread to create RU structures
   while(config_sync_var<0) {
     usleep(5000000);
     printf("[PNF] waiting for OAI to be configured (eNB/RU)\n");
   }
+  printf("[PNF] %s %d\n", __FUNCTION__, __LINE__);
 
   printf("[PNF] OAI eNB/RU configured\n");
   //printf("[PNF] About to call phy_init_RU() for RC.ru[0]:%p\n", RC.ru[0]);
@@ -1776,10 +1785,11 @@ int nr_start_request(nfapi_pnf_config_t *config, nfapi_pnf_phy_config_t *phy,  n
     usleep(50000);
     printf("[PNF] waiting for OAI to be started\n");
   }
-
+#ifndef ENABLE_WLS
   printf("[PNF] Sending PNF_START_RESP\n");
   nfapi_nr_send_pnf_start_resp(config, p7_config->phy_id);
   printf("[PNF] Sending first P7 slot indication\n");
+#endif
 #if 1
   nfapi_pnf_p7_slot_ind(p7_config, p7_config->phy_id, 0, 0);
   printf("[PNF] Sent first P7 slot ind\n");
