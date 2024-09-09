@@ -23,6 +23,8 @@ if (OAI_WLS)
     target_include_directories(wls_integration_lib PRIVATE ${dpdk_INCLUDE_DIRS})
 
     target_compile_definitions(wls_integration_lib PUBLIC ENABLE_WLS)
+    target_link_libraries(wls_integration_lib PRIVATE nr_fapi_p5)
+    target_link_libraries(wls_integration_lib PRIVATE NFAPI_LIB)
     target_link_libraries(wls_integration_lib PRIVATE asn1_lte_rrc_hdrs asn1_nr_rrc_hdrs)
     target_link_libraries(wls_integration_lib PRIVATE "${WLS_LIB}" "${hugetlbfs_LIB}")
 else ()
