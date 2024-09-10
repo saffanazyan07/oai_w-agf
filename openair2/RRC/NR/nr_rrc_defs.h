@@ -30,7 +30,6 @@
 #ifndef __OPENAIR_RRC_DEFS_NR_H__
 #define __OPENAIR_RRC_DEFS_NR_H__
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -160,7 +159,7 @@ typedef struct HANDOVER_INFO_NR_s {
   int                                                 size;               /* size of above message in bytes */
 } NR_HANDOVER_INFO;
 
-#define NR_RRC_BUFFER_SIZE                            sizeof(RRC_BUFFER_NR)
+#define NR_RRC_BUFFER_SIZE sizeof(RRC_BUFFER_NR)
 
 typedef struct nr_rrc_guami_s {
   uint16_t mcc;
@@ -342,7 +341,6 @@ typedef struct {
 } rrc_gNB_carrier_data_t;
 //---------------------------------------------------
 
-
 typedef struct {
   /* nea0 = 0, nea1 = 1, ... */
   int ciphering_algorithms[4];
@@ -409,6 +407,13 @@ typedef struct nr_mac_rrc_dl_if_s {
   ue_context_modification_refuse_func_t ue_context_modification_refuse;
   ue_context_release_command_func_t ue_context_release_command;
   dl_rrc_message_transfer_func_t dl_rrc_message_transfer;
+  positioning_information_request_func_t positioning_information_request; // nrppa adeel
+  positioning_activation_request_func_t positioning_activation_request;
+  positioning_deactivation_func_t positioning_deactivation;
+  trp_information_request_func_t trp_information_request;
+  positioning_measurement_request_func_t positioning_measurement_request;
+  positioning_measurement_update_func_t positioning_measurement_update;
+  positioning_measurement_abort_func_t positioning_measurement_abort;
 } nr_mac_rrc_dl_if_t;
 
 typedef struct cucp_cuup_if_s {
@@ -435,6 +440,16 @@ typedef struct nr_rrc_cuup_container_t {
   e1ap_setup_req_t *setup_req;
   sctp_assoc_t assoc_id;
 } nr_rrc_cuup_container_t;
+
+// Configuration parameters required for 5G Positioning
+typedef struct {
+    uint32_t TRPIDs[8];  //  user defined IDs for each TRP
+    uint32_t TRPxAxis[8];  //  x-axis values of each TRP
+    uint32_t TRPyAxis[8];  //  y-axis values of each TRP
+    uint32_t TRPzAxis[8];  //  z-axis values of each TRP
+    uint8_t  NumTRPs;    // number of TRPs max to 8
+}positioning_config_rrc_t;
+
 
 //---NR---(completely change)---------------------
 typedef struct gNB_RRC_INST_s {
@@ -471,8 +486,10 @@ typedef struct gNB_RRC_INST_s {
 
   RB_HEAD(rrc_cuup_tree, nr_rrc_cuup_container_t) cuups; // CU-UPs, indexed by assoc_id
   size_t num_cuups;
-
+  // Parameter required for positioning
+  positioning_config_rrc_t positioning_config;
 } gNB_RRC_INST;
+
 
 #include "nr_rrc_proto.h" //should be put here otherwise compilation error
 

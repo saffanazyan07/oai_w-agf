@@ -291,6 +291,15 @@ typedef struct {
     int32_t reserved;
 } prs_meas_t;
 
+// Configuration parameters required for 5G Positioning
+typedef struct {
+    uint32_t TRPIDs[8];  //  user define TRP ids
+    uint32_t TRPxAxis[8];  //  x-axis values of each TRP
+    uint32_t TRPyAxis[8];  //  y-axis values of each TRP
+    uint32_t TRPzAxis[8];  //  z-axis values of each TRP
+    uint8_t  NumTRPs;    // number of TRPs max to 8
+}positioning_config_t;
+
 // rel16 prs k_prime table as per ts138.211 sec.7.4.1.7.2
 #define K_PRIME_TABLE_ROW_SIZE 4
 #define K_PRIME_TABLE_COL_SIZE 12

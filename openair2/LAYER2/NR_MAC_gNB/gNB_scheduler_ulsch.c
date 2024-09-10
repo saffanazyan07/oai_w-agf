@@ -37,6 +37,7 @@
 #include "LAYER2/NR_MAC_COMMON/nr_mac_extern.h"
 #include "LAYER2/nr_rlc/nr_rlc_oai_api.h"
 #include "LAYER2/RLC/rlc.h"
+#include "nfapi.h"
 
 //#define SRS_IND_DEBUG
 
@@ -1337,6 +1338,15 @@ void handle_nr_srs_measurements(const module_id_t module_id,
   LOG_I(NR_MAC, "srs_ind->report_type = %i\n", srs_ind->report_type);
 #endif
 
+  if (srs_ind->rnti == NON_UE_ASSOCIATED_SRS_DUMMY_RNTI) {
+   LOG_I(NR_MAC, "Received Non-UE associated SRS with ToA %d (ns)\n",srs_ind->timing_advance_offset_nsec);
+   LOG_I(NR_MAC, "Ignoring this message for now\n");
+
+   //for the moment this is all we need so return
+   NR_SCHED_UNLOCK(&nrmac->sched_lock);
+   return;
+  }
+  
   NR_UE_info_t *UE = find_nr_UE(&RC.nrmac[module_id]->UE_info, srs_ind->rnti);
   if (!UE) {
     LOG_W(NR_MAC, "Could not find UE for RNTI %04x\n", srs_ind->rnti);
@@ -1355,7 +1365,7 @@ void handle_nr_srs_measurements(const module_id_t module_id,
   nfapi_srs_report_tlv_t *report_tlv = &srs_ind->report_tlv;
 
   switch (srs_ind->srs_usage) {
-    case NR_SRS_ResourceSet__usage_beamManagement: {
+    case NFAPI_NR_SRS_BEAMMANAGEMENT: {
       nfapi_nr_srs_beamforming_report_t nr_srs_bf_report;
       unpack_nr_srs_beamforming_report(report_tlv->value,
                                        report_tlv->length,
@@ -1403,7 +1413,7 @@ void handle_nr_srs_measurements(const module_id_t module_id,
       break;
     }
 
-    case NR_SRS_ResourceSet__usage_codebook: {
+    case NFAPI_NR_SRS_CODEBOOK: {
       nfapi_nr_srs_normalized_channel_iq_matrix_t nr_srs_channel_iq_matrix;
       unpack_nr_srs_normalized_channel_iq_matrix(report_tlv->value,
                                                  report_tlv->length,
@@ -1459,8 +1469,53 @@ void handle_nr_srs_measurements(const module_id_t module_id,
       break;
     }
 
-    case NR_SRS_ResourceSet__usage_nonCodebook:
-    case NR_SRS_ResourceSet__usage_antennaSwitching:
+  case NFAPI_NR_SRS_LOCALIZATION: {
+   
+    uint8_t *pReadPackedMessage   = (uint8_t*) srs_ind->report_tlv.value;
+    uint8_t *endReadPackedMessage = pReadPackedMessage + srs_ind->report_tlv.length;
+    uint16_t bytesRead = 0;
+
+    memset(nrmac->meas_pos_info.toa_ns, 0, sizeof(nrmac->meas_pos_info.toa_ns));
+    nrmac->meas_pos_info.NumberofTRPs= srs_ind->report_tlv.length/2;
+    LOG_I(NR_MAC, "Number of TRPs for ToA %d \n",nrmac->meas_pos_info.NumberofTRPs);
+
+    for (int p_index = 0; p_index < srs_ind->report_tlv.length/2; p_index++) {
+      bytesRead += pull16(&pReadPackedMessage, &nrmac->meas_pos_info.toa_ns[p_index], endReadPackedMessage);
+      LOG_I(NR_MAC, "TRP %d: ToA: %d\n", p_index, nrmac->meas_pos_info.toa_ns[p_index]);
+    }
+
+    if (RC.nrmac[module_id]->do_srs_meas==1) {
+      LOG_I(NR_MAC, "Preparing NRPPa measurement response\n");
+      
+      nrmac->meas_pos_info.frame= frame;
+      nrmac->meas_pos_info.slot= slot;
+      
+    /* response has same type as request... */
+    f1ap_measurement_resp_t resp = {
+      .transaction_id = nrmac->f1ap_meas_resp_header.transaction_id,
+      .lmf_measurement_id = nrmac->f1ap_meas_resp_header.lmf_measurement_id,
+      .ran_measurement_id = nrmac->f1ap_meas_resp_header.ran_measurement_id,
+      .nrppa_msg_info.nrppa_transaction_id = nrmac->nrppa_msg_info.nrppa_transaction_id,
+      .nrppa_msg_info.instance = nrmac->nrppa_msg_info.instance,
+      .nrppa_msg_info.gNB_ue_ngap_id = nrmac->nrppa_msg_info.gNB_ue_ngap_id,
+      .nrppa_msg_info.amf_ue_ngap_id = nrmac->nrppa_msg_info.amf_ue_ngap_id,
+      .nrppa_msg_info.ue_rnti = nrmac->nrppa_msg_info.ue_rnti,
+      .nrppa_msg_info.routing_id_buffer = nrmac->nrppa_msg_info.routing_id_buffer,
+      .nrppa_msg_info.routing_id_length = nrmac->nrppa_msg_info.routing_id_length,
+    };
+
+    
+    //call the response handler
+    nrmac->mac_rrc.positioning_measurement_response(&resp);
+    RC.nrmac[module_id]->do_srs_meas=0;
+
+    }
+    
+    break;
+				  }
+
+  case NFAPI_NR_SRS_NONCODEBOOK:
+    case NFAPI_NR_SRS_ANTENNASWITCH:
       LOG_W(NR_MAC, "MAC procedures for this SRS usage are not implemented yet!\n");
       break;
 

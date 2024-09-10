@@ -45,6 +45,7 @@
 #include "SCHED_NR/phy_frame_config_nr.h"
 
 #include "NR_MIB.h"
+#include "RRC/NR/nr_rrc_config.h"
 #include "LAYER2/NR_MAC_COMMON/nr_mac_common.h"
 #include "nfapi/oai_integration/vendor_ext.h"
 /* Softmodem params */
