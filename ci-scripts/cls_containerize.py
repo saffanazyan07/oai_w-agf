@@ -96,7 +96,9 @@ def CreateWorkspace(sshSession, sourcePath, ranRepository, ranCommitID, ranTarge
 		logging.debug(f'Merging with the target branch: {ranTargetBranch}')
 		sshSession.command(f'git merge --ff origin/{ranTargetBranch} -m "Temporary merge for CI"', '\$', 30)
 
-def ImageTagToUse(imageName, ranCommitID, ranBranch, ranAllowMerge):
+def ImageTagToUse(imageName, ranCommitID, ranBranch, ranAllowMerge, flexricTag):
+	if imageName == 'oai-flexric':
+		return f'{imageName}:{flexricTag}'
 	shortCommit = ranCommitID[0:8]
 	if ranAllowMerge:
 		# Allowing contributor to have a name/branchName format
@@ -193,7 +195,7 @@ def GetImageInfo(mySSH, containerName):
 	usedImage = ret.stdout.strip()
 	logging.debug('Used image is: ' + usedImage)
 	if usedImage:
-		ret = mySSH.run('docker image inspect --format "* Size     = {{.Size}} bytes\n* Creation = {{.Created}}\n* Id       = {{.Id}}" ' + usedImage)
+		ret = mySSH.run('docker image inspect --format "* Size     = {{.Size}} bytes\n* Creation = {{.Created}}\n* Id       = {{.Id}}" ' + usedImage, silent=True)
 		imageInfo = f"Used image is {usedImage}\n{ret.stdout}\n"
 		return imageInfo
 	else:
@@ -220,10 +222,12 @@ def GetContainerHealth(mySSH, containerName):
             break
     return healthyNb, unhealthyNb
 
-def ReTagImages(mySSH,IMAGES,ranCommitID,ranBranch,ranAllowMerge,displayedNewTags):
+def ReTagImages(mySSH,ranCommitID,ranBranch,ranAllowMerge,displayedNewTags,flexricTag):
 	mySSH.run('cp docker-compose.y*ml ci-docker-compose.yml', 5)
-	for image in IMAGES:
-		imageTag = ImageTagToUse(image, ranCommitID, ranBranch, ranAllowMerge)
+	retaggedImages = IMAGES.copy()
+	retaggedImages.append('oai-flexric')
+	for image in retaggedImages:
+		imageTag = ImageTagToUse(image, ranCommitID, ranBranch, ranAllowMerge, flexricTag)
 		if image == 'oai-gnb' or image == 'oai-nr-ue' or image == 'oai-nr-cuup':
 				ret = mySSH.run(f'docker image inspect oai-ci/{imageTag}', reportNonZero=False, silent=False)
 				if ret.returncode != 0:
@@ -246,9 +250,8 @@ def DeployServices(mySSH,svcName):
 def CopyinContainerLog(mySSH,lSourcePath,ymlPath,containerName,filename):
 	logPath = f'{os.getcwd()}/../cmake_targets/log/{ymlPath[2]}'
 	os.system(f'mkdir -p {logPath}')
-	mySSH.run(f'docker logs {containerName} > {lSourcePath}/cmake_targets/log/{filename} 2>&1')
-	copyin_res = mySSH.copyin(f'{lSourcePath}/cmake_targets/log/{filename}', os.path.join(logPath, filename))
-	return copyin_res
+	log_res = mySSH.run(f'docker logs {containerName} > {logPath}/{filename} 2>&1')
+	return log_res
 
 def GetRunningServices(mySSH,yamlDir):
 	ret = mySSH.run(f'docker compose -f {yamlDir}/ci-docker-compose.yml config --services')
@@ -290,27 +293,6 @@ def CheckLogs(self,mySSH,ymlPath,service_name,HTML,RAN):
 	else:
 		logging.info(f'Skipping to analyze log for service name {service_name}')
 	return isFailed
-# pyshark livecapture launches 2 processes:
-# * One using dumpcap -i lIfs -w - (ie redirecting the packets to STDOUT)
-# * One using tshark -i - -w loFile (ie capturing from STDIN from previous process)
-# but in fact the packets are read by the following loop before being in fact
-# really written to loFile.
-# So it is mandatory to keep the loop
-def LaunchPySharkCapture(lIfs, lFilter, loFile):
-	capture = pyshark.LiveCapture(interface=lIfs, bpf_filter=lFilter, output_file=loFile, debug=False)
-	for packet in capture.sniff_continuously():
-		pass
-
-def StopPySharkCapture(testcase):
-	with cls_cmd.LocalCmd() as myCmd:
-		cmd = 'killall tshark'
-		myCmd.run(cmd, reportNonZero=False)
-		cmd = 'killall dumpcap'
-		myCmd.run(cmd, reportNonZero=False)
-		time.sleep(5)
-		cmd = f'mv /tmp/capture_{testcase}.pcap ../cmake_targets/log/{testcase}/.'
-		myCmd.run(cmd, timeout=100, reportNonZero=False)
-	return False
 #-----------------------------------------------------------
 # Class Declaration
 #-----------------------------------------------------------
@@ -371,6 +353,8 @@ class Containerize():
 		self.imageToPull = []
 		#checkers from xml
 		self.ran_checkers={}
+
+		self.flexricTag = 'dev'
 
 #-----------------------------------------------------------
 # Container management functions
@@ -859,7 +843,7 @@ class Containerize():
 		if self.ranAllowMerge:
 			orgTag = 'ci-temp'
 		for image in IMAGES:
-			tagToUse = ImageTagToUse(image, self.ranCommitID, self.ranBranch, self.ranAllowMerge)
+			tagToUse = ImageTagToUse(image, self.ranCommitID, self.ranBranch, self.ranAllowMerge, self.flexricTag)
 			mySSH.command(f'docker image tag {image}:{orgTag} {imagePrefix}/{tagToUse}', '\$', 5)
 			if re.search('Error response from daemon: No such image:', mySSH.getBefore()) is not None:
 				continue
@@ -917,7 +901,7 @@ class Containerize():
 			HTML.CreateHtmlTestRow(msg, 'KO', CONST.ALL_PROCESSES_OK)
 			return False
 		for image in self.imageToPull:
-			tagToUse = ImageTagToUse(image, self.ranCommitID, self.ranBranch, self.ranAllowMerge)
+			tagToUse = ImageTagToUse(image, self.ranCommitID, self.ranBranch, self.ranAllowMerge, self.flexricTag)
 			cmd = f'docker pull {imagePrefix}/{tagToUse}'
 			response = myCmd.run(cmd, timeout=120)
 			if response.returncode != 0:
@@ -925,7 +909,7 @@ class Containerize():
 				msg = f'Could not pull {image} from local registry : {tagToUse}'
 				logging.error(msg)
 				myCmd.close()
-				HTML.CreateHtmlTestRow('msg', 'KO', CONST.ALL_PROCESSES_OK)
+				HTML.CreateHtmlTestRow(msg, 'KO', CONST.ALL_PROCESSES_OK)
 				return False
 			myCmd.run(f'docker tag {imagePrefix}/{tagToUse} oai-ci/{tagToUse}')
 			myCmd.run(f'docker rmi {imagePrefix}/{tagToUse}')
@@ -968,8 +952,10 @@ class Containerize():
 			logging.debug('Removing test images locally')
 			myCmd = cls_cmd.LocalCmd()
 
-		for image in IMAGES:
-			imageTag = ImageTagToUse(image, self.ranCommitID, self.ranBranch, self.ranAllowMerge)
+		deleteImages = IMAGES.copy()
+		deleteImages.append('oai-flexric')
+		for image in deleteImages:
+			imageTag = ImageTagToUse(image, self.ranCommitID, self.ranBranch, self.ranAllowMerge, self.flexricTag)
 			cmd = f'docker rmi oai-ci/{imageTag}'
 			myCmd.run(cmd, reportNonZero=False)
 
@@ -1012,7 +998,10 @@ class Containerize():
 		self.deployKind[self.eNB_instance] = True
 		mySSH = cls_cmd.getConnection(lIpAddr, f'{lSourcePath}/{self.yamlPath[self.eNB_instance]}')
 		logging.info(f'Current working directory: {lSourcePath}/{self.yamlPath[self.eNB_instance]}')
-		ReTagImages(mySSH,IMAGES,self.ranCommitID, self.ranBranch, self.ranAllowMerge, self.displayedNewTags)
+		if re.search('tutorial_resources', self.yamlPath[self.eNB_instance]) is None:
+			ReTagImages(mySSH,self.ranCommitID, self.ranBranch, self.ranAllowMerge, self.displayedNewTags, self.flexricTag)
+		else:
+			mySSH.run('cp docker-compose.y*ml ci-docker-compose.yml', 5)
 		deployStatus,allServices = DeployServices(mySSH,self.services[self.eNB_instance])
 		if deployStatus != 0:
 			mySSH.close()
@@ -1033,6 +1022,10 @@ class Containerize():
 				CopyinContainerLog(mySSH,lSourcePath,self.yamlPath[0].split('/'),containerName,self.eNB_logFile[self.eNB_instance])
 				status = False
 			imagesInfo += (GetImageInfo(mySSH, containerName))
+		# creating the log folder by default
+		ymlPath = self.yamlPath[0].split('/')
+		logPath = f'{os.getcwd()}/../cmake_targets/log/{ymlPath[2]}'
+		mySSH.run(f'mkdir -p {logPath}')
 		mySSH.close()
 		imagesInfo += ("\n")
 		if status:
@@ -1065,34 +1058,6 @@ class Containerize():
 			self.exitStatus = 1 if any(log_results) else 0
 			logging.info('\u001B[1m Undeploying OAI Object Pass\u001B[0m') if self.exitStatus == 0 else logging.error('\u001B[1m Undeploying OAI Object Failed\u001B[0m')
 		mySSH.close()
-
-	def CaptureOnDockerNetworks(self):
-		myCmd = cls_cmd.LocalCmd(d = self.yamlPath[0])
-		cmd = 'docker-compose -f docker-compose-ci.yml config | grep com.docker.network.bridge.name | sed -e "s@^.*name: @@"'
-		networkNames = myCmd.run(cmd, silent=True)
-		myCmd.close()
-		# Allow only: control plane RAN (SCTP), HTTP of control in CN (port 80), PFCP traffic (port 8805), MySQL (port 3306)
-		capture_filter = 'sctp or port 80 or port 8805 or icmp or port 3306'
-		interfaces = []
-		iInterfaces = ''
-		for name in networkNames.stdout.split('\n'):
-			if re.search('rfsim', name) is not None or re.search('l2sim', name) is not None:
-				interfaces.append(name)
-				iInterfaces += f'-i {name} '
-		ymlPath = self.yamlPath[0].split('/')
-		output_file = f'/tmp/capture_{ymlPath[1]}.pcap'
-		self.tsharkStarted = True
-		# On old systems (ubuntu 18), pyshark live-capture is buggy.
-		# Going back to old method
-		if sys.version_info < (3, 7):
-			cmd = f'nohup tshark -f "{capture_filter}" {iInterfaces} -w {output_file} > /tmp/tshark.log 2>&1 &'
-			myCmd = cls_cmd.LocalCmd()
-			myCmd.run(cmd, timeout=5, reportNonZero=False)
-			myCmd.close()
-			return
-		x = threading.Thread(target = LaunchPySharkCapture, args = (interfaces,capture_filter,output_file,))
-		x.daemon = True
-		x.start()
 
 	def StatsFromGenObject(self, HTML):
 		self.exitStatus = 0
