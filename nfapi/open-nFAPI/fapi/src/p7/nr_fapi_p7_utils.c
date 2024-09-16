@@ -364,17 +364,32 @@ static bool eq_ul_tti_request_pucch_pdu(const nfapi_nr_pucch_pdu_t *a, const nfa
   return true;
 }
 
-static bool eq_ul_tti_request_srs_parameters (const nfapi_v4_srs_parameters_t *a,uint8_t num_symbols,  const nfapi_v4_srs_parameters_t *b){
+static bool eq_ul_tti_request_srs_parameters(const nfapi_v4_srs_parameters_t *a,
+                                             const uint8_t num_symbols,
+                                             const nfapi_v4_srs_parameters_t *b)
+{
   EQ(a->srs_bandwidth_size, b->srs_bandwidth_size);
   for (int symbol_idx = 0; symbol_idx < num_symbols; ++symbol_idx) {
-    nfapi_v4_srs_parameters_symbols_t *a_symbol = &a->symbol_list[symbol_idx];
-    nfapi_v4_srs_parameters_symbols_t *b_symbol = &b->symbol_list[symbol_idx];
+    const nfapi_v4_srs_parameters_symbols_t *a_symbol = &a->symbol_list[symbol_idx];
+    const nfapi_v4_srs_parameters_symbols_t *b_symbol = &b->symbol_list[symbol_idx];
     EQ(a_symbol->srs_bandwidth_start, b_symbol->srs_bandwidth_start);
     EQ(a_symbol->sequence_group, b_symbol->sequence_group);
     EQ(a_symbol->sequence_number, b_symbol->sequence_number);
   }
+
+#ifdef ENABLE_AERIAL
+  // For Aerial, we always process the 4 reported symbols, not only the ones indicated by num_symbols
+  for (int symbol_idx = num_symbols; symbol_idx < 4; ++symbol_idx) {
+    const nfapi_v4_srs_parameters_symbols_t *a_symbol = &a->symbol_list[symbol_idx];
+    const nfapi_v4_srs_parameters_symbols_t *b_symbol = &b->symbol_list[symbol_idx];
+    EQ(a_symbol->srs_bandwidth_start, b_symbol->srs_bandwidth_start);
+    EQ(a_symbol->sequence_group, b_symbol->sequence_group);
+    EQ(a_symbol->sequence_number, b_symbol->sequence_number);
+  }
+#endif // ENABLE_AERIAL
+
   EQ(a->usage, b->usage);
-  uint8_t nUsage = __builtin_popcount(a->usage);
+  const uint8_t nUsage = __builtin_popcount(a->usage);
   for (int idx = 0; idx < nUsage; ++idx) {
     EQ(a->report_type[idx], b->report_type[idx]);
   }
@@ -418,7 +433,7 @@ static bool eq_ul_tti_request_srs_pdu(const nfapi_nr_srs_pdu_t *a, const nfapi_n
   EQ(a->t_srs, b->t_srs);
   EQ(a->t_offset, b->t_offset);
   EQ(eq_ul_tti_beamforming(&a->beamforming, &b->beamforming), true);
-  EQ(eq_ul_tti_request_srs_parameters(&a->srs_parameters_v4, a->num_symbols, &b->srs_parameters_v4), true);
+  EQ(eq_ul_tti_request_srs_parameters(&a->srs_parameters_v4, 1 << a->num_symbols, &b->srs_parameters_v4), true);
   return true;
 }
 
@@ -483,17 +498,8 @@ void free_ul_tti_request(nfapi_nr_ul_tti_request_t *msg)
   for (int idx_pdu = 0; idx_pdu < msg->n_pdus; ++idx_pdu) {
     nfapi_nr_ul_tti_request_number_of_pdus_t *pdu = &msg->pdus_list[idx_pdu];
     switch (pdu->pdu_type) {
-      case NFAPI_NR_UL_CONFIG_PRACH_PDU_TYPE:
-        break;
       case NFAPI_NR_UL_CONFIG_PUSCH_PDU_TYPE:
         free(pdu->pusch_pdu.pusch_ptrs.ptrs_ports_list);
-        break;
-      case NFAPI_NR_UL_CONFIG_PUCCH_PDU_TYPE:
-        break;
-      case NFAPI_NR_UL_CONFIG_SRS_PDU_TYPE:
-        if(pdu->srs_pdu.srs_parameters_v4.symbol_list){
-          free(pdu->srs_pdu.srs_parameters_v4.symbol_list);
-        }
         break;
       default:
         break;
@@ -843,22 +849,30 @@ static void copy_ul_tti_request_pucch_pdu(const nfapi_nr_pucch_pdu_t *src, nfapi
 }
 
 static void copy_ul_tti_request_srs_parameters(const nfapi_v4_srs_parameters_t *src,
-                                               uint8_t num_symbols,
+                                               const uint8_t num_symbols,
                                                nfapi_v4_srs_parameters_t *dst)
 {
   dst->srs_bandwidth_size = src->srs_bandwidth_size;
-  if(num_symbols > 0){
-   dst->symbol_list = calloc(num_symbols, sizeof(*dst->symbol_list));
-  }
   for (int symbol_idx = 0; symbol_idx < num_symbols; ++symbol_idx) {
     nfapi_v4_srs_parameters_symbols_t *dst_symbol = &dst->symbol_list[symbol_idx];
-    nfapi_v4_srs_parameters_symbols_t *src_symbol = &src->symbol_list[symbol_idx];
+    const nfapi_v4_srs_parameters_symbols_t *src_symbol = &src->symbol_list[symbol_idx];
     dst_symbol->srs_bandwidth_start = src_symbol->srs_bandwidth_start;
     dst_symbol->sequence_group = src_symbol->sequence_group;
     dst_symbol->sequence_number = src_symbol->sequence_number;
   }
+
+#ifdef ENABLE_AERIAL
+  // For Aerial, we always process the 4 reported symbols, not only the ones indicated by num_symbols
+  for (int symbol_idx = num_symbols; symbol_idx < 4; ++symbol_idx) {
+    nfapi_v4_srs_parameters_symbols_t *dst_symbol = &dst->symbol_list[symbol_idx];
+    const nfapi_v4_srs_parameters_symbols_t *src_symbol = &src->symbol_list[symbol_idx];
+    dst_symbol->srs_bandwidth_start = src_symbol->srs_bandwidth_start;
+    dst_symbol->sequence_group = src_symbol->sequence_group;
+    dst_symbol->sequence_number = src_symbol->sequence_number;
+  }
+#endif // ENABLE_AERIAL
   dst->usage = src->usage;
-  uint8_t nUsage = __builtin_popcount(dst->usage);
+  const uint8_t nUsage = __builtin_popcount(dst->usage);
   for (int idx = 0; idx < nUsage; ++idx) {
     dst->report_type[idx] = src->report_type[idx];
   }
@@ -901,7 +915,7 @@ static void copy_ul_tti_request_srs_pdu(const nfapi_nr_srs_pdu_t *src, nfapi_nr_
   dst->t_srs = src->t_srs;
   dst->t_offset = src->t_offset;
   copy_ul_tti_beamforming(&src->beamforming, &dst->beamforming);
-  copy_ul_tti_request_srs_parameters(&src->srs_parameters_v4, src->num_symbols, &dst->srs_parameters_v4);
+  copy_ul_tti_request_srs_parameters(&src->srs_parameters_v4, 1 << src->num_symbols, &dst->srs_parameters_v4);
 }
 
 void copy_ul_tti_request(const nfapi_nr_ul_tti_request_t *src, nfapi_nr_ul_tti_request_t *dst)
