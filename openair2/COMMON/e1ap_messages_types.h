@@ -35,10 +35,11 @@
 #define E1AP_MAX_NUM_PLMNS 4
 #define E1AP_MAX_NUM_SLICES 1024
 #define E1AP_MAX_NUM_CELL_GROUPS 4
-#define E1AP_MAX_NUM_QOS_FLOWS 4
+#define E1AP_MAX_NUM_QOS_FLOWS 64
 #define E1AP_MAX_NUM_PDU_SESSIONS 4
 #define E1AP_MAX_NUM_DRBS 32
 #define E1AP_MAX_NUM_UP_PARAM 4
+#define E1AP_SECURITY_KEY_SIZE 16 // keys have 128 bits length
 
 #define E1AP_REGISTER_REQ(mSGpTR)                         (mSGpTR)->ittiMsg.e1ap_register_req
 #define E1AP_SETUP_REQ(mSGpTR)                            (mSGpTR)->ittiMsg.e1ap_setup_req
@@ -59,6 +60,17 @@ typedef enum BEARER_CONTEXT_STATUS_e {
   BEARER_SUSPEND,
   BEARER_RESUME,
 } BEARER_CONTEXT_STATUS_t;
+
+typedef enum ACTIVITY_NOTIFICATION_LEVEL_e {
+  ANL_DRB = 0,
+  ANL_PDU_SESSION,
+  ANL_UE,
+} ACTIVITY_NOTIFICATION_LEVEL_t;
+
+typedef enum CELL_GROUP_ID_e {
+  MCG = 0,
+  SCG,
+} CELL_GROUP_ID_t;
 
 typedef struct PLMN_ID_s {
   int mcc;
@@ -107,7 +119,7 @@ typedef struct e1ap_setup_fail_s {
 } e1ap_setup_fail_t;
 
 typedef struct cell_group_s {
-  long id;
+  CELL_GROUP_ID_t id;
 } cell_group_t;
 
 typedef struct up_params_s {
@@ -149,16 +161,36 @@ typedef struct drb_to_setup_s {
 typedef struct qos_characteristics_s {
   union {
     struct {
-      long fiveqi;
-      long qos_priority_level;
+      uint16_t fiveqi;
+      uint8_t qos_priority_level;
     } non_dynamic;
     struct {
-      long fiveqi; // -1 -> optional
-      long qos_priority_level;
-      long packet_delay_budget;
+      // Range 5QI [0 - 255]
+      uint16_t fiveqi;
+      /**
+       * Range [0 - 15]
+       * Usage:
+       * - Value 15 means "no priority."
+       * - Values 1 to 14 are ordered in decreasing
+       *   priority (1 is the highest, 14 is the lowest).
+       * - Value 0 is considered a logical error if received.
+       */
+      uint8_t qos_priority_level;
+      /**
+       * Range [0, 1023]
+       * Upper bound value for the delay
+       * that a packet may experience
+       * expressed in unit of 0.5ms.
+       */
+      uint16_t packet_delay_budget;
       struct {
-        long per_scalar;
-        long per_exponent;
+        /**
+         * PER is expressed as Scalar x 10-k
+         * where k is the Exponent
+         * Range: 0 - 9
+         */
+        uint8_t per_scalar;
+        uint8_t per_exponent;
       } packet_error_rate;
     } dynamic;
   };
@@ -167,8 +199,16 @@ typedef struct qos_characteristics_s {
 
 typedef struct ngran_allocation_retention_priority_s {
   uint16_t priority_level;
-  long preemption_capability;
-  long preemption_vulnerability;
+  /**
+   * Pre-emption capability
+   * of the request on other QoS flows
+   */
+  uint8_t preemption_capability;
+  /**
+   * Vulnerability of the QoS flow to
+   * pre-emption of other QoS flows
+   */
+  uint8_t preemption_vulnerability;
 } ngran_allocation_retention_priority_t;
 
 typedef struct qos_flow_level_qos_parameters_s {
@@ -209,6 +249,17 @@ typedef struct DRB_nGRAN_to_setup_s {
   qos_flow_to_setup_t qosFlows[E1AP_MAX_NUM_QOS_FLOWS];
 } DRB_nGRAN_to_setup_t, DRB_nGRAN_to_mod_t;
 
+typedef struct security_indication_s {
+  long integrityProtectionIndication;
+  long confidentialityProtectionIndication;
+  long maxIPrate;
+} security_indication_t;
+
+typedef struct UP_TL_information_s {
+  in_addr_t tlAddress;
+  int32_t teId;
+} UP_TL_information_t;
+
 /**
  * PDU Session Resource To Setup List (clause 9.3.3.10)
  * PDU Session Resource To Modify List (clause 9.3.3.11)
@@ -217,14 +268,8 @@ typedef struct pdu_session_to_setup_s {
   long sessionId;
   long sessionType;
   e1ap_nssai_t nssai;
-  long integrityProtectionIndication;
-  long confidentialityProtectionIndication;
-  in_addr_t tlAddress;
-  in_addr_t tlAddress_dl;
-  int32_t teId;
-  int32_t teId_dl;
-  int tl_port;
-  int tl_port_dl;
+  security_indication_t securityIndication;
+  UP_TL_information_t UP_TL_information;
   long numDRB2Setup;
   DRB_nGRAN_to_setup_t DRBnGRanList[E1AP_MAX_NUM_DRBS];
   long numDRB2Modify;
@@ -238,15 +283,15 @@ typedef struct pdu_session_to_setup_s {
  */
 typedef struct e1ap_bearer_setup_req_s {
   uint32_t gNB_cu_cp_ue_id;
-  uint32_t gNB_cu_up_ue_id;
+  uint32_t gNB_cu_up_ue_id; // Bearer Context Modification Request only
   uint64_t cipheringAlgorithm;
   uint64_t integrityProtectionAlgorithm;
-  char     encryptionKey[128];
-  char     integrityProtectionKey[128];
+  char encryptionKey[E1AP_SECURITY_KEY_SIZE];
+  char integrityProtectionKey[E1AP_SECURITY_KEY_SIZE];
   long     ueDlAggMaxBitRate;
   PLMN_ID_t servingPLMNid;
   BEARER_CONTEXT_STATUS_t bearerContextStatus;
-  long activityNotificationLevel;
+  ACTIVITY_NOTIFICATION_LEVEL_t activityNotificationLevel;
   int numPDUSessions;
   pdu_session_to_setup_t pduSession[E1AP_MAX_NUM_PDU_SESSIONS];
   int numPDUSessionsMod;
