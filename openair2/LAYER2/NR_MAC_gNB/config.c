@@ -716,8 +716,8 @@ void nr_mac_config_scc(gNB_MAC_INST *nrmac, NR_ServingCellConfigCommon_t *scc, c
     nrmac->pre_processor_dl = nr_preprocessor_phytest;
     nrmac->pre_processor_ul = nr_ul_preprocessor_phytest;
   } else {
-    nrmac->pre_processor_dl = nr_init_fr1_dlsch_preprocessor(0);
-    nrmac->pre_processor_ul = nr_init_fr1_ulsch_preprocessor(0);
+    nrmac->pre_processor_dl = nr_init_dlsch_preprocessor(0);
+    nrmac->pre_processor_ul = nr_init_ulsch_preprocessor(0);
   }
 
   NR_COMMON_channels_t *cc = &nrmac->common_channels[0];
