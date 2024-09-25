@@ -563,7 +563,7 @@ long rrc_get_max_nr_csrs(const int max_rbs, const long b_SRS) {
 
   long c_srs = 0;
   uint16_t m = 4;
-  for(int c = 1; c<64; c++) {
+  for(int c = 1; c<60; c++) { // Hack because foxconn doesn't support multile sections, and > 59 has > 2^8-1 PRBs.
     if(m_SRS[c]>m && m_SRS[c]<max_rbs) {
       c_srs = c;
       m = m_SRS[c];
@@ -745,7 +745,7 @@ static NR_SetupRelease_SRS_Config_t *get_config_srs(const NR_ServingCellConfigCo
   srs_res0->transmissionComb.choice.n2 = calloc(1,sizeof(*srs_res0->transmissionComb.choice.n2));
   srs_res0->transmissionComb.choice.n2->combOffset_n2 = 0;
   srs_res0->transmissionComb.choice.n2->cyclicShift_n2 = 0;
-  srs_res0->resourceMapping.startPosition = 1;
+  srs_res0->resourceMapping.startPosition = 0;
   srs_res0->resourceMapping.nrofSymbols = NR_SRS_Resource__resourceMapping__nrofSymbols_n1;
   srs_res0->resourceMapping.repetitionFactor = NR_SRS_Resource__resourceMapping__repetitionFactor_n1;
   srs_res0->freqDomainPosition = 0;
@@ -964,7 +964,7 @@ static void config_pucch_resset0(NR_PUCCH_Config_t *pucch_Config, int uid, int c
   pucchres0->format.choice.format0 = calloc(1,sizeof(*pucchres0->format.choice.format0));
   pucchres0->format.choice.format0->initialCyclicShift = 0;
   pucchres0->format.choice.format0->nrofSymbols = 1;
-  pucchres0->format.choice.format0->startingSymbolIndex = 13;
+  pucchres0->format.choice.format0->startingSymbolIndex = 12;
   asn1cSeqAdd(&pucch_Config->resourceToAddModList->list,pucchres0);
 
   asn1cSeqAdd(&pucch_Config->resourceSetToAddModList->list,pucchresset);
@@ -995,7 +995,7 @@ static void config_pucch_resset1(NR_PUCCH_Config_t *pucch_Config, const NR_UE_NR
   pucchres2->format.choice.format2 = calloc(1,sizeof(*pucchres2->format.choice.format2));
   pucchres2->format.choice.format2->nrofPRBs = 8;
   pucchres2->format.choice.format2->nrofSymbols = 1;
-  pucchres2->format.choice.format2->startingSymbolIndex = 13;
+  pucchres2->format.choice.format2->startingSymbolIndex = 12;
   asn1cSeqAdd(&pucch_Config->resourceToAddModList->list,pucchres2);
 
   asn1cSeqAdd(&pucch_Config->resourceSetToAddModList->list,pucchresset);

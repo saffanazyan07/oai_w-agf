@@ -81,6 +81,8 @@ int get_ul_tda(gNB_MAC_INST *nrmac, const NR_ServingCellConfigCommon_t *scc, int
       return 2;
   }
 
+  // Always avoid the last symbol
+  return 0;
   // Avoid slots with the SRS
   UE_iterator(nrmac->UE_info.list, UE) {
     NR_sched_srs_t sched_srs = UE->UE_sched_ctrl.sched_srs;

@@ -640,7 +640,7 @@ int main( int argc, char **argv ) {
   // don't create if node doesn't connect to RRC/S1/GTP
   const ngran_node_t node_type = get_node_type();
 
-  if (RC.nb_nr_L1_inst > 0)
+  //if (RC.nb_nr_L1_inst > 0)
     RCconfig_NR_L1();
 
   if (NFAPI_MODE != NFAPI_MODE_PNF) {
