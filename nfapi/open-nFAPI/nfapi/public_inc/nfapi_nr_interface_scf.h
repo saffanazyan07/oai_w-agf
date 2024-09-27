@@ -1826,6 +1826,7 @@ typedef struct {
 
 
 //3.4.11 rach_indication
+#define NFAPI_NR_RACH_IND_MAX_PDU 100
 //table 3-74
 typedef struct
 {
