@@ -2314,12 +2314,14 @@ int nfapi_p5_message_header_unpack(void *pMessageBuf, uint32_t messageBufLen, vo
     NFAPI_TRACE(NFAPI_TRACE_ERROR, "P5 header unpack supplied message buffer is too small %d, %d\n", messageBufLen, unpackedBufLen);
     return -1;
   }
-
+  uint16_t msg_length = 0;
   // process the header
-  return ( pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) &&
-           pull16(&pReadPackedMessage, &pMessageHeader->message_id, end) &&
-           pull16(&pReadPackedMessage, &pMessageHeader->message_length, end) &&
-           pull16(&pReadPackedMessage, &pMessageHeader->spare, end) );
+  if (!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) && pull16(&pReadPackedMessage, &pMessageHeader->message_id, end)
+        && pull16(&pReadPackedMessage, &msg_length, end) && pull16(&pReadPackedMessage, &pMessageHeader->spare, end))) {
+    return -1;
+  }
+  pMessageHeader->message_length = msg_length;
+  return 8;
 }
 
 int nfapi_nr_p5_message_unpack(void *pMessageBuf,
@@ -2345,15 +2347,14 @@ int nfapi_nr_p5_message_unpack(void *pMessageBuf,
 
   // clean the supplied buffer for - tag value blanking
   (void)memset(pUnpackedBuf, 0, unpackedBufLen);
-
+  uint16_t msg_length = 0;
   // process the header
   if (!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) && pull16(&pReadPackedMessage, &pMessageHeader->message_id, end)
-        && pull16(&pReadPackedMessage, &pMessageHeader->message_length, end)
-        && pull16(&pReadPackedMessage, &pMessageHeader->spare, end))) {
+        && pull16(&pReadPackedMessage, &msg_length, end) && pull16(&pReadPackedMessage, &pMessageHeader->spare, end))) {
     // failed to read the header
     return -1;
   }
-
+  pMessageHeader->message_length = msg_length;
   int result = -1;
 
   if (check_nr_unpack_length(pMessageHeader->message_id, unpackedBufLen) == 0) {
@@ -2487,15 +2488,14 @@ int nfapi_p5_message_unpack(void *pMessageBuf,
   printf("\n");
   // clean the supplied buffer for - tag value blanking
   (void)memset(pUnpackedBuf, 0, unpackedBufLen);
-
+  uint16_t msg_length = 0;
   // process the header
   if (!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) && pull16(&pReadPackedMessage, &pMessageHeader->message_id, end)
-        && pull16(&pReadPackedMessage, &pMessageHeader->message_length, end)
-        && pull16(&pReadPackedMessage, &pMessageHeader->spare, end))) {
+        && pull16(&pReadPackedMessage, &msg_length, end) && pull16(&pReadPackedMessage, &pMessageHeader->spare, end))) {
     // failed to read the header
     return -1;
   }
-
+  pMessageHeader->message_length = msg_length;
   int result = -1;
 
   if (check_unpack_length(pMessageHeader->message_id, unpackedBufLen) == 0) {
