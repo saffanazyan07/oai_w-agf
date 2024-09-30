@@ -8127,16 +8127,14 @@ int nfapi_p7_message_header_unpack(void *pMessageBuf, uint32_t messageBufLen, vo
     NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 header unpack supplied message buffer is too small %d, %d\n", messageBufLen, unpackedBufLen);
     return -1;
   }
-
+  uint16_t msg_length = 0;
   // process the header
-  if(!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) &&
-       pull16(&pReadPackedMessage, &pMessageHeader->message_id, end) &&
-       pull16(&pReadPackedMessage, &pMessageHeader->message_length, end) &&
-       pull16(&pReadPackedMessage, &pMessageHeader->m_segment_sequence, end) &&
-       pull32(&pReadPackedMessage, &pMessageHeader->checksum, end) &&
-       pull32(&pReadPackedMessage, &pMessageHeader->transmit_timestamp, end)))
+  if (!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) && pull16(&pReadPackedMessage, &pMessageHeader->message_id, end)
+        && pull16(&pReadPackedMessage, &msg_length, end) && pull16(&pReadPackedMessage, &pMessageHeader->m_segment_sequence, end)
+        && pull32(&pReadPackedMessage, &pMessageHeader->checksum, end)
+        && pull32(&pReadPackedMessage, &pMessageHeader->transmit_timestamp, end)))
     return -1;
-
+  pMessageHeader->message_length = msg_length;
   return 0;
 }
 
@@ -8168,18 +8166,16 @@ int nfapi_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *pUn
   */
   // clean the supplied buffer for - tag value blanking
   (void)memset(pUnpackedBuf, 0, unpackedBufLen);
-
+  uint16_t msg_length = 0;
   // process the header
-  if(!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) &&
-       pull16(&pReadPackedMessage, &pMessageHeader->message_id, end) &&
-       pull16(&pReadPackedMessage, &pMessageHeader->message_length, end) &&
-       pull16(&pReadPackedMessage, &pMessageHeader->m_segment_sequence, end) &&
-       pull32(&pReadPackedMessage, &pMessageHeader->checksum, end) &&
-       pull32(&pReadPackedMessage, &pMessageHeader->transmit_timestamp, end))) {
+  if (!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) && pull16(&pReadPackedMessage, &pMessageHeader->message_id, end)
+        && pull16(&pReadPackedMessage, &msg_length, end) && pull16(&pReadPackedMessage, &pMessageHeader->m_segment_sequence, end)
+        && pull32(&pReadPackedMessage, &pMessageHeader->checksum, end)
+        && pull32(&pReadPackedMessage, &pMessageHeader->transmit_timestamp, end))) {
     NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 unpack header failed\n");
     return -1;
   }
-
+  pMessageHeader->message_length = msg_length;
   if((uint8_t *)(pMessageBuf + pMessageHeader->message_length) > end) {
     NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 unpack message length is greater than the message buffer \n");
     return -1;
@@ -8396,19 +8392,19 @@ int nfapi_nr_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *
 		return -1;
 	}
 
-	// process the header
-	if(!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) &&
-		 pull16(&pReadPackedMessage, &pMessageHeader->message_id, end) &&
-		 pull16(&pReadPackedMessage, &pMessageHeader->message_length, end) &&
-		 pull16(&pReadPackedMessage, &pMessageHeader->m_segment_sequence, end) &&
-		 pull32(&pReadPackedMessage, &pMessageHeader->checksum, end) &&
-		 pull32(&pReadPackedMessage, &pMessageHeader->transmit_timestamp, end)))
-	{
-		NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 unpack header failed\n");
-		return -1;
-	}
-
-	if((uint8_t*)(pMessageBuf + pMessageHeader->message_length) > end)
+	// clean the supplied buffer for - tag value blanking
+	//(void)memset(pUnpackedBuf, 0, unpackedBufLen);
+  uint16_t msg_length = 0;
+  // process the header
+  if (!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) && pull16(&pReadPackedMessage, &pMessageHeader->message_id, end)
+        && pull16(&pReadPackedMessage, &msg_length, end) && pull16(&pReadPackedMessage, &pMessageHeader->m_segment_sequence, end)
+        && pull32(&pReadPackedMessage, &pMessageHeader->checksum, end)
+        && pull32(&pReadPackedMessage, &pMessageHeader->transmit_timestamp, end))) {
+    NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 unpack header failed\n");
+    return -1;
+  }
+  pMessageHeader->message_length = msg_length;
+  if((uint8_t*)(pMessageBuf + pMessageHeader->message_length) > end)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 unpack message length is greater than the message buffer \n");
 		return -1;
