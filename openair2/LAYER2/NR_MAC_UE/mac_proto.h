@@ -123,7 +123,11 @@ csi_payload_t nr_ue_aperiodic_csi_reporting(NR_UE_MAC_INST_t *mac, dci_field_t c
           If the max number of retransmissions is reached, it triggers a new RA  */
 int8_t nr_ue_get_SR(NR_UE_MAC_INST_t *mac, frame_t frame, slot_t slot, NR_SchedulingRequestId_t sr_id);
 
-nr_dci_format_t nr_ue_process_dci_indication_pdu(NR_UE_MAC_INST_t *mac, frame_t frame, int slot, fapi_nr_dci_indication_pdu_t *dci);
+nr_dci_format_t nr_ue_process_dci_indication_pdu(NR_UE_MAC_INST_t *mac,
+                                                 frame_t frame,
+                                                 int slot,
+                                                 fapi_nr_dci_indication_pdu_t *dci,
+                                                 uint32_t transaction_id);
 
 int8_t nr_ue_process_csirs_measurements(NR_UE_MAC_INST_t *mac,
                                         frame_t frame,
@@ -238,7 +242,8 @@ int get_pusch_tx_power_ue(
   uint32_t sum_bits_in_codeblocks,
   int delta_pusch,
   bool is_rar_tx_retx,
-  bool transform_precoding);
+  bool transform_precoding,
+  int P_CMAX);
 
 int nr_ue_configure_pucch(NR_UE_MAC_INST_t *mac,
                            int slot,
@@ -406,7 +411,8 @@ int nr_config_pusch_pdu(NR_UE_MAC_INST_t *mac,
                         RAR_grant_t *rar_grant,
                         uint16_t rnti,
                         int ss_type,
-                        const nr_dci_format_t dci_format);
+                        const nr_dci_format_t dci_format,
+                        uint32_t transaction_id);
 
 int nr_rrc_mac_config_req_sl_preconfig(module_id_t module_id,
                                        NR_SL_PreconfigurationNR_r16_t *sl_preconfiguration,

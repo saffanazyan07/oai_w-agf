@@ -107,6 +107,7 @@ typedef struct {
   uint16_t SFN;
   uint8_t slot;
   uint16_t number_of_dcis;
+  uint32_t transaction_id;
   fapi_nr_dci_indication_pdu_t dci_list[10];
 } fapi_nr_dci_indication_t;
 
@@ -395,6 +396,7 @@ typedef struct {
 
 typedef struct {
   int pdu_type;
+  uint32_t transaction_id;
   union {
     fapi_nr_ul_config_prach_pdu prach_config_pdu;
     fapi_nr_ul_config_pucch_pdu pucch_config_pdu;
@@ -556,6 +558,7 @@ typedef struct {
 
 typedef struct {
   uint8_t pdu_type;
+  uint32_t transaction_id;
   union {
     fapi_nr_dl_config_dci_pdu dci_config_pdu;
     fapi_nr_dl_config_dlsch_pdu dlsch_config_pdu;
