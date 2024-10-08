@@ -168,7 +168,7 @@ int fapi_nr_p7_message_unpack(void *pMessageBuf,
   // look for the specific message
   switch (pMessageHeader->message_id) {
     case NFAPI_NR_PHY_MSG_TYPE_DL_TTI_REQUEST:
-      if (check_nr_fapi_unpack_length(NFAPI_NR_PHY_MSG_TYPE_DL_TTI_REQUEST, unpackedBufLen))
+     // if (check_nr_fapi_unpack_length(NFAPI_NR_PHY_MSG_TYPE_DL_TTI_REQUEST, unpackedBufLen))
         result = unpack_dl_tti_request(&pReadPackedMessage, end, pMessageHeader, config);
     break;
     case NFAPI_NR_PHY_MSG_TYPE_UL_TTI_REQUEST:

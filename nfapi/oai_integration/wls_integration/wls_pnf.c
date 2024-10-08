@@ -32,6 +32,8 @@
 #include "nfapi/oai_integration/wls_integration/include/wls_pnf.h"
 #include "pnf.h"
 #include "nr_nfapi_p7.h"
+#include "nr_fapi_p5.h"
+#include "nr_fapi_p7.h"
 #define WLS_TEST_DEV_NAME "wls"
 #define WLS_TEST_MSG_ID 1
 #define WLS_TEST_MSG_SIZE 100
@@ -59,6 +61,10 @@
 //#define MEMORY_CORRUPTION_DETECT
 #define MEMORY_CORRUPTION_DETECT_FLAG       (0xAB)
 
+nfapi_pnf_p7_config_t *wls_p7_config = NULL;
+void wls_set_p7_config(nfapi_pnf_p7_config_t *p7_config){
+  wls_p7_config = p7_config;
+}
 
 void *wls_mac_alloc_buffer(uint32_t size, uint32_t loc);
 typedef struct wls_mac_mem_array
@@ -268,7 +274,14 @@ int wls_mac_add_blocks_to_ul(void)
         res = WLS_EnqueueBlock(pWls,(uint64_t) WLS_VA2PA(pWls,pMsg));
         if(res == 0){
 
+        }else{
+          pMsg = wls_mac_alloc_buffer(0, MIN_UL_BUF_LOCATIONS+1);
         }
+        if(!pMsg){
+          break;
+        }
+      }else{
+        //return false;
       }
     }
     return res;
@@ -486,9 +499,9 @@ uint32_t wls_mac_alloc_mem_array(PWLS_MAC_MEM_SRUCT pMemArray, void **ppBlock)
     idx = (((uint64_t)*ppBlock - (uint64_t)pMemArray->pStorage)) / pMemArray->nBlockSize;
     if (alloc_track[idx])
     {
-        printf("wls_mac_alloc_mem_array Double alloc Arr=%p,Stor=%p,Free=%p,Curr=%p\n",
-            pMemArray, pMemArray->pStorage, pMemArray->ppFreeBlock,
-            *pMemArray->ppFreeBlock);
+//        printf("wls_mac_alloc_mem_array Double alloc Arr=%p,Stor=%p,Free=%p,Curr=%p\n",
+//            pMemArray, pMemArray->pStorage, pMemArray->ppFreeBlock,
+//            *pMemArray->ppFreeBlock);
     }
     else
     {
@@ -840,160 +853,11 @@ static void wls_pnf_nr_handle_start_request(uint32_t msgSize, void *msg)
 
 }
 
-static int wls_fapi_nr_p7_message_pack(void *pMessageBuf, void *pPackedBuf,  uint32_t packedBufLen, nfapi_p7_codec_config_t *config)
-{
-  if (pMessageBuf == NULL || pPackedBuf == NULL) {
-    NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 Pack supplied pointers are null\n");
-    return -1;
-  }
-
-  nfapi_p7_message_header_t *pMessageHeader = pMessageBuf;
-  uint8_t *end = pPackedBuf + packedBufLen;
-  uint8_t *pWritePackedMessage = pPackedBuf;
-  uint8_t *pPackMessageEnd = pPackedBuf + packedBufLen;
-  uint8_t *pPackedLengthField = &pWritePackedMessage[4];
-  uint8_t *pPacketBodyField = &pWritePackedMessage[8];
-  uint8_t *pPacketBodyFieldStart = &pWritePackedMessage[8];
-
-  // PHY API message header
-  // Number of messages [0]
-  // Opaque handle [1]
-  // PHY API Message structure
-  // Message type ID [2,3]
-  // Message Length [4,5,6,7]
-  // Message Body [8,...]
-  if (!(push8(1, &pWritePackedMessage, pPackMessageEnd) && push8(0, &pWritePackedMessage, pPackMessageEnd)
-        && push16(pMessageHeader->message_id, &pWritePackedMessage, pPackMessageEnd))) {
-    NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 Pack header failed\n");
-    return -1;
-  }
-
-  // look for the specific message
-  uint8_t result = 0;
-  switch (pMessageHeader->message_id) {
-    case NFAPI_NR_PHY_MSG_TYPE_DL_TTI_REQUEST:
-      result = pack_dl_tti_request(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_NR_PHY_MSG_TYPE_UL_TTI_REQUEST:
-      result = pack_ul_tti_request(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_NR_PHY_MSG_TYPE_TX_DATA_REQUEST:
-      // TX_DATA.request already handled by aerial_pack_tx_data_request
-      break;
-
-    case NFAPI_NR_PHY_MSG_TYPE_UL_DCI_REQUEST:
-      result = pack_ul_dci_request(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_UE_RELEASE_REQUEST:
-      result = pack_ue_release_request(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_UE_RELEASE_RESPONSE:
-      result = pack_ue_release_response(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_NR_PHY_MSG_TYPE_SLOT_INDICATION:
-      result = pack_nr_slot_indication(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_NR_PHY_MSG_TYPE_RX_DATA_INDICATION:
-      result = pack_nr_rx_data_indication(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_NR_PHY_MSG_TYPE_CRC_INDICATION:
-      result = pack_nr_crc_indication(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_NR_PHY_MSG_TYPE_UCI_INDICATION:
-      result = pack_nr_uci_indication(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_NR_PHY_MSG_TYPE_SRS_INDICATION:
-      result = pack_nr_srs_indication(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_NR_PHY_MSG_TYPE_RACH_INDICATION:
-      result = pack_nr_rach_indication(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_NR_PHY_MSG_TYPE_DL_NODE_SYNC:
-      result = pack_nr_dl_node_sync(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_NR_PHY_MSG_TYPE_UL_NODE_SYNC:
-      result = pack_nr_ul_node_sync(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case NFAPI_TIMING_INFO:
-      result = pack_nr_timing_info(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    case 0x8f:
-      result = pack_nr_slot_indication(pMessageHeader, &pPacketBodyField, end, config);
-      break;
-
-    default: {
-      if (pMessageHeader->message_id >= NFAPI_VENDOR_EXT_MSG_MIN && pMessageHeader->message_id <= NFAPI_VENDOR_EXT_MSG_MAX) {
-        if (config && config->pack_p7_vendor_extension) {
-          result = (config->pack_p7_vendor_extension)(pMessageHeader, &pPacketBodyField, end, config);
-        } else {
-          NFAPI_TRACE(NFAPI_TRACE_ERROR,
-                      "%s VE NFAPI message ID %d. No ve ecoder provided\n",
-                      __FUNCTION__,
-                      pMessageHeader->message_id);
-        }
-      } else {
-        NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s NFAPI Unknown message ID %d\n", __FUNCTION__, pMessageHeader->message_id);
-      }
-    } break;
-  }
-
-  if (result == 0) {
-    NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 Pack failed to pack message\n");
-    return -1;
-  }
-
-  // check for a valid message length
-  uintptr_t msgHead = (uintptr_t)pPacketBodyFieldStart;
-  uintptr_t msgEnd = (uintptr_t)pPacketBodyField;
-  uint32_t packedMsgLen = msgEnd - msgHead;
-  uint16_t packedMsgLen16;
-  if (packedMsgLen > 0xFFFF || packedMsgLen > packedBufLen) {
-    NFAPI_TRACE(NFAPI_TRACE_ERROR, "Packed message length error %d, buffer supplied %d\n", packedMsgLen, packedBufLen);
-    return -1;
-  } else {
-    packedMsgLen16 = (uint16_t)packedMsgLen;
-  }
-
-  // Update the message length in the header
-  pMessageHeader->message_length = packedMsgLen16;
-
-  // Update the message length in the header
-  if (!push32(packedMsgLen, &pPackedLengthField, pPackMessageEnd))
-    return -1;
-
-  if (1) {
-    // quick test
-    if (pMessageHeader->message_length != packedMsgLen) {
-      NFAPI_TRACE(NFAPI_TRACE_ERROR,
-                  "nfapi packedMsgLen(%d) != message_length(%d) id %d\n",
-                  packedMsgLen,
-                  pMessageHeader->message_length,
-                  pMessageHeader->message_id);
-    }
-  }
-
-  return (packedMsgLen16);
-}
-
 
 int wls_pnf_nr_pack_and_send_p7_message(nfapi_p7_message_header_t * msg)
 {
   pnf_t* pnf = _this;
-  int packed_len = wls_fapi_nr_p7_message_pack(msg, pnf->tx_message_buffer, sizeof(pnf->tx_message_buffer), NULL);
+  int packed_len = fapi_nr_p7_message_pack(msg, pnf->tx_message_buffer, sizeof(pnf->tx_message_buffer), NULL);
 
   if (packed_len < 0)
   {
@@ -1057,27 +921,49 @@ uint8_t pad[2];
   return retval;
 }
 
-static void wls_pnf_nr_handle_p7_messages(uint32_t msgSize, void *msg, int msgId){
-  if (msg == NULL || _this == NULL)
+static void wls_pnf_nr_handle_p7_messages(uint32_t msgSize, void *rcv_msg, int msgId){
+  if (rcv_msg == NULL || _this == NULL)
   {
-    AssertFatal(msg != NULL && _this != NULL,"%s: NULL parameters\n", __FUNCTION__);
+    AssertFatal(rcv_msg != NULL && _this != NULL,"%s: NULL parameters\n", __FUNCTION__);
   }
+  uint8_t *msg = rcv_msg;
+  uint8_t *hdr = malloc(NFAPI_HEADER_LENGTH);
+  memcpy(&hdr, &rcv_msg, NFAPI_HEADER_LENGTH);
   nfapi_pnf_config_t* config = &(_this->_public);
-  uint8_t *end = (uint8_t *)msg + msgSize + NFAPI_HEADER_LENGTH;
+  uint8_t *end = (uint8_t *)rcv_msg + msgSize + NFAPI_HEADER_LENGTH;
   // first, unpack the header
   fapi_msg_header fapi_msg;
-  if (!(pull8(msg, &fapi_msg.num_msg, end) && pull8(msg, &fapi_msg.opaque_handle, end)
-        && pull16(msg, &fapi_msg.message_id, end)
-        && pull32(msg, &fapi_msg.message_length, end))) {
-    AssertFatal(1==0, "FAPI message header unpack failed\n");
+  if (!pull8(&hdr, &fapi_msg.num_msg, end)) {
+    AssertFatal(1 == 0, "FAPI num_msg unpack failed\n");
   }
+  if (!pull8(&hdr, &fapi_msg.opaque_handle, end)) {
+    AssertFatal(1 == 0, "FAPI opaque_handle unpack failed\n");
+  }
+  if (!pull16(&hdr, &fapi_msg.message_id, end)) {
+    AssertFatal(1 == 0, "FAPI message_id unpack failed\n");
+  }
+  if (!pull32(&hdr, &fapi_msg.message_length, end)) {
+    AssertFatal(1 == 0, "FAPI message_length unpack failed\n");
+  }
+
+  printf("msgSize parameter = %d\n", msgSize);
+printf("Unpacked Header \n\tMSG_ID = 0x%02x\n\tMSG_LENGTH = %d\n", fapi_msg.message_id, fapi_msg.message_length);
+
+for (int x = 0; x < msgSize + NFAPI_HEADER_LENGTH; ++x) {
+  printf("0x%02x ", msg[x]);
+}
 
   switch (msgId) {
     case NFAPI_NR_PHY_MSG_TYPE_DL_TTI_REQUEST:
-      nfapi_nr_dl_tti_request_t dl_tti_req;
-      dl_tti_req.header.message_id = fapi_msg.message_id;
-      dl_tti_req.header.message_length = fapi_msg.message_length;
 
+      nfapi_nr_dl_tti_request_t unpacked_msg = {.header.message_id = fapi_msg.message_id, .header.message_length = fapi_msg.message_length };
+      fapi_nr_p7_message_unpack(msg, msgSize + NFAPI_HEADER_LENGTH, &unpacked_msg, fapi_msg.message_length, 0);
+
+      DevAssert(wls_p7_config->dl_tti_req_fn != NULL);
+      // pnf_phy_dl_tti_req()
+      (wls_p7_config->dl_tti_req_fn)(NULL, (wls_p7_config), &unpacked_msg);
+      free_dl_tti_request(&unpacked_msg);
+      exit(-1);
      /* unpack_dl_tti_request(msg,  end, &dl_tti_req, config);
 
       if (((vnf_info *)vnf_config->user_data)->p7_vnfs->config->nr_crc_indication) {

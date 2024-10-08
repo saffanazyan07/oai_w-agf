@@ -45,8 +45,8 @@
 #include <hugetlbfs.h>
 #include "wls_lib.h"
 #include "nfapi_pnf_interface.h"
-#include "nfapi/open-nFAPI/fapi/inc/common/nr_fapi.h"
 #include "nfapi/open-nFAPI/fapi/inc/p5/nr_fapi_p5_utils.h"
+#include "nfapi/open-nFAPI/fapi/inc/p7/nr_fapi_p7_utils.h"
 #include "pnf.h"
 
 /* ----- WLS Operation --- */
@@ -75,5 +75,5 @@ int wls_pnf_nr_pack_and_send_p5_message(pnf_t* pnf, nfapi_p4_p5_message_header_t
 int wls_pnf_nr_pack_and_send_p7_message(nfapi_p7_message_header_t * msg);
 void *wls_fapi_pnf_nr_start_thread(void *ptr);
 int wls_fapi_nr_pnf_start();
-
+void wls_set_p7_config(nfapi_pnf_p7_config_t *p7_config);
 #endif // OPENAIRINTERFACE_WLS_PNF_H
