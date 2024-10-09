@@ -53,6 +53,7 @@
 #include "SCHED_NR/sched_nr.h"
 
 #include "T.h"
+#include "nr_phy_common.h"
 
 //#define DEBUG_NR_PUCCH_RX 1
 
@@ -1090,15 +1091,7 @@ void nr_decode_pucch2(PHY_VARS_gNB *gNB,
 
   pucch2_lev /= Prx * pucch_pdu->nr_of_symbols;
   int pucch2_levdB = dB_fixed(pucch2_lev);
-  int scaling = 0;
-  if (pucch2_levdB > 72)
-    scaling = 4;
-  else if (pucch2_levdB > 66)
-    scaling = 3;
-  else if (pucch2_levdB > 60)
-    scaling = 2;
-  else if (pucch2_levdB > 54)
-    scaling = 1;
+  int scaling = max((log2_approx64(pucch2_lev) >> 1) - 9, 0);
 
   LOG_D(NR_PHY,
         "%d.%d Decoding pucch2 for %d symbols, %d PRB, nb_harq %d, nb_sr %d, nb_csi %d/%d, pucch2_lev %d dB (scaling %d)\n",
@@ -1184,6 +1177,67 @@ void nr_decode_pucch2(PHY_VARS_gNB *gNB,
            slot,pucch_pdu->start_symbol_index,symb,pucch_pdu->dmrs_scrambling_id);
 #endif
     uint32_t *sGold = gold_cache(x2, pucch_pdu->prb_start / 4 + ngroup / 2);
+
+    // Compute pilot conjugate
+    int m = 0;
+    int sg_i = 0;
+    c16_t pil_comp[4 * pucch_pdu->prb_size];
+    for (int prb = 0; prb < pucch_pdu->prb_size; prb++) {
+      for (int idx = 0; idx < 4; idx++) {
+        pil_comp[idx + 4 * prb].r = (int16_t)((1 - (2 * ((uint8_t)((sGold[sg_i] >> (2 * m)) & 1)))));
+        pil_comp[idx + 4 * prb].i = -(int16_t)((1 - (2 * ((uint8_t)((sGold[sg_i] >> (2 * m + 1)) & 1)))));
+        m++;
+        if (m % 16 == 0) {
+          sg_i++;
+          m = 0;
+        }
+      }
+    }
+
+    // Compute delay
+    c16_t ch_ls[128] __attribute__((aligned(32))) = {0};
+    for (int aa = 0; aa < Prx; aa++) {
+      for (int prb = 0; prb < pucch_pdu->prb_size; prb++) {
+        int16_t *rd_re_ext_p = &rd_re_ext[aa][symb][4 * prb];
+        int16_t *rd_im_ext_p = &rd_im_ext[aa][symb][4 * prb];
+        c16_t ch[4] = {0};
+        for (int idx = 0; idx < 4; idx++) {
+          ch[idx] = c16maddShift(pil_comp[idx + 4 * prb], (c16_t){rd_re_ext_p[idx], rd_im_ext_p[idx]}, (c16_t){0}, 0);
+          for (int k = 0; k < 3 && 12 * prb + 3 * idx + k < 128; k++) {
+            ch_ls[12 * prb + 3 * idx + k] = ch[idx];
+          }
+        }
+      }
+    }
+    c16_t ch_temp[128] __attribute__((aligned(32))) = {0};
+    delay_t delay = {0};
+    nr_est_delay(128, ch_ls, ch_temp, &delay);
+    int delay_idx = get_delay_idx(delay.est_delay, MAX_DELAY_COMP);
+    c16_t *delay_table = frame_parms->delay_table128[delay_idx];
+
+    // Apply delay compensation
+    for (int aa = 0; aa < Prx; aa++) {
+      for (int prb = 0; prb < pucch_pdu->prb_size; prb++) {
+        int16_t *r_re_ext_p = &r_re_ext[aa][symb][8 * prb];
+        int16_t *r_im_ext_p = &r_im_ext[aa][symb][8 * prb];
+        int16_t *rd_re_ext_p = &rd_re_ext[aa][symb][4 * prb];
+        int16_t *rd_im_ext_p = &rd_im_ext[aa][symb][4 * prb];
+
+        for (int idx = 0; idx < 4; idx++) {
+          int k = 3 * idx + 12 * prb;
+          c16_t tmp = c16mulShift((c16_t){r_re_ext_p[idx << 1], r_im_ext_p[idx << 1]}, delay_table[k], 8);
+          r_re_ext_p[idx << 1] = tmp.r;
+          r_im_ext_p[idx << 1] = tmp.i;
+          tmp = c16mulShift((c16_t){rd_re_ext_p[idx], rd_im_ext_p[idx]}, delay_table[k + 1], 8);
+          rd_re_ext_p[idx] = tmp.r;
+          rd_im_ext_p[idx] = tmp.i;
+          tmp = c16mulShift((c16_t){r_re_ext_p[1 + (idx << 1)], r_im_ext_p[1 + (idx << 1)]}, delay_table[k + 2], 8);
+          r_re_ext_p[1 + (idx << 1)] = tmp.r;
+          r_im_ext_p[1 + (idx << 1)] = tmp.i;
+        }
+      }
+    }
+
     for (int group = 0, goldIdx = pucch_pdu->prb_start / 4; group < ngroup; group++) {
       // each group has 8*nc_group_size elements, compute 1 complex correlation with DMRS per group
       // non-coherent combining across groups
