@@ -43,6 +43,7 @@
 
 //#undef FRAME_LENGTH_COMPLEX_SAMPLES //there are two conflicting definitions, so we better make sure we don't use it at all
 #include "openair1/PHY/MODULATION/nr_modulation.h"
+#include "PHY/CODING/nrLDPC_coding/nrLDPC_coding_interface.h"
 #include "PHY/phy_vars_nr_ue.h"
 #include "PHY/NR_UE_TRANSPORT/nr_transport_proto_ue.h"
 #include "PHY/NR_TRANSPORT/nr_dlsch.h"
@@ -218,7 +219,6 @@ void set_options(int CC_id, PHY_VARS_NR_UE *UE){
   UE->rf_map.card          = 0;
   UE->rf_map.chain         = CC_id + 0;
   UE->max_ldpc_iterations  = nrUE_params.max_ldpc_iterations;
-  UE->ldpc_offload_enable  = nrUE_params.ldpc_offload_flag;
   UE->UE_scan_carrier      = nrUE_params.UE_scan_carrier;
   UE->UE_fo_compensation   = nrUE_params.UE_fo_compensation;
   UE->if_freq              = nrUE_params.if_freq;
@@ -386,7 +386,7 @@ int NB_UE_INST = 1;
 configmodule_interface_t *uniqCfg = NULL;
 
 // A global var to reduce the changes size
-ldpc_interface_t ldpc_interface = {0}, ldpc_interface_offload = {0};
+nrLDPC_coding_interface_t nrLDPC_coding_interface = {0};
 
 int main(int argc, char **argv)
 {
@@ -423,10 +423,8 @@ int main(int argc, char **argv)
 
   init_opt();
 
-  if (nrUE_params.ldpc_offload_flag)
-    load_LDPClib("_t2", &ldpc_interface_offload);
-
-  load_LDPClib(NULL, &ldpc_interface);
+  int ret_loader = load_nrLDPC_coding_interface(NULL, &nrLDPC_coding_interface);
+  AssertFatal(ret_loader == 0, "error loading LDPC library\n");
 
   if (ouput_vcd) {
     vcd_signal_dumper_init("/tmp/openair_dump_nrUE.vcd");
