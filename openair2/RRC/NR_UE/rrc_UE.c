@@ -180,100 +180,72 @@ static void nr_decode_SI(NR_UE_RRC_SI_INFO *SI_info, NR_SystemInformation_t *si)
     LOG_I(NR_RRC, "Found SIB%d\n", typeandinfo->present + 1);
     switch(typeandinfo->present) {
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib2:
-        if(!SI_info->sib2)
-          SI_info->sib2 = calloc(1, sizeof(*SI_info->sib2));
-        memcpy(SI_info->sib2, typeandinfo->choice.sib2, sizeof(NR_SIB2_t));
+        UPDATE_IE(SI_info->sib2, typeandinfo->choice.sib2, NR_SIB2_t);
         nr_timer_start(&SI_info->sib2_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib3:
-        if(!SI_info->sib3)
-          SI_info->sib3 = calloc(1, sizeof(*SI_info->sib3));
-        memcpy(SI_info->sib3, typeandinfo->choice.sib3, sizeof(NR_SIB3_t));
+        UPDATE_IE(SI_info->sib3, typeandinfo->choice.sib3, NR_SIB3_t);
         nr_timer_start(&SI_info->sib3_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib4:
-        if(!SI_info->sib4)
-          SI_info->sib4 = calloc(1, sizeof(*SI_info->sib4));
-        memcpy(SI_info->sib4, typeandinfo->choice.sib4, sizeof(NR_SIB4_t));
+        UPDATE_IE(SI_info->sib4, typeandinfo->choice.sib4, NR_SIB4_t);
         nr_timer_start(&SI_info->sib4_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib5:
-        if(!SI_info->sib5)
-          SI_info->sib5 = calloc(1, sizeof(*SI_info->sib5));
-        memcpy(SI_info->sib5, typeandinfo->choice.sib5, sizeof(NR_SIB5_t));
+        UPDATE_IE(SI_info->sib5, typeandinfo->choice.sib5, NR_SIB5_t);
         nr_timer_start(&SI_info->sib5_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib6:
-        if(!SI_info->sib6)
-          SI_info->sib6 = calloc(1, sizeof(*SI_info->sib6));
-        memcpy(SI_info->sib6, typeandinfo->choice.sib6, sizeof(NR_SIB6_t));
+        UPDATE_IE(SI_info->sib6, typeandinfo->choice.sib6, NR_SIB6_t);
         nr_timer_start(&SI_info->sib6_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib7:
-        if(!SI_info->sib7)
-          SI_info->sib7 = calloc(1, sizeof(*SI_info->sib7));
-        memcpy(SI_info->sib7, typeandinfo->choice.sib7, sizeof(NR_SIB7_t));
+        UPDATE_IE(SI_info->sib7, typeandinfo->choice.sib7, NR_SIB7_t);
         nr_timer_start(&SI_info->sib7_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib8:
-        if(!SI_info->sib8)
-          SI_info->sib8 = calloc(1, sizeof(*SI_info->sib8));
-        memcpy(SI_info->sib8, typeandinfo->choice.sib8, sizeof(NR_SIB8_t));
+        UPDATE_IE(SI_info->sib8, typeandinfo->choice.sib8, NR_SIB8_t);
         nr_timer_start(&SI_info->sib8_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib9:
-        if(!SI_info->sib9)
-          SI_info->sib9 = calloc(1, sizeof(*SI_info->sib9));
-        memcpy(SI_info->sib9, typeandinfo->choice.sib9, sizeof(NR_SIB9_t));
+        UPDATE_IE(SI_info->sib9, typeandinfo->choice.sib9, NR_SIB9_t);
         nr_timer_start(&SI_info->sib9_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib10_v1610:
-        if(!SI_info->sib10)
-          SI_info->sib10 = calloc(1, sizeof(*SI_info->sib10));
-        memcpy(SI_info->sib10, typeandinfo->choice.sib10_v1610, sizeof(NR_SIB10_r16_t));
+        UPDATE_IE(SI_info->sib10, typeandinfo->choice.sib10_v1610, NR_SIB10_r16_t);
         nr_timer_start(&SI_info->sib10_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib11_v1610:
-        if(!SI_info->sib11)
-          SI_info->sib11 = calloc(1, sizeof(*SI_info->sib11));
-        memcpy(SI_info->sib11, typeandinfo->choice.sib11_v1610, sizeof(NR_SIB11_r16_t));
+        UPDATE_IE(SI_info->sib11, typeandinfo->choice.sib11_v1610, NR_SIB11_r16_t);
         nr_timer_start(&SI_info->sib11_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib12_v1610:
-        if(!SI_info->sib12)
-          SI_info->sib12 = calloc(1, sizeof(*SI_info->sib12));
-        memcpy(SI_info->sib12, typeandinfo->choice.sib12_v1610, sizeof(NR_SIB12_r16_t));
+        UPDATE_IE(SI_info->sib12, typeandinfo->choice.sib12_v1610, NR_SIB12_r16_t);
         nr_timer_start(&SI_info->sib12_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib13_v1610:
-        if(!SI_info->sib13)
-          SI_info->sib13 = calloc(1, sizeof(*SI_info->sib13));
-        memcpy(SI_info->sib13, typeandinfo->choice.sib13_v1610, sizeof(NR_SIB13_r16_t));
+        UPDATE_IE(SI_info->sib13, typeandinfo->choice.sib13_v1610, NR_SIB13_r16_t);
         nr_timer_start(&SI_info->sib13_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib14_v1610:
-        if(!SI_info->sib14)
-          SI_info->sib14 = calloc(1, sizeof(*SI_info->sib14));
-        memcpy(SI_info->sib12, typeandinfo->choice.sib14_v1610, sizeof(NR_SIB14_r16_t));
+        UPDATE_IE(SI_info->sib14, typeandinfo->choice.sib14_v1610, NR_SIB14_r16_t);
         nr_timer_start(&SI_info->sib14_timer);
         break;
 
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib19_v1700:
-        if(!SI_info->SInfo_r17.sib19)
-          SI_info->SInfo_r17.sib19 = calloc(1, sizeof(*SI_info->SInfo_r17.sib19));
-        asn_copy(&asn_DEF_NR_SIB19_r17, (void **) &SI_info->SInfo_r17.sib19, typeandinfo->choice.sib19_v1700);
+        UPDATE_IE(SI_info->SInfo_r17.sib19, typeandinfo->choice.sib19_v1700, NR_SIB19_r17_t);
         if (g_log->log_component[NR_RRC].level >= OAILOG_DEBUG)
           xer_fprint(stdout, &asn_DEF_NR_SIB19_r17, (const void *)SI_info->SInfo_r17.sib19);
         nr_timer_start(&SI_info->SInfo_r17.sib19_timer);
