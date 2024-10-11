@@ -252,7 +252,6 @@ void phy_procedures_gNB_TX(processingData_L1tx_t *msgTx,
   for (int i = 0; i < NR_SYMBOLS_PER_SLOT; i++){
     NR_gNB_CSIRS_t *csirs = &msgTx->csirs_pdu[i];
     if (csirs->active == 1) {
-      AssertFatal(gNB->common_vars.beam_id == NULL, "Cannot handle CSI in the framework of beamforming yet\n");
       LOG_D(PHY, "CSI-RS generation started in frame %d.%d\n",frame,slot);
       nfapi_nr_dl_tti_csi_rs_pdu_rel15_t *csi_params = &csirs->csirs_pdu.csi_rs_pdu_rel15;
       if (csi_params->csi_type == 2) { // ZP-CSI
@@ -263,8 +262,22 @@ void phy_procedures_gNB_TX(processingData_L1tx_t *msgTx,
                                                                 csi_params->freq_domain,
                                                                 csi_params->symb_l0,
                                                                 csi_params->symb_l1);
+      nfapi_nr_tx_precoding_and_beamforming_t *pb = &csi_params->precodingAndBeamforming;
+      int csi_bitmap = 0;
+      for (int l = 0; l <= mapping_parms.lprime; l++) {
+        for (int j = 0; j < mapping_parms.size; j++) {
+          int symb = l + mapping_parms.loverline[j];
+          csi_bitmap |= (1 << symb);
+        }
+      }
+      int beam_nb = beam_index_allocation(pb->prgs_list[0].dig_bf_interface_list[0].beam_idx,
+                                          &gNB->common_vars,
+                                          slot,
+                                          fp->symbols_per_slot,
+                                          csi_bitmap);
+
       nr_generate_csi_rs(&gNB->frame_parms,
-                         (int32_t **)gNB->common_vars.txdataF[0],
+                         (int32_t **)gNB->common_vars.txdataF[beam_nb],
                          gNB->TX_AMP,
                          csi_params,
                          slot,
