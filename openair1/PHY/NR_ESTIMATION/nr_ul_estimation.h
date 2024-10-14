@@ -72,7 +72,8 @@ void nr_pusch_ptrs_processing(PHY_VARS_gNB *gNB,
                               uint8_t ulsch_id,
                               uint8_t nr_tti_rx,
                               unsigned char symbol,
-                              uint32_t nb_re_pusch);
+                              uint32_t nb_re_pusch,
+                              int32_t rxdataF_comp[][nb_re_pusch * NR_SYMBOLS_PER_SLOT]);
 
 int nr_srs_channel_estimation(
     const PHY_VARS_gNB *gNB,

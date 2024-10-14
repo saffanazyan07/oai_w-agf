@@ -182,10 +182,6 @@ typedef struct {
 
   //! estimated rssi (dBm)
   short          rx_rssi_dBm[NUMBER_OF_CONNECTED_gNB_MAX];
-  //! estimated correlation (wideband linear) between spatial channels (computed in dlsch_demodulation)
-  int            rx_correlation[NUMBER_OF_CONNECTED_gNB_MAX][NB_ANTENNAS_RX][NR_MAX_NB_LAYERS*NR_MAX_NB_LAYERS];//
-  //! estimated correlation (wideband dB) between spatial channels (computed in dlsch_demodulation)
-  int            rx_correlation_dB[NUMBER_OF_CONNECTED_gNB_MAX][2];
 
   /// Wideband CQI (sum of all RX antennas, in dB, for precoded transmission modes (3,4,5,6), up to 4 spatial streams)
   int            precoded_cqi_dB[NUMBER_OF_CONNECTED_gNB_MAX+1][4];
@@ -530,7 +526,6 @@ typedef struct PHY_VARS_NR_UE_s {
   void *phy_sim_pdsch_llr;
   void *phy_sim_pdsch_rxdataF_ext;
   void *phy_sim_pdsch_rxdataF_comp;
-  void *phy_sim_pdsch_dl_ch_estimates;
   void *phy_sim_pdsch_dl_ch_estimates_ext;
   uint8_t *phy_sim_dlsch_b;
 
