@@ -480,7 +480,7 @@ int vnf_nr_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* 
 	if(p7_connection)
 	{
 		int send_result = 0;
-		uint8_t  buffer[65536]; // increase
+		uint8_t  buffer[1024*1024*3];
 
 		header->m_segment_sequence = NFAPI_P7_SET_MSS(0, 0, p7_connection->sequence_number);
 		
@@ -524,11 +524,11 @@ int vnf_nr_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* 
 				memcpy(&tx_buffer[0], buffer, NFAPI_P7_HEADER_LENGTH);
 
 				// set the segment length
-				tx_buffer[4] = (segment_size & 0xFF00) >> 8;
-				tx_buffer[5] = (segment_size & 0xFF);
+				tx_buffer[6] = (segment_size & 0xFF00) >> 8;
+				tx_buffer[7] = (segment_size & 0xFF);
 
 				// set the m & segment number
-				tx_buffer[6] = ((!last) << 7) + segment;
+				tx_buffer[8] = ((!last) << 7) + segment;
 
 				memcpy(&tx_buffer[NFAPI_P7_HEADER_LENGTH], &buffer[0] + offset, size);
 				offset += size;
@@ -2181,7 +2181,7 @@ void vnf_nr_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7
 	}
 
 	// unpack the message header
-	if (nfapi_p7_message_header_unpack(pRecvMsg, recvMsgLen, &header, sizeof(header), &vnf_p7->_public.codec_config) < 0)
+	if (nfapi_nr_p7_message_header_unpack(pRecvMsg, recvMsgLen, &header, sizeof(header), &vnf_p7->_public.codec_config) < 0)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Unpack message header failed, ignoring\n");
 		return;
@@ -2378,7 +2378,7 @@ void vnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
 	}
 
 	// unpack the message header
-	if (nfapi_p7_message_header_unpack(pRecvMsg, recvMsgLen, &messageHeader, sizeof(nfapi_p7_message_header_t), &vnf_p7->_public.codec_config) < 0)
+	if (nfapi_nr_p7_message_header_unpack(pRecvMsg, recvMsgLen, &messageHeader, sizeof(nfapi_p7_message_header_t), &vnf_p7->_public.codec_config) < 0)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Unpack message header failed, ignoring\n");
 		return;
@@ -2500,7 +2500,7 @@ int vnf_nr_p7_read_dispatch_message(vnf_p7_t* vnf_p7)
 		{
 			// get the segment size
 			nfapi_p7_message_header_t header;
-			if(nfapi_p7_message_header_unpack(header_buffer, NFAPI_P7_HEADER_LENGTH, &header, sizeof(header), 0) < 0)
+			if(nfapi_nr_p7_message_header_unpack(header_buffer, NFAPI_P7_HEADER_LENGTH, &header, sizeof(header), 0) < 0)
 			{
 				NFAPI_TRACE(NFAPI_TRACE_ERROR, "Unpack message header failed, ignoring\n");
 				return -1;
