@@ -69,7 +69,7 @@
 #define NFAPI_MAX_RO_DL 8
 
 #define NFAPI_HEADER_LENGTH 8
-#define NFAPI_P7_HEADER_LENGTH 16
+#define NFAPI_P7_HEADER_LENGTH 18
 
 #define NFAPI_VENDOR_EXTENSION_MIN_TAG_VALUE 0xF000
 #define NFAPI_VENDOR_EXTENSION_MAX_TAG_VALUE 0xFFFF
@@ -4006,6 +4006,7 @@ uint8_t pack_nr_p5_message_body(nfapi_p4_p5_message_header_t* header,
  * The function will decode a byte stream pointed to by pMessageBuf into a nfapi_p4_p5_message_header structure pointer to by pUnpackedBuf
  */
 int nfapi_p5_message_header_unpack(void *pMessageBuf, uint32_t messageBufLen, void *pUnpackedBuf, uint32_t unpackedBufLen, nfapi_p4_p5_codec_config_t* config);
+int nfapi_nr_p5_message_header_unpack(void *pMessageBuf, uint32_t messageBufLen, void *pUnpackedBuf, uint32_t unpackedBufLen, nfapi_p4_p5_codec_config_t* config);
 
 /*! \brief Decodes a NFAPI P5 message
  *  \param pMessageBuf A pointer to an encoded P5 message
@@ -4045,6 +4046,7 @@ int nfapi_nr_p7_message_pack(void *pMessageBuf, void *pPackedBuf, uint32_t packe
 
  */
 int nfapi_p7_message_header_unpack(void *pMessageBuf, uint32_t messageBufLen, void *pUnpackedBuf, uint32_t unpackedBufLen, nfapi_p7_codec_config_t* config);
+int nfapi_nr_p7_message_header_unpack(void *pMessageBuf, uint32_t messageBufLen, void *pUnpackedBuf, uint32_t unpackedBufLen, nfapi_p7_codec_config_t *config);
 
 /*! \brief Decodes a NFAPI P7 message
  *  \param pMessageBuf A pointer to an encoded P7 message
