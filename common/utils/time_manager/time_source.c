@@ -29,6 +29,7 @@
 /* todo: remove when using openair thread code */
 #include <pthread.h>
 
+/* todo: remove */
 #define DevAssert(x) do { if (!(x)) abort(); } while (0)
 #define AssertFatal(a, ...) do { if (!(a)) abort(); } while (0)
 
