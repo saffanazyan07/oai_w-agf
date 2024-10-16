@@ -31,6 +31,8 @@
 #ifndef __NR_LDPC_DEFS__H__
 #define __NR_LDPC_DEFS__H__
 
+#include "openair1/PHY/defs_nr_common.h"
+#include "common/utils/nr/nr_common.h"
 // ==============================================================================
 // DEFINES
 
@@ -99,7 +101,8 @@
 /** Maximum number of possible input LLR = NR_LDPC_NCOL_BG1*NR_LDPC_ZMAX */
 #define NR_LDPC_MAX_NUM_LLR 27000
 
-#define NR_LDPC_MAX_NUM_CB 72
+/** Maximum number of segments per TB */
+#define NR_LDPC_MAX_NUM_CB MAX_NUM_NR_DLSCH_SEGMENTS_PER_LAYER*NR_MAX_NB_LAYERS
 
 // ==============================================================================
 // GLOBAL CONSTANT VARIABLES
