@@ -232,8 +232,10 @@ int decode_offload(PHY_VARS_gNB *phy_vars_gNB,
 {
   NR_gNB_ULSCH_t *ulsch = &phy_vars_gNB->ulsch[ULSCH_id];
   NR_UL_gNB_HARQ_t *harq_process = ulsch->harq_process;
-  int16_t z_ol[NR_LDPC_MAX_NUM_CB * LDPC_MAX_CB_SIZE] __attribute__((aligned(16)));
-  int8_t l_ol[NR_LDPC_MAX_NUM_CB * LDPC_MAX_CB_SIZE] __attribute__((aligned(16)));
+  int16_t *z_ol = (int16_t *)aligned_alloc(16, harq_process->C * LDPC_MAX_CB_SIZE * sizeof(int16_t));
+  int8_t *l_ol = (int8_t *)aligned_alloc(16, harq_process->C * LDPC_MAX_CB_SIZE * sizeof(int8_t));
+  memset(z_ol, 0, harq_process->C * LDPC_MAX_CB_SIZE * sizeof(int16_t));
+  memset(l_ol, 0, harq_process->C * LDPC_MAX_CB_SIZE * sizeof(int8_t));
   const int kc = decParams->BG == 2 ? 52 : 68;
   uint32_t A = (harq_process->TBS) << 3;
   const int Kr = harq_process->K;
@@ -307,6 +309,8 @@ int decode_offload(PHY_VARS_gNB *phy_vars_gNB,
     LOG_D(PHY, "ULSCH %d in error\n", ULSCH_id);
   }
 
+  free(z_ol);
+  free(l_ol);
   ulsch->last_iteration_cnt = decodeIterations;
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_PHY_gNB_ULSCH_DECODING,0);
   return 0;
