@@ -21,6 +21,8 @@
 
 #include "time_client.h"
 
+#include <string.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <pthread.h>
 #include <sys/socket.h>
@@ -33,6 +35,7 @@
 /* todo: remove */
 #include <stdio.h>
 #define LOG_W(a, ...) printf(__VA_ARGS__)
+#define LOG_E(a, ...) printf(__VA_ARGS__)
 #include <stdlib.h>
 #define DevAssert(x) do { if (!(x)) abort(); } while (0)
 #define AssertFatal(a, ...) do { if (!(a)) abort(); } while (0)
@@ -98,13 +101,13 @@ static void *time_client_thread(void *tc)
 
     /* is socket fine? */
     if (polls[0].revents & (POLLERR | POLLHUP)) {
+reconnect:
       /* socket not fine, reconnect */
       shutdown(socket, SHUT_RDWR);
       close(socket);
       socket = connect_to_server(time_client);
-      /* reconnect only fails if exit requested, we can safely 'continue' */
-      if (socket == -1)
-        continue;
+      /* connect only fails if exit requested, we can safely 'continue' */
+      continue;
     }
 
     /* here we only accept POLLIN */
@@ -113,6 +116,16 @@ static void *time_client_thread(void *tc)
     /* get the ticks from server */
     uint8_t tick_count;
     ret = read(socket, &tick_count, 1);
+    /* any error => reconnect */
+    if (ret == -1) {
+      LOG_E(UTIL, "time client: error %s, reconnect\n", strerror(errno));
+      goto reconnect;
+    }
+    /* if 0 is returned, it means socket has been closed by other end */
+    if (ret == 0) {
+      LOG_E(UTIL, "time client: socket closed by other end, reconnect\n");
+      goto reconnect;
+    }
     DevAssert(ret == 1);
 
     /* call callback once for each tick */
@@ -153,7 +166,7 @@ time_client_t *new_time_client(const char *server_ip,
   DevAssert(tc->exit_fd != -1);
 
   ret = inet_aton(server_ip, &tc->server_ip.sin_addr);
-  DevAssert(ret == 0);
+  DevAssert(ret != 0);
   tc->server_ip.sin_family = AF_INET;
   tc->server_ip.sin_port = htons(server_port);
   tc->server_port = server_port;

@@ -1,0 +1,130 @@
+#include "../time_source.h"
+#include "../time_server.h"
+#include "../time_client.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <stdbool.h>
+
+_Atomic bool test_exit;
+
+void *iq_generate_thread(void *ts)
+{
+  time_source_t *time_source = ts;
+
+  while (!test_exit) {
+    printf("iq_generate_thread calls time_source_iq_add(time_source, 1000, 10000)\n");
+    time_source_iq_add(time_source, 100, 10000);
+    sleep(1);
+  }
+
+  return NULL;
+}
+
+#include <stdlib.h>
+#define DevAssert(x) do { if (!(x)) abort(); } while (0)
+#define AssertFatal(a, ...) do { if (!(a)) abort(); } while (0)
+
+static pthread_t new_thread(void *(*thread_function)(void *), void *arg)
+{
+  pthread_t thread_id;
+  int ret;
+
+  ret = pthread_create(&thread_id, NULL, thread_function, arg);
+  DevAssert(ret == 0);
+
+  return thread_id;
+}
+
+#define STANDALONE 0
+#define SERVER     1
+#define CLIENT     2
+
+void usage(void)
+{
+  printf("options:\n");
+  printf("  -client\n");
+  printf("      run as client (default is standalone)\n");
+  printf("  -server\n");
+  printf("      run as server (default is standalone)\n");
+  printf("  -ip <ip address (default 127.0.0.1)>\n");
+  printf("      use this ip address for server\n");
+  printf("  -port <port (default 7473)\n");
+  printf("      use this port for server\n");
+  printf("  -realtime\n");
+  printf("      run with realtime clock (default is simulated iq samples)\n");
+}
+
+void server_callback(void *callback_data)
+{
+  printf("server_callback called (callback_data %p)\n", callback_data);
+}
+
+void client_callback(void *callback_data)
+{
+  printf("client_callback called (callback_data %p)\n", callback_data);
+}
+
+int main(int n, char **v)
+{
+  time_source_t *ts;
+  time_server_t *server;
+  time_client_t *client;
+  int mode = STANDALONE;
+  char *server_ip = "127.0.0.1";
+  int server_port = 7473;
+  time_source_type_t time_source_type = TIME_SOURCE_IQ_SAMPLES;
+  pthread_t iq_thread;
+
+  for (int i = 1; i < n; i++) {
+    if (!strcmp(v[i], "-client")) { mode = CLIENT; continue; }
+    if (!strcmp(v[i], "-server")) { mode = SERVER; continue; }
+    if (!strcmp(v[i], "-ip")) { if (i>n-2) usage(); server_ip = v[++i]; continue; }
+    if (!strcmp(v[i], "-port")) { if (i>n-2) usage(); server_port = atoi(v[++i]); continue; }
+    if (!strcmp(v[i], "-realtime")) { time_source_type = TIME_SOURCE_REALTIME; continue; }
+    usage();
+  }
+
+  ts = new_time_source(time_source_type);
+
+  if (mode != CLIENT)
+    if (time_source_type == TIME_SOURCE_IQ_SAMPLES)
+      iq_thread = new_thread(iq_generate_thread, ts);
+
+  if (mode == SERVER) {
+    /* (void*)1 to check if callback data is passed correctly */
+    server = new_time_server(server_ip, server_port, server_callback, (void*)1);
+    time_server_attach_time_source(server, ts);
+  }
+
+  if (mode == CLIENT) {
+    /* (void*)2 to check if callback data is passed correctly */
+    client = new_time_client(server_ip, server_port, client_callback, (void*)2);
+  }
+
+  printf("main: press enter to quit\n");
+  getchar();
+
+  if (mode == SERVER) {
+    free_time_server(server);
+  }
+
+  if (mode == CLIENT) {
+    free_time_client(client);
+  }
+
+  test_exit = 1;
+
+  if (mode != CLIENT)
+    if (time_source_type == TIME_SOURCE_IQ_SAMPLES) {
+      int ret = pthread_join(iq_thread, NULL);
+      DevAssert(ret == 0);
+    }
+
+  free_time_source(ts);
+
+  return 0;
+}

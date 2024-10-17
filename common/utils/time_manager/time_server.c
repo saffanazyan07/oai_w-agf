@@ -46,6 +46,8 @@ typedef struct {
   _Atomic bool exit;
   int server_socket;
   int tick_fd;
+  void (*callback)(void *);
+  void *callback_data;
 } time_server_private_t;
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
@@ -70,6 +72,7 @@ static void *time_server_thread(void *ts)
 
     /* add clients */
     for (int i = 0; i < client_count; i++) {
+printf("adding socket_fds[%d] = %d\n", i, socket_fds[i]);
       polls[i + 2].fd = socket_fds[i];
       polls[i + 2].events = POLLIN;
     }
@@ -87,6 +90,9 @@ static void *time_server_thread(void *ts)
       uint64_t ticks;
       int ret = read(time_server->tick_fd, &ticks, 8);
       DevAssert(ret == 8);
+      /* call the callback ticks time */
+      for (int i = 0; i < ticks; i++)
+        time_server->callback(time_server->callback_data);
       /* send ticks by blocks of 255 max (what fits in a uint8_t) */
       while (ticks) {
         uint8_t count = min(ticks, 255);
@@ -125,21 +131,24 @@ static void *time_server_thread(void *ts)
       DevAssert(new_socket != -1);
 
       /* add client */
+printf("new client socket %d\n", new_socket);
       client_count++;
       socket_fds = realloc(socket_fds, sizeof(int) * client_count);
       DevAssert(socket_fds != NULL);
       socket_fds[client_count - 1] = new_socket;
       polls = realloc(polls, sizeof(struct pollfd) * (client_count + 2));
       DevAssert(polls != NULL);
+      continue;
     }
 
     /* any event on a client socket is to be considered as an error */
     for (int i = 0; i < client_count; i++) {
+printf("i %d\n", i);
       if (polls[i + 2].revents == 0)
         continue;
 
-      LOG_W(UTIL, "time server: error on client's socket, removing client (revents is %d)\n",
-            polls[i + 2].revents);
+      LOG_W(UTIL, "time server: error on client's socket, removing client (revents is %d, fd is %d i is %d)\n",
+            polls[i + 2].revents, polls[i + 2].fd, i);
       shutdown(socket_fds[i], SHUT_RDWR);
       close(socket_fds[i]);
       client_count--;
@@ -153,6 +162,9 @@ static void *time_server_thread(void *ts)
         socket_fds = realloc(socket_fds, sizeof(int) * client_count);
         DevAssert(socket_fds != NULL);
       }
+      if (client_count)
+        memmove(&polls[i + 2 + 1], &polls[i + 2 + 2],
+                sizeof(struct pollfd) * (client_count - i -1));
       polls = realloc(polls, sizeof(struct pollfd) * (client_count + 2));
       DevAssert(polls != NULL);
     }
@@ -196,6 +208,8 @@ time_server_t *new_time_server(const char *ip,
   ts->server_socket = socket(AF_INET, SOCK_STREAM, 0);
   DevAssert(ts->server_socket != -1);
 
+  int v = 1;
+  ret = setsockopt(ts->server_socket, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
   ts->tick_fd = eventfd(0, 0);
   DevAssert(ts->tick_fd != -1);
 
@@ -203,12 +217,15 @@ time_server_t *new_time_server(const char *ip,
   ip_addr.sin_family = AF_INET;
   ip_addr.sin_port = htons(port);
   ret = inet_aton(ip, &ip_addr.sin_addr);
-  DevAssert(ret == 0);
+  DevAssert(ret != 0);
   ret = bind(ts->server_socket, (struct sockaddr *)&ip_addr, sizeof(ip_addr));
   DevAssert(ret == 0);
 
   ret = listen(ts->server_socket, 10);   /* 10: arbitrary value */
   DevAssert(ret == 0);
+
+  ts->callback = callback;
+  ts->callback_data = callback_data;
 
   ts->thread_id = new_thread(time_server_thread, ts);
   return ts;
@@ -231,6 +248,7 @@ void free_time_server(time_server_t *ts)
   ret = pthread_join(time_server->thread_id, &retval);
 
   /* free memory */
+  shutdown(time_server->server_socket, SHUT_RDWR);
   close(time_server->server_socket);
   close(time_server->tick_fd);
   free(time_server);

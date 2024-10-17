@@ -139,7 +139,6 @@ static void *time_source_realtime_thread(void *ts)
     now = next_ms(now);
   }
 
-  free(time_source);
   return (void *)0;
 }
 
@@ -165,7 +164,6 @@ static void *time_source_iq_samples_thread(void *ts)
       time_source->common.callback(time_source->common.callback_data);
   }
 
-  free(time_source);
   return (void *)0;
 }
 
