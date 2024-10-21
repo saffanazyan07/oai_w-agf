@@ -178,7 +178,6 @@ void nr_ue_process_mac_pdu(NR_UE_MAC_INST_t *mac,nr_downlink_indication_t *dl_in
 int nr_write_ce_ulsch_pdu(uint8_t *mac_ce,
                           NR_UE_MAC_INST_t *mac,
                           NR_SINGLE_ENTRY_PHR_MAC_CE *power_headroom,
-                          uint16_t *crnti,
                           NR_BSR_SHORT *truncated_bsr,
                           NR_BSR_SHORT *short_bsr,
                           NR_BSR_LONG  *long_bsr);

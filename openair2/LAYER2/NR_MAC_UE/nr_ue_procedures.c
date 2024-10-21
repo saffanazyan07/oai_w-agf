@@ -3791,7 +3791,6 @@ void nr_ue_process_mac_pdu(NR_UE_MAC_INST_t *mac, nr_downlink_indication_t *dl_i
 int nr_write_ce_ulsch_pdu(uint8_t *mac_ce,
                           NR_UE_MAC_INST_t *mac,
                           NR_SINGLE_ENTRY_PHR_MAC_CE *power_headroom,
-                          uint16_t *crnti,
                           NR_BSR_SHORT *truncated_bsr,
                           NR_BSR_SHORT *short_bsr,
                           NR_BSR_LONG  *long_bsr)
@@ -3816,23 +3815,6 @@ int nr_write_ce_ulsch_pdu(uint8_t *mac_ce,
     mac_ce_len += mac_ce_size + sizeof(NR_MAC_SUBHEADER_FIXED);
     LOG_D(NR_MAC, "[UE] Generating ULSCH PDU : power_headroom pdu %p mac_ce %p b\n",
           pdu, mac_ce);
-  }
-
-  if (crnti && (!get_softmodem_params()->sa && get_softmodem_params()->do_ra && mac->ra.ra_state != nrRA_SUCCEEDED)) {
-    LOG_D(NR_MAC, "In %s: generating C-RNTI MAC CE with C-RNTI %x\n", __FUNCTION__, (*crnti));
-
-    // MAC CE fixed subheader
-    ((NR_MAC_SUBHEADER_FIXED *) mac_ce)->R = 0;
-    ((NR_MAC_SUBHEADER_FIXED *) mac_ce)->LCID = UL_SCH_LCID_C_RNTI;
-    mac_ce++;
-
-    // C-RNTI MAC CE (2 octets)
-    memcpy(mac_ce, crnti, sizeof(*crnti));
-
-    // update pointer and length
-    int mac_ce_size = sizeof(uint16_t);
-    mac_ce += mac_ce_size;
-    mac_ce_len += mac_ce_size + sizeof(NR_MAC_SUBHEADER_FIXED);
   }
 
   if (truncated_bsr) {
