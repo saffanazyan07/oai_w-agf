@@ -43,7 +43,27 @@ Normally, if there is a client in a program, there is no time source.
 
 ## Configuration
 
+To configure the time management module, add the following section in
+the configuration file.
+
+```
+time_management = {
+  #valid time sources: realtime, iq_samples
+  time_source = realtime
+
+  #valid modes: standalone, server, client
+  mode = standalone
+
+  #set ip/port of server (for server mode, this is the address/port to bind to;
+  #for client mode, this is the address/port to connect to)
+  server_ip = "127.0.0.1";
+  server_port = 7374;
+};
+```
+
 ## Examples
+
+Here come some examples of configuration for typical use cases of OAI.
 
 ### Monolithic gNB realtime
 
@@ -54,6 +74,9 @@ Normally, if there is a client in a program, there is no time source.
 ### RF simulator CU/DU "realtime"
 
 ## Programming API
+
+Here comes the internal API of the time manager module. The OAI API is
+described below.
 
 ### Time source
 
@@ -136,4 +159,37 @@ be the one calling the configured callback. Be careful of using proper
 synchronization techniques in your callback to have correct behavior with
 the other threads of the program.
 
-### OAI API
+## OAI API
+
+OAI uses the time manager through a simplified API. All the code is contained
+in time_manager.c, together with some global variables (so that there is no
+need to pass objects around, to limit risks of misuse).
+
+Each program (for example: gnb, ue, cu, du) will call the time_manager_start()
+function, passing the kind of program it is. Based on this type and the
+configuration, time_manager_start() will initialize what is needed.
+
+The function time_manager_iq_samples() is called by programs that read IQ
+samples. It is called unconditionally. It may do nothing if the configuration
+is to use realtime ticks and not IQ samples ticks.
+
+When the program exits, it calls timer_manager_finish() which in turns stops
+the various threads created by time_manager_start() and releases all the
+allocated data.
+
+Here comes the API.
+
+- init the time manager:
+  ```
+    void time_manager_start(time_manager_client_t client_type)
+  ```
+  (for valid values of `client_type` see in `time_manager.h`)
+- update IQ samples' based time manager:
+  ```
+    void time_manager_iq_samples(uint64_t iq_samples_count,
+                                 uint64_t iq_samples_per_second)
+  ```
+- terminate the time manager:
+  ```
+    void time_manager_finish(void)
+  ```
