@@ -3307,12 +3307,7 @@ NR_CellGroupConfig_t *get_default_secondaryCellGroup(const NR_ServingCellConfigC
   reconfigurationWithSync->rach_ConfigDedicated->choice.uplink = calloc(1, sizeof(struct NR_RACH_ConfigDedicated));
   reconfigurationWithSync->rach_ConfigDedicated->choice.uplink->cfra = calloc(1, sizeof(struct NR_CFRA));
   reconfigurationWithSync->rach_ConfigDedicated->choice.uplink->ra_Prioritization = NULL;
-  reconfigurationWithSync->rach_ConfigDedicated->choice.uplink->cfra->occasions = calloc(1, sizeof(struct NR_CFRA__occasions));
-  memcpy(&reconfigurationWithSync->rach_ConfigDedicated->choice.uplink->cfra->occasions->rach_ConfigGeneric,
-         &servingcellconfigcommon->uplinkConfigCommon->initialUplinkBWP->rach_ConfigCommon->choice.setup->rach_ConfigGeneric,
-         sizeof(NR_RACH_ConfigGeneric_t));
-  asn1cCallocOne(reconfigurationWithSync->rach_ConfigDedicated->choice.uplink->cfra->occasions->ssb_perRACH_Occasion,
-                 NR_CFRA__occasions__ssb_perRACH_Occasion_one);
+  reconfigurationWithSync->rach_ConfigDedicated->choice.uplink->cfra->occasions = NULL;
   reconfigurationWithSync->rach_ConfigDedicated->choice.uplink->cfra->resources.present = NR_CFRA__resources_PR_ssb;
   reconfigurationWithSync->rach_ConfigDedicated->choice.uplink->cfra->resources.choice.ssb =
       calloc(1, sizeof(struct NR_CFRA__resources__ssb));
