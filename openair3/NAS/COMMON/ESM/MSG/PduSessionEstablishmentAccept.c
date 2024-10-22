@@ -25,7 +25,7 @@
 #include "common/utils/tun_if.h"
 #include "openair2/SDAP/nr_sdap/nr_sdap.h"
 
-static uint16_t getShort(uint8_t *input)
+static uint16_t getShort(const uint8_t *input)
 {
   uint16_t tmp16;
   memcpy(&tmp16, input, sizeof(tmp16));
@@ -40,7 +40,7 @@ static int capture_ipv4_addr(const uint8_t *addr, char *ip, size_t len)
 static int capture_ipv6_addr(const uint8_t *addr, char *ip, size_t len)
 {
   // 24.501 Sec 9.11.4.10: "an interface identifier for the IPv6 link local
-  // address": link local starts with fe80::, and only the last 64bits are
+  // address": link local starts with fe80::, and only the last 64bits> are
   // given (middle is zero)
   return snprintf(ip,
                   len,
@@ -55,12 +55,12 @@ static int capture_ipv6_addr(const uint8_t *addr, char *ip, size_t len)
                   addr[7]);
 }
 
-void capture_pdu_session_establishment_accept_msg(uint8_t *buffer, uint32_t msg_length)
+void capture_pdu_session_establishment_accept_msg(const uint8_t *buffer, uint32_t msg_length, int *pdu_id)
 {
   security_protected_nas_5gs_msg_t       sec_nas_hdr;
   security_protected_plain_nas_5gs_msg_t sec_nas_msg;
   pdu_session_establishment_accept_msg_t psea_msg;
-  uint8_t *curPtr = buffer;
+  const uint8_t *curPtr = buffer;
   sec_nas_hdr.epd = *curPtr++;
   sec_nas_hdr.sht = *curPtr++;
   uint32_t tmp;
@@ -77,6 +77,7 @@ void capture_pdu_session_establishment_accept_msg(uint8_t *buffer, uint32_t msg_
   /* Mandatory Presence IEs */
   psea_msg.epd = *curPtr++;
   psea_msg.pdu_id = *curPtr++;
+  *pdu_id = psea_msg.pdu_id;
   psea_msg.pti = *curPtr++;
   psea_msg.msg_type = *curPtr++;
   psea_msg.pdu_type = *curPtr & 0x0f;
@@ -132,14 +133,13 @@ void capture_pdu_session_establishment_accept_msg(uint8_t *buffer, uint32_t msg_
             addr[i] = *curPtr++;
           char ip[20];
           capture_ipv4_addr(&addr[0], ip, sizeof(ip));
-          tun_config(1, ip, NULL, "oaitun_ue");
-          setup_ue_ipv4_route(1, ip, "oaitun_ue");
+          nr_ue_create_ip_if(ip, NULL, 1, psea_msg.pdu_id);
         } else if (psea_msg.pdu_addr_ie.pdu_type == PDU_SESSION_TYPE_IPV6) {
           for (int i = 0; i < 8; ++i)
             addr[i] = *curPtr++;
           char ipv6[40];
           capture_ipv6_addr(addr, ipv6, sizeof(ipv6));
-          tun_config(1, NULL, ipv6, "oaitun_ue");
+          nr_ue_create_ip_if(NULL, ipv6, 1, psea_msg.pdu_id);
         } else if (psea_msg.pdu_addr_ie.pdu_type == PDU_SESSION_TYPE_IPV4V6) {
           // 24.501 Sec 9.11.4.10: "If the PDU session type value indicates
           // IPv4v6, the PDU address information in octet 4 to octet 11
@@ -151,8 +151,7 @@ void capture_pdu_session_establishment_accept_msg(uint8_t *buffer, uint32_t msg_
           capture_ipv6_addr(addr, ipv6, sizeof(ipv6));
           char ipv4[20];
           capture_ipv4_addr(&addr[8], ipv4, sizeof(ipv4));
-          tun_config(1, ipv4, ipv6, "oaitun_ue");
-          setup_ue_ipv4_route(1, ipv4, "oaitun_ue");
+          nr_ue_create_ip_if(ipv4, ipv6, 1, psea_msg.pdu_id);
         } else {
           LOG_E(NAS, "unknown/unhandled PDU session establishment accept PDU type %d\n", psea_msg.pdu_addr_ie.pdu_type);
           curPtr += psea_msg.pdu_addr_ie.pdu_length;
@@ -221,6 +220,7 @@ void capture_pdu_session_establishment_accept_msg(uint8_t *buffer, uint32_t msg_
     }
   }
 
-  set_qfi_pduid(qos_rule.qfi, psea_msg.pdu_id);
+  const int ue_id = 0;
+  set_qfi(qos_rule.qfi, psea_msg.pdu_id, ue_id);
   return;
 }

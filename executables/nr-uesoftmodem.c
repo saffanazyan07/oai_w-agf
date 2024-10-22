@@ -87,6 +87,7 @@ unsigned short config_frames[4] = {2,9,11,13};
 #include "nr_nas_msg_sim.h"
 #include <openair1/PHY/MODULATION/nr_modulation.h>
 #include "openair2/GNB_APP/gnb_paramdef.h"
+#include "openair2/SDAP/nr_sdap/nr_sdap_entity.h"
 
 extern const char *duplex_mode[];
 THREAD_STRUCT thread_struct;
@@ -149,10 +150,16 @@ int create_tasks_nrue(uint32_t ue_nb) {
         return -1;
       }
     }
-    const ittiTask_parms_t parmsNAS = {NULL, nas_nrue};
+    nr_nas_thread_info_t *nas_info = calloc(1, sizeof(*nas_info));
+    nas_info->default_pdu_session_id = get_softmodem_params()->default_pdu_session_id;
+    nas_info->nsa = get_softmodem_params()->nsa;
+    const ittiTask_parms_t parmsNAS = {(void *)nas_info, nas_nrue};
     if (itti_create_task(TASK_NAS_NRUE, nas_nrue_task, &parmsNAS) < 0) {
       LOG_E(NR_RRC, "Create task for NAS UE failed\n");
       return -1;
+    } else {
+      if (get_nrUE_params()->enable_AT)
+        nas_nrue_user((void *)&parmsNAS);
     }
   }
 
@@ -444,11 +451,17 @@ int main(int argc, char **argv)
     }
   }
 
+  if (create_tasks_nrue(1) < 0) {
+    printf("cannot create ITTI tasks\n");
+    exit(-1); // need a softer mode
+  }
+
   int mode_offset = get_softmodem_params()->nsa ? NUMBER_OF_UE_MAX : 1;
   uint16_t node_number = get_softmodem_params()->node_number;
   ue_id_g = (node_number == 0) ? 0 : node_number - 2;
   AssertFatal(ue_id_g >= 0, "UE id is expected to be nonnegative.\n");
 
+  sdap_init();
   if (node_number == 0)
     init_pdcp(0);
   else
@@ -537,11 +550,6 @@ int main(int argc, char **argv)
 
   // wait for end of program
   printf("TYPE <CTRL-C> TO TERMINATE\n");
-
-  if (create_tasks_nrue(1) < 0) {
-    printf("cannot create ITTI tasks\n");
-    exit(-1); // need a softer mode
-  }
 
   // Sleep a while before checking all parameters have been used
   // Some are used directly in external threads, asynchronously

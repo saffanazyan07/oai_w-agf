@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-#include <net/if.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/ipv6.h>
@@ -38,7 +37,7 @@
 int nas_sock_fd[MAX_MOBILES_PER_ENB * 2]; // Allocated for both LTE UE and NR UE.
 int nas_sock_mbms_fd;
 
-static int tun_alloc(char *dev)
+int tun_alloc(char *dev)
 {
   struct ifreq ifr;
   int fd, err;
@@ -210,11 +209,8 @@ fail_interface_state:
 }
 
 // non blocking full configuration of the interface (address, and the two lest octets of the address)
-bool tun_config(int interface_id, const char *ipv4, const char *ipv6, const char *ifpref)
+bool tun_config(const char *interfaceName, const char *ipv4, const char *ipv6)
 {
-  char interfaceName[IFNAMSIZ];
-  snprintf(interfaceName, sizeof(interfaceName), "%s%d", ifpref, interface_id);
-
   AssertFatal(ipv4 != NULL || ipv6 != NULL, "need to have IP address, but none given\n");
 
   int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -256,11 +252,17 @@ bool tun_config(int interface_id, const char *ipv4, const char *ipv6, const char
   return success;
 }
 
-void setup_ue_ipv4_route(int interface_id, const char *ipv4, const char *ifpref)
+#define MAX_NUM_UE_PDU_SESSIONS 8
+
+unsigned int get_ue_ipv4_table_id(const unsigned int interface_id, const unsigned int pdu_id)
 {
-  int table_id = interface_id - 1 + 10000;
-  char interfaceName[IFNAMSIZ];
-  snprintf(interfaceName, sizeof(interfaceName), "%s%d", ifpref, interface_id);
+  return (interface_id - 1) * MAX_NUM_UE_PDU_SESSIONS + pdu_id + 10000;
+}
+
+void setup_ue_ipv4_route(const unsigned int table_id, const char *ipv4, const char *ifname)
+{
+  if (!ipv4)
+    return;
 
   char command_line[500];
   int res = sprintf(command_line,
@@ -271,7 +273,7 @@ void setup_ue_ipv4_route(int interface_id, const char *ipv4, const char *ifpref)
                     table_id,
                     ipv4,
                     table_id,
-                    interfaceName,
+                    ifname,
                     table_id);
 
   if (res < 0) {
@@ -281,3 +283,36 @@ void setup_ue_ipv4_route(int interface_id, const char *ipv4, const char *ifpref)
   background_system(command_line);
 }
 
+bool tun_del(const int tun_fd)
+{
+  if (close(tun_fd) == -1) {
+    LOG_E(UTIL, "Failed to close fd %d with error %s\n", tun_fd, strerror(errno));
+    return false;
+  }
+  return true;
+}
+
+bool doesInterfaceExist(const char *interfaceName)
+{
+  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+  AssertFatal(sockfd != -1, "Failed to create socket\n");
+
+  struct ifreq ifr;
+  memset(&ifr, 0, sizeof(struct ifreq));
+  strncpy(ifr.ifr_name, interfaceName, IFNAMSIZ - 1);
+
+  if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1) {
+    close(sockfd);
+    return false;
+  }
+
+  close(sockfd);
+  return true;
+}
+
+char *get_network_if_name(const char *prefix, const int ue_id, const char *suffix, char name_out[IFNAMSIZ])
+{
+  snprintf(name_out, IFNAMSIZ, "%s%d%s", prefix, ue_id, (suffix) ? suffix : "");
+  return name_out;
+}
