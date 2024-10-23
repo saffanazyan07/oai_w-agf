@@ -104,7 +104,6 @@ typedef struct wls_mac_ctx
 
 static pthread_t *pwls_testmac_thread = NULL;
 static WLS_MAC_CTX wls_mac_iface;
-static int gwls_mac_ready = 0;
 static pid_t gwls_pid = 0;
 static uint32_t gToFreeListCnt[TO_FREE_SIZE] = {0};
 static uint64_t gpToFreeList[TO_FREE_SIZE][TOTAL_FREE_BLOCKS] = {{0L}};
@@ -592,8 +591,6 @@ uint8_t phy_wls_init(const char *dev_name, uint64_t nWlsMacMemSize, uint64_t nWl
     pWls->nTotalDlBufAllocCnt = 0;
     pWls->nTotalDlBufFreeCnt = 0;
 
-//    	        pWls->hWls = WLS_Open(wls_device_name, WLS_MASTER_CLIENT, &nWlsMacMemSize, &nWlsPhyMemSize);
-  //g_phy_wls = WLS_Open(dev_name, WLS_SLAVE_CLIENT, &nWlsMacMemSize, &nWlsPhyMemSize);
    pWls->hWls  = WLS_Open(dev_name, WLS_SLAVE_CLIENT, &nWlsMacMemSize, &nWlsPhyMemSize);
     if (pWls->hWls)
     {
@@ -610,7 +607,6 @@ uint8_t phy_wls_init(const char *dev_name, uint64_t nWlsMacMemSize, uint64_t nWl
             if (ret == true)
             {
                 int nBlocks = 0;
-                gwls_mac_ready = 1;
 
                 nBlocks = WLS_EnqueueBlock(pWls->hWls, wls_mac_va_to_pa(wls_mac_alloc_buffer(0, MIN_UL_BUF_LOCATIONS+2)));
                 /* allocate blocks for UL transmition */
@@ -728,7 +724,7 @@ printf("\n");
   retval = phy_mac_send(headerElem);
   // send the message body after
   //return pnf_send_message(pnf, pnf->tx_message_buffer, packed_len, 0/*msg->stream_id*/);
-
+  wls_mac_free_buffer(headerElem, 0);
   return retval;
 }
 
@@ -883,13 +879,13 @@ uint8_t pad[2];
   //p_fapi_api_queue_elem_t  headerElem = malloc((sizeof(fapi_api_queue_elem_t) + 2)); // 2 is for num_msg and opaque_handle2yy
   //p_fapi_api_queue_elem_t  cfgReqQElem = malloc(sizeof(fapi_api_queue_elem_t)+packed_len-NFAPI_HEADER_LENGTH+6); // body of the message
   p_fapi_api_queue_elem_t  headerElem = (p_fapi_api_queue_elem_t)wls_mac_alloc_buffer((sizeof(fapi_api_queue_elem_t) + 2), 0);
-  p_fapi_api_queue_elem_t fapiMsgElem = (p_fapi_api_queue_elem_t)wls_mac_alloc_buffer((sizeof(fapi_api_queue_elem_t)+packed_len-NFAPI_HEADER_LENGTH+6), 0);
-  FILL_FAPI_LIST_ELEM(fapiMsgElem, NULL, msg->message_id, 1,  packed_len-NFAPI_HEADER_LENGTH+6);
+  p_fapi_api_queue_elem_t fapiMsgElem = (p_fapi_api_queue_elem_t)wls_mac_alloc_buffer((sizeof(fapi_api_queue_elem_t)+packed_len+NFAPI_HEADER_LENGTH), 0);
+  FILL_FAPI_LIST_ELEM(fapiMsgElem, NULL, msg->message_id, 1,  packed_len+NFAPI_HEADER_LENGTH);
   //copy just the body ( and message_id(2 bytes) and message_length(4 bytes) ) to the buffer
   //memcpy((uint8_t *)(cfgReqQElem+1),(pnf->tx_message_buffer + 2),packed_len - 2);
-  memcpy((uint8_t *)(fapiMsgElem +1),(pnf->tx_message_buffer),packed_len);
+  memcpy((uint8_t *)(fapiMsgElem +1),(pnf->tx_message_buffer),packed_len+NFAPI_HEADER_LENGTH);
   printf("Message body to send\n");
-  for (int i = 0; i < packed_len - 2; ++i) {
+  for (int i = 0; i < packed_len + NFAPI_HEADER_LENGTH; ++i) {
     printf("0x%02x ",((uint8_t *)(fapiMsgElem +1))[i]);
   }
   printf("\n");
@@ -918,6 +914,7 @@ uint8_t pad[2];
 
   //free(headerElem);
   //free(cfgReqQElem);
+  wls_mac_free_buffer(headerElem, 0);
   return retval;
 }
 
@@ -947,34 +944,67 @@ static void wls_pnf_nr_handle_p7_messages(uint32_t msgSize, void *rcv_msg, int m
   }
 
   printf("msgSize parameter = %d\n", msgSize);
-printf("Unpacked Header \n\tMSG_ID = 0x%02x\n\tMSG_LENGTH = %d\n", fapi_msg.message_id, fapi_msg.message_length);
+  printf("Unpacked Header \n\tMSG_ID = 0x%02x\n\tMSG_LENGTH = %d\n", fapi_msg.message_id, fapi_msg.message_length);
 
-for (int x = 0; x < msgSize + NFAPI_HEADER_LENGTH; ++x) {
-  printf("0x%02x ", msg[x]);
-}
+  for (int x = 0; x < msgSize + NFAPI_HEADER_LENGTH; ++x) {
+    printf("0x%02x ", msg[x]);
+  }
 
-  switch (msgId) {
-    case NFAPI_NR_PHY_MSG_TYPE_DL_TTI_REQUEST:
-
-      nfapi_nr_dl_tti_request_t unpacked_msg = {.header.message_id = fapi_msg.message_id, .header.message_length = fapi_msg.message_length };
-      fapi_nr_p7_message_unpack(msg, msgSize + NFAPI_HEADER_LENGTH, &unpacked_msg, fapi_msg.message_length, 0);
-
-      DevAssert(wls_p7_config->dl_tti_req_fn != NULL);
-      // pnf_phy_dl_tti_req()
-      (wls_p7_config->dl_tti_req_fn)(NULL, (wls_p7_config), &unpacked_msg);
-      free_dl_tti_request(&unpacked_msg);
-      exit(-1);
-     /* unpack_dl_tti_request(msg,  end, &dl_tti_req, config);
-
-      if (((vnf_info *)vnf_config->user_data)->p7_vnfs->config->nr_crc_indication) {
-        (((vnf_info *)vnf_config->user_data)->p7_vnfs->config->nr_crc_indication)(&crc_ind);
-        free(dl_tti_req.crc_list);
-      }*/
+  if (!check_nr_fapi_unpack_length(fapi_msg.message_id, fapi_msg.message_length)) {
+    printf("Message too short, ignoring\n");
+  } else {
+    switch (msgId) {
+      case NFAPI_NR_PHY_MSG_TYPE_DL_TTI_REQUEST: {
+        nfapi_nr_dl_tti_request_t unpacked_msg = {.header.message_id = fapi_msg.message_id,
+                                                  .header.message_length = fapi_msg.message_length};
+        if (!fapi_nr_p7_message_unpack(msg, msgSize + NFAPI_HEADER_LENGTH, &unpacked_msg, fapi_msg.message_length, 0)) {
+          printf("Failure unpacking, or dummy message, ignoring\n");
+          break;
+        }
+        DevAssert(wls_p7_config->dl_tti_req_fn != NULL);
+        (wls_p7_config->dl_tti_req_fn)(NULL, (wls_p7_config), &unpacked_msg);
+        free_dl_tti_request(&unpacked_msg);
+      }
       break;
-    case NFAPI_NR_PHY_MSG_TYPE_UL_TTI_REQUEST:
+      case NFAPI_NR_PHY_MSG_TYPE_UL_TTI_REQUEST: {
+        nfapi_nr_ul_tti_request_t unpacked_msg = {.header.message_id = fapi_msg.message_id,
+                                                  .header.message_length = fapi_msg.message_length};
+        if (!fapi_nr_p7_message_unpack(msg, msgSize + NFAPI_HEADER_LENGTH, &unpacked_msg, fapi_msg.message_length, 0)) {
+          printf("Failure unpacking, or dummy message, ignoring\n");
+          break;
+        }
+        DevAssert(wls_p7_config->ul_tti_req_fn != NULL);
+        (wls_p7_config->ul_tti_req_fn)(NULL, (wls_p7_config), &unpacked_msg);
+        free_ul_tti_request(&unpacked_msg);
+      }
       break;
-    default:
+      case NFAPI_NR_PHY_MSG_TYPE_UL_DCI_REQUEST: {
+        nfapi_nr_ul_dci_request_t unpacked_msg = {.header.message_id = fapi_msg.message_id,
+                                                  .header.message_length = fapi_msg.message_length};
+        if (!fapi_nr_p7_message_unpack(msg, msgSize + NFAPI_HEADER_LENGTH, &unpacked_msg, fapi_msg.message_length, 0)) {
+          printf("Failure unpacking, or dummy message, ignoring\n");
+          break;
+        }
+        DevAssert(wls_p7_config->ul_dci_req_fn != NULL);
+        (wls_p7_config->ul_dci_req_fn)(NULL, (wls_p7_config), &unpacked_msg);
+        free_ul_dci_request(&unpacked_msg);
+      }
       break;
+      case NFAPI_NR_PHY_MSG_TYPE_TX_DATA_REQUEST: {
+        nfapi_nr_tx_data_request_t unpacked_msg = {.header.message_id = fapi_msg.message_id,
+                                                   .header.message_length = fapi_msg.message_length};
+        if (!fapi_nr_p7_message_unpack(msg, msgSize + NFAPI_HEADER_LENGTH, &unpacked_msg, fapi_msg.message_length, 0)) {
+          printf("Failure unpacking, or dummy message, ignoring\n");
+          break;
+        }
+        DevAssert(wls_p7_config->tx_data_req_fn != NULL);
+        (wls_p7_config->tx_data_req_fn)((wls_p7_config), &unpacked_msg);
+        free_tx_data_request(&unpacked_msg);
+      }
+      break;
+      default:
+        break;
+    }
   }
 }
 
@@ -1009,11 +1039,9 @@ static void procPhyMessages(uint32_t msgSize, void *msg, uint16_t msgId)
     }
 
     case NFAPI_NR_PHY_MSG_TYPE_DL_TTI_REQUEST ... NFAPI_NR_PHY_MSG_TYPE_RACH_INDICATION : {
-      wls_pnf_nr_handle_p7_messages(msgSize, msg, msgId);
-      break;
-    }
-
-
+        wls_pnf_nr_handle_p7_messages(msgSize, msg, msgId);
+        break;
+      }
     default:
       break;
   }
@@ -1092,7 +1120,6 @@ uint64_t phy_mac_recv()
       }
     
     }
-     wls_mac_add_blocks_to_ul();
   }
   return l2Msg;
 }
