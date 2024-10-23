@@ -3834,37 +3834,37 @@ int nr_write_ce_ulsch_pdu(uint8_t *mac_ce,
       *ceLong = (NR_BSR_LONG){0};
       mac_ce += sizeof(NR_BSR_LONG);
       // int NR_BSR_LONG_SIZE = 1;
-      if (bsr->bsr.lc_bsr[0] && mac_ce < mac_ce_end) {
+      if (bsr->bsr.lcg_bsr[0] && mac_ce < mac_ce_end) {
         ceLong->LcgID0 = 1;
-        *mac_ce++ = bsr->bsr.lc_bsr[0];
+        *mac_ce++ = bsr->bsr.lcg_bsr[0];
       }
-      if (bsr->bsr.lc_bsr[1] && mac_ce < mac_ce_end) {
+      if (bsr->bsr.lcg_bsr[1] && mac_ce < mac_ce_end) {
         ceLong->LcgID1 = 1;
-        *mac_ce++ = bsr->bsr.lc_bsr[1];
+        *mac_ce++ = bsr->bsr.lcg_bsr[1];
       }
-      if (bsr->bsr.lc_bsr[2] && mac_ce < mac_ce_end) {
+      if (bsr->bsr.lcg_bsr[2] && mac_ce < mac_ce_end) {
         ceLong->LcgID2 = 1;
-        *mac_ce++ = bsr->bsr.lc_bsr[2];
+        *mac_ce++ = bsr->bsr.lcg_bsr[2];
       }
-      if (bsr->bsr.lc_bsr[3] && mac_ce < mac_ce_end) {
+      if (bsr->bsr.lcg_bsr[3] && mac_ce < mac_ce_end) {
         ceLong->LcgID3 = 1;
-        *mac_ce++ = bsr->bsr.lc_bsr[3];
+        *mac_ce++ = bsr->bsr.lcg_bsr[3];
       }
-      if (bsr->bsr.lc_bsr[4] && mac_ce < mac_ce_end) {
+      if (bsr->bsr.lcg_bsr[4] && mac_ce < mac_ce_end) {
         ceLong->LcgID4 = 1;
-        *mac_ce++ = bsr->bsr.lc_bsr[4];
+        *mac_ce++ = bsr->bsr.lcg_bsr[4];
       }
-      if (bsr->bsr.lc_bsr[5] && mac_ce < mac_ce_end) {
+      if (bsr->bsr.lcg_bsr[5] && mac_ce < mac_ce_end) {
         ceLong->LcgID5 = 1;
-        *mac_ce++ = bsr->bsr.lc_bsr[5];
+        *mac_ce++ = bsr->bsr.lcg_bsr[5];
       }
-      if (bsr->bsr.lc_bsr[6] && mac_ce < mac_ce_end) {
+      if (bsr->bsr.lcg_bsr[6] && mac_ce < mac_ce_end) {
         ceLong->LcgID6 = 1;
-        *mac_ce++ = bsr->bsr.lc_bsr[6];
+        *mac_ce++ = bsr->bsr.lcg_bsr[6];
       }
-      if (bsr->bsr.lc_bsr[7] && mac_ce < mac_ce_end) {
+      if (bsr->bsr.lcg_bsr[7] && mac_ce < mac_ce_end) {
         ceLong->LcgID7 = 1;
-        *mac_ce++ = bsr->bsr.lc_bsr[7];
+        *mac_ce++ = bsr->bsr.lcg_bsr[7];
       }
       *mac_pdu_subheader_ptr =
           (NR_MAC_SUBHEADER_SHORT){.LCID = bsr->type_bsr == b_long ? UL_SCH_LCID_L_BSR : UL_SCH_LCID_L_TRUNCATED_BSR,
@@ -3873,14 +3873,14 @@ int nr_write_ce_ulsch_pdu(uint8_t *mac_ce,
             "[UE] Generating ULSCH PDU : long_bsr size %d Lcgbit 0x%02x Buffer_size %d %d %d %d %d %d %d %d\n",
             ((NR_MAC_SUBHEADER_SHORT *)mac_pdu_subheader_ptr)->L,
             *mac_ce,
-            bsr->bsr.lc_bsr[0],
-            bsr->bsr.lc_bsr[1],
-            bsr->bsr.lc_bsr[2],
-            bsr->bsr.lc_bsr[3],
-            bsr->bsr.lc_bsr[4],
-            bsr->bsr.lc_bsr[5],
-            bsr->bsr.lc_bsr[6],
-            bsr->bsr.lc_bsr[7]);
+            bsr->bsr.lcg_bsr[0],
+            bsr->bsr.lcg_bsr[1],
+            bsr->bsr.lcg_bsr[2],
+            bsr->bsr.lcg_bsr[3],
+            bsr->bsr.lcg_bsr[4],
+            bsr->bsr.lcg_bsr[5],
+            bsr->bsr.lcg_bsr[6],
+            bsr->bsr.lcg_bsr[7]);
     } break;
     case b_none:
       break;
