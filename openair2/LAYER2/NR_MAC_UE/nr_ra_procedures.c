@@ -358,8 +358,7 @@ static void config_preamble_index(NR_UE_MAC_INST_t *mac)
   if (config_info.ssb_per_ro < 1)
     ra->ra_PreambleIndex = groupOffset + rand_preamb;
   else {
-    ssb_list_info_t *ssb_list = &mac->ssb_list[mac->current_DL_BWP->bwp_id];
-    int nb_ssb = ssb_list->nb_ssb_per_index[ra->ra_ssb];
+    int nb_ssb = mac->ssb_list.nb_ssb_per_index[ra->ra_ssb];
     ra->ra_PreambleIndex = groupOffset + (nb_ssb * config_info.preambles_per_ssb) + rand_preamb;
   }
   AssertFatal(ra->ra_PreambleIndex < nb_of_preambles,

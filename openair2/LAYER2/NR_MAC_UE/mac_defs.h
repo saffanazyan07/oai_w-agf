@@ -524,7 +524,7 @@ typedef struct NR_UE_MAC_INST_s {
   struct NR_SI_SchedulingInfo *si_SchedulingInfo;
   struct NR_SI_SchedulingInfo_v1700 *si_SchedulingInfo_v1700;
   int si_window_start;
-  ssb_list_info_t ssb_list[MAX_NUM_BWP_UE];
+  ssb_list_info_t ssb_list;
   prach_association_pattern_t prach_assoc_pattern[MAX_NUM_BWP_UE];
 
   NR_UE_ServingCell_Info_t sc_info;

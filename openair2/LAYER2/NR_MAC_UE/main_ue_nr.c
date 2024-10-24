@@ -77,7 +77,7 @@ void nr_ue_init_mac(NR_UE_MAC_INST_t *mac)
 
   memset(&mac->ssb_measurements, 0, sizeof(mac->ssb_measurements));
   memset(&mac->ul_time_alignment, 0, sizeof(mac->ul_time_alignment));
-  memset(mac->ssb_list, 0, sizeof(mac->ssb_list));
+  memset(&mac->ssb_list, 0, sizeof(mac->ssb_list));
   memset(mac->prach_assoc_pattern, 0, sizeof(mac->prach_assoc_pattern));
 
   for (int i = 0; i < NR_MAX_SR_ID; i++)
@@ -332,8 +332,6 @@ void free_rach_structures(NR_UE_MAC_INST_t *nr_mac, int bwp_id)
     for (int k = 0; k < MAX_NB_FRAME_IN_PRACH_CONF_PERIOD; k++)
       for (int l = 0; l < MAX_NB_SLOT_IN_FRAME; l++)
         free(nr_mac->prach_assoc_pattern[bwp_id].prach_conf_period_list[j].prach_occasion_slot_map[k][l].prach_occasion);
-
-  free(nr_mac->ssb_list[bwp_id].tx_ssb);
 }
 
 void reset_ra(NR_UE_MAC_INST_t *nr_mac, bool free_prach)
