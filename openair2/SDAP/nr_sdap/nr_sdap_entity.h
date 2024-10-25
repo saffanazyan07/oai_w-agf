@@ -27,6 +27,7 @@
 #include "common/platform_types.h"
 #include "openair2/LAYER2/nr_pdcp/nr_pdcp_entity.h"
 #include "NR_RadioBearerConfig.h"
+#include "common/utils/tun_if.h"
 
 #define SDAP_BITMASK_DC             (0x80)
 #define SDAP_BITMASK_R              (0x40)
@@ -80,6 +81,11 @@ typedef struct nr_sdap_entity_s {
   ue_id_t ue_id;
   rb_id_t default_drb;
   int pdusession_id;
+  int pdusession_sock;
+  pthread_t pdusession_thread;
+  bool stop_thread;
+  int qfi;
+
   qfi2drb_t qfi2drb_table[SDAP_MAX_QFI];
 
   void (*qfi2drb_map_update)(struct nr_sdap_entity_s *entity, uint8_t qfi, rb_id_t drb, bool has_sdap_rx, bool has_sdap_tx);
@@ -113,9 +119,17 @@ typedef struct nr_sdap_entity_s {
                     char *buf,
                     int size);
 
-  /* List of entities */
-  struct nr_sdap_entity_s *next_entity;
+  /* SDAP TX and RX are handled by different threads. Common mutex would block one thread if the other is busy.
+     Protecting the tx_entity() and rx_entity() is required to prevent accessing the data after the SDAP entity
+     has been deleted by another thread. Hence, a separate mutex is used for tx and rx threads. */
+  pthread_mutex_t mutex[2]; // 0: tx mutex, 1: rx mutex
 } nr_sdap_entity_t;
+
+enum Sdap_Mutex_Type {
+  SDAP_MUTEX_TX,
+  SDAP_MUTEX_RX,
+  SDAP_NO_LOCK,
+};
 
 /* QFI to DRB Mapping Related Function */
 void nr_sdap_qfi2drb_map_update(nr_sdap_entity_t *entity, uint8_t qfi, rb_id_t drb, bool has_sdap_rx, bool has_sdap_tx);
@@ -169,7 +183,7 @@ nr_sdap_entity_t *new_nr_sdap_entity(int is_gnb,
                                      uint8_t mappedQFIs2AddCount);
 
 /* Entity Handling Related Functions */
-nr_sdap_entity_t *nr_sdap_get_entity(ue_id_t ue_id, int pdusession_id);
+nr_sdap_entity_t *nr_sdap_get_entity(ue_id_t ue_id, int pdusession_id, enum Sdap_Mutex_Type lock_type);
 
 void nr_sdap_release_drb(ue_id_t ue_id, int drb_id, int pdusession_id);
 
@@ -211,4 +225,8 @@ bool is_sdap_tx(bool is_gnb, NR_SDAP_Config_t *sdap_config);
  */
 void nr_reconfigure_sdap_entity(NR_SDAP_Config_t *sdap_config, ue_id_t ue_id, int pdusession_id, int drb_id);
 
+void set_qfi(uint8_t qfi, uint8_t pduid, ue_id_t ue_id);
+void nr_sdap_lock(nr_sdap_entity_t *ent, enum Sdap_Mutex_Type mutexType);
+void nr_sdap_unlock(nr_sdap_entity_t *ent, enum Sdap_Mutex_Type mutexType);
+void sdap_init(void);
 #endif
