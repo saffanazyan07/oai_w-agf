@@ -23,7 +23,7 @@
 #include "nr_nfapi_p7.h"
 #include "debug.h"
 
-uint8_t fapi_nr_p7_message_body_pack(nfapi_p7_message_header_t *header,
+uint8_t fapi_nr_p7_message_body_pack(nfapi_nr_p7_message_header_t *header,
                                      uint8_t **ppWritePackedMsg,
                                      uint8_t *end,
                                      nfapi_p7_codec_config_t *config)
@@ -92,7 +92,7 @@ int fapi_nr_p7_message_pack(void *pMessageBuf, void *pPackedBuf, uint32_t packed
     return -1;
   }
 
-  nfapi_p7_message_header_t *pMessageHeader = pMessageBuf;
+  nfapi_nr_p7_message_header_t *pMessageHeader = pMessageBuf;
   uint8_t *pWritePackedMessage = pPackedBuf;
   uint8_t *pPackMessageEnd = pPackedBuf + packedBufLen;
   uint8_t *pPackedLengthField = &pWritePackedMessage[4];
@@ -141,7 +141,7 @@ int fapi_nr_p7_message_unpack(void *pMessageBuf,
                               nfapi_p7_codec_config_t *config)
 {
   int result = 0;
-  nfapi_p7_message_header_t *pMessageHeader = (nfapi_p7_message_header_t *)pUnpackedBuf;
+  nfapi_nr_p7_message_header_t *pMessageHeader = (nfapi_nr_p7_message_header_t *)pUnpackedBuf;
   fapi_message_header_t fapi_hdr;
   uint8_t *pReadPackedMessage = pMessageBuf;
 

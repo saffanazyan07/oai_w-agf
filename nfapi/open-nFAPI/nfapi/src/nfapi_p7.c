@@ -48,7 +48,7 @@ extern int nfapi_pack_p7_vendor_extension(nfapi_p7_message_header_t *header, uin
 uint32_t nfapi_calculate_checksum(uint8_t *buffer, uint16_t len) {
   uint32_t chksum = 0;
   // calcaulte upto the checksum
-  chksum = crc32(chksum, buffer, 10);
+  chksum = crc32(chksum, buffer, 8);
   // skip the checksum
   uint8_t zeros[4] = {0, 0, 0, 0};
   chksum = crc32(chksum, zeros, 4);
@@ -60,17 +60,47 @@ uint32_t nfapi_calculate_checksum(uint8_t *buffer, uint16_t len) {
 
 int nfapi_p7_update_checksum(uint8_t *buffer, uint32_t len) {
   uint32_t checksum = nfapi_calculate_checksum(buffer, len);
-  uint8_t *p_write = &buffer[10];
+  uint8_t *p_write = &buffer[8];
   return (push32(checksum, &p_write, buffer + len) > 0 ? 0 : -1);
 }
 
 int nfapi_p7_update_transmit_timestamp(uint8_t *buffer, uint32_t timestamp) {
-  uint8_t *p_write = &buffer[14];
-  return (push32(timestamp, &p_write, buffer + 18) > 0 ? 0 : -1);
+  uint8_t *p_write = &buffer[12];
+  return (push32(timestamp, &p_write, buffer + NFAPI_P7_HEADER_LENGTH) > 0 ? 0 : -1);
 }
 
 uint32_t nfapi_p7_calculate_checksum(uint8_t *buffer, uint32_t len) {
   return nfapi_calculate_checksum(buffer, len);
+}
+
+uint32_t nfapi_nr_calculate_checksum(uint8_t *buffer, uint16_t len) {
+  uint32_t chksum = 0;
+  // calcaulte upto the checksum
+  chksum = crc32(chksum, buffer, 10);
+  // skip the checksum
+  uint8_t zeros[4] = {0, 0, 0, 0};
+  chksum = crc32(chksum, zeros, 4);
+  // continu with the rest of the mesage
+  chksum = crc32(chksum, &buffer[NFAPI_NR_P7_HEADER_LENGTH], len - NFAPI_NR_P7_HEADER_LENGTH);
+  // return the inverse
+  return ~(chksum);
+}
+
+int nfapi_nr_p7_update_checksum(uint8_t *buffer, uint32_t len) {
+  uint32_t checksum = nfapi_nr_calculate_checksum(buffer, len);
+  // 10 is the beginning position of checksum
+  uint8_t *p_write = &buffer[10];
+  return (push32(checksum, &p_write, buffer + len) > 0 ? 0 : -1);
+}
+
+int nfapi_nr_p7_update_transmit_timestamp(uint8_t *buffer, uint32_t timestamp) {
+  // 14 is the beginning position of transmit_timestamp
+  uint8_t *p_write = &buffer[14];
+  return (push32(timestamp, &p_write, buffer + NFAPI_NR_P7_HEADER_LENGTH) > 0 ? 0 : -1);
+}
+
+uint32_t nfapi_nr_p7_calculate_checksum(uint8_t *buffer, uint32_t len) {
+  return nfapi_nr_calculate_checksum(buffer, len);
 }
 
 void *nfapi_p7_allocate(size_t size, nfapi_p7_codec_config_t *config) {
@@ -2568,7 +2598,7 @@ int pack_nr_srs_beamforming_report(void *pMessageBuf, void *pPackedBuf, uint32_t
 
 int nfapi_nr_p7_message_pack(void *pMessageBuf, void *pPackedBuf, uint32_t packedBufLen, nfapi_p7_codec_config_t *config)
 {
-  nfapi_p7_message_header_t *pMessageHeader = pMessageBuf;
+  nfapi_nr_p7_message_header_t *pMessageHeader = pMessageBuf;
   uint8_t *pWritePackedMessage = pPackedBuf;
   uint8_t *pPackedLengthField = &pWritePackedMessage[4];
 
@@ -5884,19 +5914,17 @@ int nfapi_p7_message_header_unpack(void *pMessageBuf, uint32_t messageBufLen, vo
     NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 header unpack supplied message buffer is too small %d, %d\n", messageBufLen, unpackedBufLen);
     return -1;
   }
-  uint16_t msg_length = 0;
   // process the header
   if (!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) && pull16(&pReadPackedMessage, &pMessageHeader->message_id, end)
-        && pull16(&pReadPackedMessage, &msg_length, end) && pull16(&pReadPackedMessage, &pMessageHeader->m_segment_sequence, end)
+        && pull16(&pReadPackedMessage, &pMessageHeader->message_length, end) && pull16(&pReadPackedMessage, &pMessageHeader->m_segment_sequence, end)
         && pull32(&pReadPackedMessage, &pMessageHeader->checksum, end)
         && pull32(&pReadPackedMessage, &pMessageHeader->transmit_timestamp, end)))
     return -1;
-  pMessageHeader->message_length = msg_length;
   return 0;
 }
 
 int nfapi_nr_p7_message_header_unpack(void *pMessageBuf, uint32_t messageBufLen, void *pUnpackedBuf, uint32_t unpackedBufLen, nfapi_p7_codec_config_t *config) {
-  nfapi_p7_message_header_t *pMessageHeader = pUnpackedBuf;
+  nfapi_nr_p7_message_header_t *pMessageHeader = pUnpackedBuf;
   uint8_t *pReadPackedMessage = pMessageBuf;
 
   if (pMessageBuf == NULL || pUnpackedBuf == NULL) {
@@ -5906,7 +5934,7 @@ int nfapi_nr_p7_message_header_unpack(void *pMessageBuf, uint32_t messageBufLen,
 
   uint8_t *end = (uint8_t *)pMessageBuf + messageBufLen;
 
-  if (messageBufLen < NFAPI_P7_HEADER_LENGTH || unpackedBufLen < sizeof(nfapi_p7_message_header_t)) {
+  if (messageBufLen < NFAPI_NR_P7_HEADER_LENGTH || unpackedBufLen < sizeof(nfapi_nr_p7_message_header_t)) {
     NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 header unpack supplied message buffer is too small %d, %d\n", messageBufLen, unpackedBufLen);
     return -1;
   }
@@ -5949,16 +5977,14 @@ int nfapi_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *pUn
   */
   // clean the supplied buffer for - tag value blanking
   (void)memset(pUnpackedBuf, 0, unpackedBufLen);
-  uint16_t msg_length = 0;
   // process the header
   if (!(pull16(&pReadPackedMessage, &pMessageHeader->phy_id, end) && pull16(&pReadPackedMessage, &pMessageHeader->message_id, end)
-        && pull16(&pReadPackedMessage, &msg_length, end) && pull16(&pReadPackedMessage, &pMessageHeader->m_segment_sequence, end)
+        && pull16(&pReadPackedMessage, &pMessageHeader->message_length, end) && pull16(&pReadPackedMessage, &pMessageHeader->m_segment_sequence, end)
         && pull32(&pReadPackedMessage, &pMessageHeader->checksum, end)
         && pull32(&pReadPackedMessage, &pMessageHeader->transmit_timestamp, end))) {
     NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 unpack header failed\n");
     return -1;
   }
-  pMessageHeader->message_length = msg_length;
   if((uint8_t *)(pMessageBuf + pMessageHeader->message_length) > end) {
     NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 unpack message length is greater than the message buffer \n");
     return -1;
@@ -6158,7 +6184,7 @@ int nfapi_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *pUn
 int nfapi_nr_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *pUnpackedBuf, uint32_t unpackedBufLen, nfapi_p7_codec_config_t* config)
 {
 	int result = 0;
-	nfapi_p7_message_header_t *pMessageHeader = (nfapi_p7_message_header_t*)pUnpackedBuf;
+	nfapi_nr_p7_message_header_t *pMessageHeader = (nfapi_nr_p7_message_header_t*)pUnpackedBuf;
 	uint8_t *pReadPackedMessage = pMessageBuf;
 
 	if (pMessageBuf == NULL || pUnpackedBuf == NULL)
@@ -6169,7 +6195,7 @@ int nfapi_nr_p7_message_unpack(void *pMessageBuf, uint32_t messageBufLen, void *
 
         uint8_t *end = (uint8_t*)pMessageBuf + messageBufLen;
 
-	if (messageBufLen < NFAPI_P7_HEADER_LENGTH || unpackedBufLen < sizeof(nfapi_p7_message_header_t))
+	if (messageBufLen < NFAPI_NR_P7_HEADER_LENGTH || unpackedBufLen < sizeof(nfapi_nr_p7_message_header_t))
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "P7 unpack supplied message buffer is too small %d, %d\n", messageBufLen, unpackedBufLen);
 		return -1;
