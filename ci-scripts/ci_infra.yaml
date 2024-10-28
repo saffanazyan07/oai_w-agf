@@ -75,6 +75,13 @@ oc-cn5g-20897:
   NetworkScript: echo "inet 172.21.6.105"
   RunIperf3Server: False
 
+oc-cn5g-20897-peafowl:
+  Host: peafowl
+  Namespace: "oaicicd-core-for-fhi72"
+  CNPath: "/opt/oai-cn5g-fed-develop-2024-april-20897"
+  NetworkScript: echo "inet 172.21.6.105"
+  RunIperf3Server: False
+
 matix-cn5g:
   Host: matix
   NetworkScript: docker exec prod-trf-gen ip a show dev eth0
