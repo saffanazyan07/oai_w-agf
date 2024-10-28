@@ -1436,6 +1436,7 @@ add_library(L2_NR
 target_link_libraries(L2_NR PRIVATE ds alg)
 target_link_libraries(L2_NR PRIVATE f1ap_lib)
 target_include_directories(L2_NR PRIVATE ${F1AP_DIR}/lib)
+target_link_libraries(L2_NR PRIVATE e1ap_lib)
 
 add_library(e1_if
   ${NR_RRC_DIR}/cucp_cuup_direct.c
