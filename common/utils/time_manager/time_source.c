@@ -26,12 +26,8 @@
 #include <stdbool.h>
 #include <errno.h>
 
-/* todo: remove when using openair thread code */
-#include <pthread.h>
-
-/* todo: remove */
-#define DevAssert(x) do { if (!(x)) abort(); } while (0)
-#define AssertFatal(a, ...) do { if (!(a)) abort(); } while (0)
+#include "common/utils/assertions.h"
+#include "common/utils/system.h"
 
 typedef struct {
   time_source_type_t type;
@@ -174,29 +170,19 @@ static void time_source_iq_samples_terminate(void *ts)
   condsignal(&time_source->common);
 }
 
-/* todo: use openair way */
-static pthread_t new_thread(void *(*thread_function)(void *), void *arg)
-{
-  pthread_t thread_id;
-  int ret;
-
-  ret = pthread_create(&thread_id, NULL, thread_function, arg);
-  DevAssert(ret == 0);
-
-  return thread_id;
-}
-
 time_source_t *new_time_source(time_source_type_t type)
 {
   time_source_t *ret = NULL;
   void *(*thread_function)(void *) = NULL;
   void (*terminate_function)(void *) = NULL;
+  char *thread_function_name = NULL;
 
   switch (type) {
     case TIME_SOURCE_REALTIME: {
       time_source_realtime_t *ts = calloc(1, sizeof(*ts));
       DevAssert(ts != NULL);
       thread_function = time_source_realtime_thread;
+      thread_function_name = "time source realtime";
       ret = ts;
       break;
     }
@@ -205,6 +191,7 @@ time_source_t *new_time_source(time_source_type_t type)
       DevAssert(ts != NULL);
       thread_function = time_source_iq_samples_thread;
       terminate_function = time_source_iq_samples_terminate;
+      thread_function_name = "time source iq samples";
       ret = ts;
       break;
     }
@@ -215,7 +202,7 @@ time_source_t *new_time_source(time_source_type_t type)
   init_mutex(c);
   init_cond(c);
   c->terminate = terminate_function;
-  c->thread_id = new_thread(thread_function, c);
+  threadCreate(&c->thread_id, thread_function, c, thread_function_name, -1, SCHED_OAI);
 
   return ret;
 }

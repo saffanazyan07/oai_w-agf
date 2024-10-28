@@ -31,15 +31,8 @@
 #include <unistd.h>
 #include <string.h>
 
-/* todo: remove when using openair thread code */
-#include <pthread.h>
-
-/* todo: remove */
-#include <stdio.h>
-#define LOG_W(a, ...) printf(__VA_ARGS__)
-#include <stdlib.h>
-#define DevAssert(x) do { if (!(x)) abort(); } while (0)
-#define AssertFatal(a, ...) do { if (!(a)) abort(); } while (0)
+#include "common/utils/system.h"
+#include "common/utils/LOG/log.h"
 
 typedef struct {
   pthread_t thread_id;
@@ -49,8 +42,6 @@ typedef struct {
   void (*callback)(void *);
   void *callback_data;
 } time_server_private_t;
-
-#define min(a, b) ((a) < (b) ? (a) : (b))
 
 static void *time_server_thread(void *ts)
 {
@@ -95,7 +86,8 @@ printf("adding socket_fds[%d] = %d\n", i, socket_fds[i]);
         time_server->callback(time_server->callback_data);
       /* send ticks by blocks of 255 max (what fits in a uint8_t) */
       while (ticks) {
-        uint8_t count = min(ticks, 255);
+        /* get min(ticks, 255) */
+        uint8_t count = ticks < 255 ? ticks : 255;
         /* send to all clients */
         for (int i = 0; i < client_count; i++) {
           if (write(socket_fds[i], &count, 1) == 1)
@@ -182,18 +174,6 @@ printf("i %d\n", i);
   return NULL;
 }
 
-/* todo: use openair way */
-static pthread_t new_thread(void *(*thread_function)(void *), void *arg)
-{
-  pthread_t thread_id;
-  int ret;
-
-  ret = pthread_create(&thread_id, NULL, thread_function, arg);
-  DevAssert(ret == 0);
-
-  return thread_id;
-}
-
 time_server_t *new_time_server(const char *ip,
                                int port,
                                void (*callback)(void *),
@@ -227,7 +207,7 @@ time_server_t *new_time_server(const char *ip,
   ts->callback = callback;
   ts->callback_data = callback_data;
 
-  ts->thread_id = new_thread(time_server_thread, ts);
+  threadCreate(&ts->thread_id, time_server_thread, ts, "time server", -1, SCHED_OAI);
   return ts;
 }
 

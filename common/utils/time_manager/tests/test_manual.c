@@ -30,6 +30,28 @@
 #include <unistd.h>
 #include <stdbool.h>
 
+#include "common/utils/system.h"
+#include "common/utils/LOG/log.h"
+
+/****************************************************/
+/* begin: necessary glue for compilation to succeed */
+/****************************************************/
+
+#include "common/config/config_userapi.h"
+
+configmodule_interface_t *uniqCfg = NULL;
+
+void exit_function(const char *file, const char *function, const int line, const char *s, const int assert)
+{
+  printf("%s:%d:%s: %s\n", file, line, function, s);
+  fflush(stdout);
+  exit(1);
+}
+
+/**************************************************/
+/* end: necessary glue for compilation to succeed */
+/**************************************************/
+
 _Atomic bool test_exit;
 
 void *iq_generate_thread(void *ts)
@@ -43,21 +65,6 @@ void *iq_generate_thread(void *ts)
   }
 
   return NULL;
-}
-
-#include <stdlib.h>
-#define DevAssert(x) do { if (!(x)) abort(); } while (0)
-#define AssertFatal(a, ...) do { if (!(a)) abort(); } while (0)
-
-static pthread_t new_thread(void *(*thread_function)(void *), void *arg)
-{
-  pthread_t thread_id;
-  int ret;
-
-  ret = pthread_create(&thread_id, NULL, thread_function, arg);
-  DevAssert(ret == 0);
-
-  return thread_id;
 }
 
 #define STANDALONE 0
@@ -110,11 +117,13 @@ int main(int n, char **v)
     usage();
   }
 
+  logInit();
+
   ts = new_time_source(time_source_type);
 
   if (mode != CLIENT)
     if (time_source_type == TIME_SOURCE_IQ_SAMPLES)
-      iq_thread = new_thread(iq_generate_thread, ts);
+      threadCreate(&iq_thread, iq_generate_thread, ts, "time source iq samples",-1, SCHED_OAI);
 
   if (mode == SERVER) {
     /* (void*)1 to check if callback data is passed correctly */
@@ -147,6 +156,8 @@ int main(int n, char **v)
   if (mode == CLIENT) {
     free_time_client(client);
   }
+
+  logTerm();
 
   return 0;
 }

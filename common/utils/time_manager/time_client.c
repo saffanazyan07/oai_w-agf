@@ -24,7 +24,6 @@
 #include <string.h>
 #include <errno.h>
 #include <stdbool.h>
-#include <pthread.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -32,13 +31,9 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
-/* todo: remove */
-#include <stdio.h>
-#define LOG_W(a, ...) printf(__VA_ARGS__)
-#define LOG_E(a, ...) printf(__VA_ARGS__)
-#include <stdlib.h>
-#define DevAssert(x) do { if (!(x)) abort(); } while (0)
-#define AssertFatal(a, ...) do { if (!(a)) abort(); } while (0)
+#include "common/utils/assertions.h"
+#include "common/utils/LOG/log.h"
+#include "common/utils/system.h"
 
 typedef struct {
   pthread_t thread_id;
@@ -68,7 +63,7 @@ static int connect_to_server(time_client_private_t *time_client)
     char server_address[256];
     const char *ret = inet_ntop(AF_INET, &time_client->server_ip.sin_addr,
                                 server_address, sizeof(server_address));
-    AssertFatal(ret != NULL);
+    DevAssert(ret != NULL);
     LOG_W(UTIL, "time client: connection to %s:%d failed, try again in 1s\n",
           server_address, time_client->server_port);
     sleep(1);
@@ -139,18 +134,6 @@ reconnect:
   return NULL;
 }
 
-/* todo: use openair way */
-static pthread_t new_thread(void *(*thread_function)(void *), void *arg)
-{
-  pthread_t thread_id;
-  int ret;
-
-  ret = pthread_create(&thread_id, NULL, thread_function, arg);
-  DevAssert(ret == 0);
-
-  return thread_id;
-}
-
 time_client_t *new_time_client(const char *server_ip,
                                int server_port,
                                void (*callback)(void *),
@@ -173,7 +156,7 @@ time_client_t *new_time_client(const char *server_ip,
   tc->callback = callback;
   tc->callback_data = callback_data;
 
-  tc->thread_id = new_thread(time_client_thread, tc);
+  threadCreate(&tc->thread_id, time_client_thread, tc, "time client", -1, SCHED_OAI);
 
   return tc;
 }
