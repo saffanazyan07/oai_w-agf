@@ -22,18 +22,23 @@
 #ifndef COMMON_UTIL_TIME_MANAGER_TIME_MANAGER
 #define COMMON_UTIL_TIME_MANAGER_TIME_MANAGER
 
+#include <stdint.h>
+
 typedef enum {
-  TIME_MANAGER_MONOLITHIC_GNB_REALTIME,
-  TIME_MANAGER_MONOLITHIC_GNB_RFSIM,
-  TIME_MANAGER_UE_REALTIM,
-  TIME_MANAGER_UE_RFSIM,
-  TIME_MANAGER_CU,
-  TIME_MANAGER_DU_REALTIME,
-  TIME_MANAGER_DU_RFSIM,
+  TIME_MANAGER_GNB_MONOLITHIC,
+  TIME_MANAGER_GNB_CU,
+  TIME_MANAGER_GNB_DU,
+  TIME_MANAGER_UE,
   TIME_MANAGER_SIMULATOR,
 } time_manager_client_t;
 
-void time_manager_start(time_manager_client_t client_type);
+typedef enum {
+  TIME_MANAGER_REALTIME,
+  TIME_MANAGER_IQ_SAMPLES
+} time_manager_mode_t;
+
+void time_manager_start(time_manager_client_t client_type,
+                        time_manager_mode_t running_mode);
 void time_manager_iq_samples(uint64_t iq_samples_count,
                              uint64_t iq_samples_per_second);
 void time_manager_finish(void);

@@ -34,6 +34,7 @@
 #define AssertFatal(a, ...) do { if (!(a)) abort(); } while (0)
 
 typedef struct {
+  time_source_type_t type;
   void (*callback)(void *callback_data);
   void *callback_data;
   _Atomic bool exit;
@@ -210,6 +211,7 @@ time_source_t *new_time_source(time_source_type_t type)
   }
 
   time_source_common_t *c = ret;
+  c->type = type;
   init_mutex(c);
   init_cond(c);
   c->terminate = terminate_function;
@@ -244,6 +246,9 @@ void time_source_iq_add(time_source_t *ts,
                         uint64_t iq_samples_per_second)
 {
   time_source_iq_t *time_source = ts;
+
+  if (time_source->common.type != TIME_SOURCE_IQ_SAMPLES)
+    return;
 
   lock(&time_source->common);
 

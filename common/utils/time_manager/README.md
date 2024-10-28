@@ -61,6 +61,9 @@ time_management = {
 };
 ```
 
+If not set in the configuration file, some default is applied, depending
+on the program run. (See the function `time_manager_start()` for details.)
+
 ## Examples
 
 Here come some examples of configuration for typical use cases of OAI.
@@ -181,9 +184,11 @@ Here comes the API.
 
 - init the time manager:
   ```
-    void time_manager_start(time_manager_client_t client_type)
+    void time_manager_start(time_manager_client_t client_type,
+                            time_manager_mode_t running_mode)
   ```
-  (for valid values of `client_type` see in `time_manager.h`)
+  (for valid values of `client_type` and `running_mode`  see in
+  `time_manager.h`)
 - update IQ samples' based time manager:
   ```
     void time_manager_iq_samples(uint64_t iq_samples_count,

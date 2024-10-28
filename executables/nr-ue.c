@@ -39,6 +39,7 @@
 #include "RRC/NR/MESSAGES/asn1_msg.h"
 #include "openair1/PHY/TOOLS/phy_scope_interface.h"
 #include "PHY/MODULATION/nr_modulation.h"
+#include "common/utils/time_manager/time_manager.h"
 
 /*
  *  NR SLOT PROCESSING SEQUENCE
@@ -625,14 +626,6 @@ static int UE_dl_preprocessing(PHY_VARS_NR_UE *UE, const UE_nr_rxtx_proc_t *proc
       clean_UE_harq(UE);
       UE->synch_request.received_synch_request = 0;
     }
-
-    /* send tick to RLC and PDCP every ms */
-    if (proc->nr_slot_rx % fp->slots_per_subframe == 0) {
-      void nr_rlc_tick(int frame, int subframe);
-      void nr_pdcp_tick(int frame, int subframe);
-      nr_rlc_tick(proc->frame_rx, proc->nr_slot_rx / fp->slots_per_subframe);
-      nr_pdcp_tick(proc->frame_rx, proc->nr_slot_rx / fp->slots_per_subframe);
-    }
   }
 
   if (proc->rx_slot_type == NR_DOWNLINK_SLOT || proc->rx_slot_type == NR_MIXED_SLOT) {
@@ -945,6 +938,10 @@ void *UE_thread(void *arg)
 
     // start of normal case, the UE is in sync
     absolute_slot++;
+
+    // pretend we have 1 iq sample per slot
+    // and so nb_slot_frame * 100 iq samples per second (1 frame being 10ms)
+    time_manager_iq_samples(1, nb_slot_frame * 100);
 
     int slot_nr = absolute_slot % nb_slot_frame;
     nr_rxtx_thread_data_t curMsg = {0};

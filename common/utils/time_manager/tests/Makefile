@@ -1,7 +1,7 @@
 CC = gcc
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -O2
 
-test: test.o time_source.o time_server.o time_client.o
+test_manual: test_manual.o time_source.o time_server.o time_client.o
 	$(CC) $(CFLAGS) -o $@ $^ -pthread
 
 %.o: %.c
@@ -11,4 +11,4 @@ test: test.o time_source.o time_server.o time_client.o
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f test *.o
+	rm -f test_manual *.o

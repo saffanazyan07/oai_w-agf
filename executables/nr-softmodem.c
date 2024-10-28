@@ -57,6 +57,7 @@ unsigned short config_frames[4] = {2,9,11,13};
 #endif
 
 #include "common/utils/LOG/log.h"
+#include "common/utils/time_manager/time_manager.h"
 #include "common/utils/LOG/vcd_signal_dumper.h"
 #include "UTIL/OPT/opt.h"
 #include "LAYER2/nr_pdcp/nr_pdcp_oai_api.h"
@@ -631,6 +632,18 @@ int main( int argc, char **argv ) {
   // don't create if node doesn't connect to RRC/S1/GTP
   const ngran_node_t node_type = get_node_type();
 
+  // start time manager with some reasonable default for the running mode
+  // (may be overwritten in configuration file or command line)
+  time_manager_start(NODE_IS_MONOLITHIC(node_type) ? TIME_MANAGER_GNB_MONOLITHIC
+                         : NODE_IS_CU(node_type) ? TIME_MANAGER_GNB_CU
+                         : TIME_MANAGER_GNB_DU,
+                     // iq_samples time source for monolithic/du with rfsim,
+                     // realtime time source for other cases
+                     IS_SOFTMODEM_RFSIM
+                     && (NODE_IS_MONOLITHIC(node_type) || NODE_IS_DU(node_type))
+                         ? TIME_MANAGER_IQ_SAMPLES
+                         : TIME_MANAGER_REALTIME);
+
   if (RC.nb_nr_L1_inst > 0)
     RCconfig_NR_L1();
 
@@ -767,6 +780,8 @@ int main( int argc, char **argv ) {
     if (RC.ru[ru_id]->ifdevice.trx_end_func)
       RC.ru[ru_id]->ifdevice.trx_end_func(&RC.ru[ru_id]->ifdevice);
   }
+
+  time_manager_finish();
 
   free(pckg);
   logClean();

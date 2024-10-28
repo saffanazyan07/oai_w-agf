@@ -1,0 +1,2 @@
+add_executable(test_time_manager_manual test_manual.c)
+target_link_libraries(test_time_manager_manual time_management_core)
