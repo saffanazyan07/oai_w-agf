@@ -55,7 +55,7 @@ static bool eq_drb_to_setup(const DRB_nGRAN_to_setup_t *a, const DRB_nGRAN_to_se
   if (a->numCellGroups != b->numCellGroups)
     return false;
   for (int i = 0; i < a->numCellGroups; i++) {
-    _E1_EQ_CHECK_INT(a->cellGroupList[i].id, b->cellGroupList[i].id);
+    _E1_EQ_CHECK_INT(a->cellGroupList[i], b->cellGroupList[i]);
   }
   _E1_EQ_CHECK_INT(a->numQosFlow2Setup, b->numQosFlow2Setup);
   if (a->numQosFlow2Setup != b->numQosFlow2Setup)
@@ -122,9 +122,9 @@ static bool e1_encode_pdu_session_to_setup_item(E1AP_PDU_Session_Resource_To_Set
     roTimer->t_Reordering = j->pdcp_config.reorderingTimer;
     pdcp->rLC_Mode = j->pdcp_config.rLC_Mode;
     // Cell Group
-    for (const cell_group_t *k = j->cellGroupList; k < j->cellGroupList + j->numCellGroups; k++) {
+    for (const CELL_GROUP_ID_t *k = j->cellGroupList; k < j->cellGroupList + j->numCellGroups; k++) {
       asn1cSequenceAdd(ieC6_1_1->cell_Group_Information.list, E1AP_Cell_Group_Information_Item_t, ieC6_1_1_1);
-      ieC6_1_1_1->cell_Group_ID = k->id;
+      ieC6_1_1_1->cell_Group_ID = *k;
     }
     // QoS Flows
     for (const qos_flow_to_setup_t *k = j->qosFlows; k < j->qosFlows + j->numQosFlow2Setup; k++) {
@@ -227,7 +227,7 @@ static bool e1_decode_pdu_session_to_setup_item(pdu_session_to_setup_t *out, E1A
     for (int k = 0; k < cellGroupList->list.count; k++) {
       E1AP_Cell_Group_Information_Item_t *cg2Setup = cellGroupList->list.array[k];
       // Cell Group ID
-      drb->cellGroupList[k].id = cg2Setup->cell_Group_ID;
+      drb->cellGroupList[k] = cg2Setup->cell_Group_ID;
     }
     // QoS Flows Information To Be Setup (M)
     E1AP_QoS_Flow_QoS_Parameter_List_t *qos2SetupList = &drb2Setup->qos_flow_Information_To_Be_Setup;

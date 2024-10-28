@@ -374,10 +374,8 @@ void trigger_bearer_setup(gNB_RRC_INST *rrc, gNB_RRC_UE_t *UE, int n, pdusession
 
       drb->numCellGroups = 1; // assume one cell group associated with a DRB
 
-      for (int k=0; k < drb->numCellGroups; k++) {
-        cell_group_t *cellGroup = drb->cellGroupList + k;
-        cellGroup->id = 0; // MCG
-      }
+      // Set all Cell Group IDs to MCG
+      memset(drb->cellGroupList, MCG, drb->numCellGroups * sizeof(*drb->cellGroupList));
 
       drb->numQosFlow2Setup = session->nb_qos;
       for (int k=0; k < drb->numQosFlow2Setup; k++) {

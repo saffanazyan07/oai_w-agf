@@ -79,7 +79,7 @@ static void test_bearer_context_setup_request(void)
       .pduSession[0].DRBnGRanList[0].pdcp_config.rLC_Mode = E1AP_RLC_Mode_rlc_am,
       .pduSession[0].DRBnGRanList[0].id = 1,
       .pduSession[0].DRBnGRanList[0].numCellGroups = 1,
-      .pduSession[0].DRBnGRanList[0].cellGroupList[0].id = MCG,
+      .pduSession[0].DRBnGRanList[0].cellGroupList[0] = MCG,
       .pduSession[0].DRBnGRanList[0].numQosFlow2Setup = 1,
       .pduSession[0].DRBnGRanList[0].qosFlows[0].qfi = 1,
       .pduSession[0].DRBnGRanList[0].qosFlows[0].qos_params.alloc_reten_priority.preemption_capability =
