@@ -372,7 +372,7 @@ def ExecuteActionWithParam(action):
 		if action == 'Run_CUDATest':
 			success = ldpc.Run_CUDATest(HTML,id)
 		elif action == 'Run_T2Test':
-			success = ldpc.Run_T2Test(HTML,CONST,id)
+			success = ldpc.Run_T2Test(HTML,id)
 
 	elif action == 'LicenceAndFormattingCheck':
 		success = SCA.LicenceAndFormattingCheck(HTML)

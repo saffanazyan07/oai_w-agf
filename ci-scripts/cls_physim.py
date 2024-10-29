@@ -55,60 +55,60 @@ def CheckResults_LDPCcudaTest(HTML, runargs, runLogFile):
 	HTML.CreateHtmlTestRowQueue(runargs, 'OK', [info])
 	return True
 
+def CheckResults_LDPCt2Test(HTML, runLogFile, runsim, runargs, threshold):
+	success = False
+	msg = ""
+	time = None
+	# Determine the search pattern based on the simulation type
+	search_pattern = None
+	if runsim == 'nr_ulsim':
+		search_pattern = r'ULSCH total decoding time\s+(\d+\.\d+)\s+us'
+	elif runsim == 'nr_dlsim':
+		search_pattern = r'DLSCH encoding time\s+(\d+\.\d+)\s+us'
+	else:
+		msg = f"Unsupported simulation type '{runsim}'."
+		logging.error(msg)
+		HTML.CreateHtmlTestRowQueue(runargs, 'KO', [msg])
+		return False
+	# Parse the log file to check for test success and processing time
+	try:
+		with open(runLogFile, 'r') as f:
+			log_content = f.read()
+			# Check if the test was successful
+			if 'test OK' not in log_content:
+				msg = f'Physim did not succeed, check the log file {runLogFile}.'
+				logging.error(msg)
+				HTML.CreateHtmlTestRowQueue(runargs, 'KO', [msg])
+				return False
+			# Search for the processing time
+			proc_time_match = re.search(search_pattern, log_content)
+			if proc_time_match:
+				time = float(proc_time_match.group(1))
+				success = time < float(threshold)
+				msg = proc_time_match.group(0)
+	except Exception as e:
+		msg = f'Error while parsing log file {runLogFile}: exception: {e}'
+		logging.error(msg)
+		HTML.CreateHtmlTestRowQueue(runargs, 'KO', [msg])
+		return False
+	if success:
+		logging.info(msg)
+		HTML.CreateHtmlTestRowQueue(runargs, 'OK', [msg])
+	else:
+		if time is not None:
+			msg = f'Processing time {time} us exceeds a limit of {threshold} us'
+		else:
+			msg = f'Processing time not found in log file {runLogFile}.'
+		logging.error(msg)
+		HTML.CreateHtmlTestRowQueue(runargs, 'KO', [msg])
+	return success
+
 class PhySim:
 	def __init__(self):
 		self.runargs = ""
+		self.timethrs = ""
 		self.eNBIpAddr = ""
-		self.eNBUserName = ""
-		self.eNBPassWord = ""
 		self.eNBSourceCodePath = ""
-		#private attributes
-		self.__workSpacePath=''
-		self.__runLogFile=''
-		self.__runLogPath='phy_sim_logs'
-
-
-#-----------------
-#PRIVATE Methods
-#-----------------
-	def __CheckResults_LDPCt2Test(self,HTML,CONST,testcase_id):
-		thrs_KO = int(self.timethrs)
-		mySSH = cls_cmd.getConnection(self.eNBIpAddr)
-		#retrieve run log file and store it locally$
-		mySSH.copyin(f'{self.__workSpacePath}{self.__runLogFile}', f'{self.__runLogFile}')
-		mySSH.close()
-		#parse results looking for encoder/decoder processing time values
-
-		with open(self.__runLogFile) as g:
-			for line in g:
-				res_enc = re.search(r"DLSCH encoding time\s+(\d+\.\d+)\s+us",line)
-				res_dec = re.search(r'ULSCH total decoding time\s+(\d+\.\d+)\s+us',line)
-				if res_dec is not None:
-					time = res_dec.group(1)
-					info = res_dec.group(0)
-					break
-				if res_enc is not None:
-					time = res_enc.group(1)
-					info = res_enc.group(0)
-					break
-
-		# In case the T2 board does work properly, there is no statistics
-		if res_enc is None and res_dec is None:
-			logging.error(f'no statistics: res_enc {res_enc} res_dec {res_dec}')
-			HTML.CreateHtmlTestRowQueue(self.runargs, 'KO', ['no statistics'])
-			os.system(f'mv {self.__runLogFile} {self.__runLogPath}/.')
-			return False
-
-		#once parsed move the local logfile to its folder
-		os.system(f'mv {self.__runLogFile} {self.__runLogPath}/.')
-		success = float(time) < thrs_KO
-		if success:
-			HTML.CreateHtmlTestRowQueue(self.runargs, 'OK', [info])
-		else:
-			error_msg = f'Processing time exceeds a limit of {thrs_KO} us'
-			logging.error(error_msg)
-			HTML.CreateHtmlTestRowQueue(self.runargs, 'KO', [info + '\n' + error_msg])
-		return success
 
 #-----------------$
 #PUBLIC Methods$
@@ -125,16 +125,14 @@ class PhySim:
 			cmd.copyin(src=f'{workSpacePath}/{runLogFile}', tgt=f'{LOG_PATH}/{runLogFile}')
 		return CheckResults_LDPCcudaTest(htmlObj, self.runargs, f'{LOG_PATH}/{runLogFile}')
 
-	def Run_T2Test(self,htmlObj,constObj,testcase_id):
-		self.__workSpacePath = f'{self.eNBSourceCodePath}/cmake_targets/'
+	def Run_T2Test(self, htmlObj, testcase_id):
+		workSpacePath = f'{self.eNBSourceCodePath}/cmake_targets'
 		#create run logs folder locally
-		os.system(f'mkdir -p ./{self.__runLogPath}')
+		os.system(f'mkdir -p ./{LOG_PATH}')
 		#log file is tc_<testcase_id>.log remotely
-		self.__runLogFile=f'physim_{str(testcase_id)}.log'
+		runLogFile=f'physim_{str(testcase_id)}.log'
 		#open a session for test run
-		mySSH = cls_cmd.getConnection(self.eNBIpAddr)
-		mySSH.run(f'cd {self.__workSpacePath}')
-		#run and redirect the results to a log file
-		mySSH.run(f'sudo {self.__workSpacePath}ran_build/build/{self.runsim} {self.runargs} > {self.__workSpacePath}{self.__runLogFile} 2>&1')
-		mySSH.close()
-		return self.__CheckResults_LDPCt2Test(htmlObj,constObj,testcase_id)
+		with cls_cmd.getConnection(self.eNBIpAddr) as cmd:
+			cmd.run(f'sudo {workSpacePath}/ran_build/build/{self.runsim} {self.runargs} >> {workSpacePath}/{runLogFile}')
+			cmd.copyin(src=f'{workSpacePath}/{runLogFile}', tgt=f'{LOG_PATH}/{runLogFile}')
+		return CheckResults_LDPCt2Test(htmlObj, f'{LOG_PATH}/{runLogFile}', self.runsim, self.runargs, self.timethrs)
