@@ -593,16 +593,17 @@ int main(int argc, char **argv)
       printf("\n");
       exit(-1);
 #endif
-
-     int nbDecode = nr_ulsch_decoding(gNB, UE_id, channel_output_fixed, frame_parms, rel15_ul, frame, subframe, harq_pid, G);
-     int nb_ok = 0;
-     if (nbDecode > 0)
-       while (nbDecode > 0) {
-         notifiedFIFO_elt_t *req = pullTpool(&gNB->respDecode, &gNB->threadPool);
-         ret = nr_postDecode_sim(gNB, req, &nb_ok);
-         delNotifiedFIFO_elt(req);
-         nbDecode--;
-       }
+      NR_UL_IND_t UL_INFO = {};
+      int nbDecode =
+          nr_ulsch_decoding(gNB, UE_id, channel_output_fixed, frame_parms, rel15_ul, frame, subframe, harq_pid, G, &UL_INFO);
+      int nb_ok = 0;
+      if (nbDecode > 0)
+        while (nbDecode > 0) {
+          notifiedFIFO_elt_t *req = pullTpool(&gNB->respDecode, &gNB->threadPool);
+          ret = nr_postDecode_sim(gNB, req, &nb_ok);
+          delNotifiedFIFO_elt(req);
+          nbDecode--;
+        }
 
       if (ret)
         n_errors++;
