@@ -598,6 +598,9 @@ void processSlotTX(void *arg)
 static int UE_dl_preprocessing(PHY_VARS_NR_UE *UE, const UE_nr_rxtx_proc_t *proc, int *tx_wait_for_dlsch, nr_phy_data_t *phy_data)
 {
   int sampleShift = INT_MAX;
+  NR_DL_FRAME_PARMS *fp = &UE->frame_parms;
+  if (UE->sl_mode == 2)
+    fp = &UE->SL_UE_PHY_PARAMS.sl_frame_params;
 
   if (IS_SOFTMODEM_NOS1 || get_softmodem_params()->sa) {
 
