@@ -622,7 +622,6 @@ static void rx_rf(RU_t *ru, int *frame, int *slot)
                                      rxp,
                                      samples_per_slot,
                                      ru->nb_rx);
-    gNBscopeCopy(ru, gNbTimeDomainSamples, rxp[0], sizeof(c16_t), 1, samples_per_slot, 0);
   }
 
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME( VCD_SIGNAL_DUMPER_FUNCTIONS_TRX_READ, 0 );
@@ -691,6 +690,11 @@ static void rx_rf(RU_t *ru, int *frame, int *slot)
     proc->first_rx = 0;
     *frame = proc->frame_rx;
     *slot  = proc->tti_rx;
+  }
+
+  if (!emulate_rf) {
+    metadata mt = {.slot = *slot, .frame = *frame};
+    gNBscopeCopyWithMetadata(ru, gNbTimeDomainSamples, rxp[0], sizeof(c16_t), 1, samples_per_slot, 0, &mt);
   }
 
   //printf("timestamp_rx %lu, frame %d(%d), subframe %d(%d)\n",ru->timestamp_rx,proc->frame_rx,frame,proc->tti_rx,subframe);
