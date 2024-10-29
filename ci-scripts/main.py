@@ -370,7 +370,7 @@ def ExecuteActionWithParam(action):
 		ldpc.runsim = test.findtext('physim_run')
 		ldpc.timethrs = test.findtext('physim_time_threshold')
 		if action == 'Run_CUDATest':
-			success = ldpc.Run_CUDATest(HTML,CONST,id)
+			success = ldpc.Run_CUDATest(HTML,id)
 		elif action == 'Run_T2Test':
 			success = ldpc.Run_T2Test(HTML,CONST,id)
 

@@ -38,6 +38,23 @@ import cls_cmd
 import os
 import re
 
+#-----------------
+# Helper functions
+#-----------------
+LOG_PATH = 'phy_sim_logs'
+
+def CheckResults_LDPCcudaTest(HTML, runargs, runLogFile):
+	#parse results looking for Encoding and Decoding mean values
+	runResults=[]
+	with open(runLogFile) as f:
+		for line in f:
+			if 'mean' in line:
+				runResults.append(line)
+	#the values are appended for each mean value (2), so we take these 2 values from the list
+	info = runResults[0] + runResults[1]
+	HTML.CreateHtmlTestRowQueue(runargs, 'OK', [info])
+	return True
+
 class PhySim:
 	def __init__(self):
 		self.runargs = ""
@@ -54,28 +71,6 @@ class PhySim:
 #-----------------
 #PRIVATE Methods
 #-----------------
-
-	def __CheckResults_LDPCcudaTest(self,HTML,CONST,testcase_id):
-		mySSH = sshconnection.SSHConnection()
-		mySSH.open(self.eNBIpAddr, self.eNBUserName, self.eNBPassWord)
-		#retrieve run log file and store it locally$
-		mySSH.copyin(self.eNBIpAddr, self.eNBUserName, self.eNBPassWord, self.__workSpacePath+self.__runLogFile, '.')
-		mySSH.close()
-		#parse results looking for Encoding and Decoding mean values
-		runResults=[]
-		with open(self.__runLogFile) as f:
-			for line in f:
-				if 'mean' in line:
-					runResults.append(line)
-		#the values are appended for each mean value (2), so we take these 2 values from the list
-		info = runResults[0] + runResults[1]
-
-		#once parsed move the local logfile to its folder for tidiness
-		os.system('mv '+self.__runLogFile+' '+ self.__runLogPath+'/.')
-
-		HTML.CreateHtmlTestRowQueue(self.runargs, 'OK', [info])
-		return True
-
 	def __CheckResults_LDPCt2Test(self,HTML,CONST,testcase_id):
 		thrs_KO = int(self.timethrs)
 		mySSH = cls_cmd.getConnection(self.eNBIpAddr)
@@ -118,20 +113,17 @@ class PhySim:
 #-----------------$
 #PUBLIC Methods$
 #-----------------$
-	def Run_CUDATest(self,htmlObj,constObj,testcase_id):
-		self.__workSpacePath = self.eNBSourceCodePath+'/cmake_targets/'
+	def Run_CUDATest(self, htmlObj, testcase_id):
+		workSpacePath = f'{self.eNBSourceCodePath}/cmake_targets'
 		#create run logs folder locally
-		os.system('mkdir -p ./'+self.__runLogPath)
+		os.system(f'mkdir -p ./{LOG_PATH}')
 		#log file is tc_<testcase_id>.log remotely
-		self.__runLogFile='physim_'+str(testcase_id)+'.log'
+		runLogFile=f'physim_{str(testcase_id)}.log'
 		#open a session for test run
-		mySSH = sshconnection.SSHConnection()
-		mySSH.open(self.eNBIpAddr, self.eNBUserName, self.eNBPassWord)
-		mySSH.command('cd '+self.__workSpacePath,'\$',5)
-		#run and redirect the results to a log file
-		mySSH.command(self.__workSpacePath+'ran_build/build/ldpctest ' + self.runargs + ' >> '+self.__runLogFile, '\$', 30)
-		mySSH.close()
-		return self.__CheckResults_LDPCcudaTest(htmlObj,constObj,testcase_id)
+		with cls_cmd.getConnection(self.eNBIpAddr) as cmd:
+			cmd.run(f'{workSpacePath}/ran_build/build/ldpctest {self.runargs} >> {workSpacePath}/{runLogFile}')
+			cmd.copyin(src=f'{workSpacePath}/{runLogFile}', tgt=f'{LOG_PATH}/{runLogFile}')
+		return CheckResults_LDPCcudaTest(htmlObj, self.runargs, f'{LOG_PATH}/{runLogFile}')
 
 	def Run_T2Test(self,htmlObj,constObj,testcase_id):
 		self.__workSpacePath = f'{self.eNBSourceCodePath}/cmake_targets/'
