@@ -493,8 +493,6 @@ typedef struct PHY_VARS_gNB_s {
   /// OFDM symbol offset divisor for UL
   uint32_t ofdm_offset_divisor;
 
-  int ldpc_offload_flag;
-
   int max_ldpc_iterations;
   /// indicate the channel estimation technique in time domain
   int chest_time;
