@@ -653,7 +653,6 @@ int pnf_nr_p7_pack_and_send_p7_message(pnf_p7_t* pnf_p7, nfapi_nr_p7_message_hea
 {
 
 #ifdef ENABLE_WLS
-  printf("Trying to send message 0x%02x\n",header->message_id);
   wls_pnf_nr_pack_and_send_p7_message(header);
  return 0;
 #else
