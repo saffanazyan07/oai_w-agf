@@ -2,6 +2,8 @@ if (OAI_WLS)
     message(STATUS "Building with support for WLS")
     add_library(wls_integration_lib
             wls_pnf.c
+            wls_vnf.c
+            wls_common.c
     )
 
     find_library(WLS_LIB wls REQUIRED)
@@ -21,6 +23,7 @@ if (OAI_WLS)
     pkg_check_modules(dpdk REQUIRED libdpdk=20.11.3)
     target_link_libraries(wls_integration_lib PRIVATE ${dpdk_LINK_LIBRARIES})
     target_include_directories(wls_integration_lib PRIVATE ${dpdk_INCLUDE_DIRS})
+    target_include_directories(wls_integration_lib PRIVATE include/)
 
     target_compile_definitions(wls_integration_lib PUBLIC ENABLE_WLS)
     target_link_libraries(wls_integration_lib PRIVATE NFAPI_LIB)
