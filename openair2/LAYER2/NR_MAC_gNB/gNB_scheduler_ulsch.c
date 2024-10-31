@@ -1505,24 +1505,22 @@ long get_K2(NR_PUSCH_TimeDomainResourceAllocationList_t *tdaList,
     return 3 + NTN_gNB_Koffset;
 }
 
-static bool nr_UE_is_to_be_scheduled(const NR_ServingCellConfigCommon_t *scc, int CC_id,  NR_UE_info_t* UE, frame_t frame, sub_frame_t slot, uint32_t ulsch_max_frame_inactivity)
+static bool nr_UE_is_to_be_scheduled(uint8_t last_ul_slot,
+                                     const frame_structure_t *fs,
+                                     int CC_id,
+                                     NR_UE_info_t *UE,
+                                     frame_t frame,
+                                     sub_frame_t slot,
+                                     uint32_t ulsch_max_frame_inactivity)
 {
-  const int n = nr_slots_per_frame[*scc->ssbSubcarrierSpacing];
+  const int n = fs->numb_slots_frame;
   const int now = frame * n + slot;
 
   const NR_UE_sched_ctrl_t *sched_ctrl =&UE->UE_sched_ctrl;
-
-  const NR_TDD_UL_DL_Pattern_t *tdd =
-      scc->tdd_UL_DL_ConfigurationCommon ? &scc->tdd_UL_DL_ConfigurationCommon->pattern1 : NULL;
-  int num_slots_per_period;
-  int last_ul_slot;
-  if (tdd) { // Force the default transmission in a full slot as early as possible in the UL portion of TDD period (last_ul_slot)
-    num_slots_per_period =  n / get_nb_periods_per_frame(tdd->dl_UL_TransmissionPeriodicity);
-    last_ul_slot = 1 + tdd->nrofDownlinkSlots;
-  } else {
-    num_slots_per_period = n;
-    last_ul_slot = sched_ctrl->last_ul_slot;
-  }
+  /**
+   * Force the default transmission in a full slot as early
+   * as possible in the UL portion of TDD period (last_ul_slot) */
+  int num_slots_per_period = fs->numb_slots_period;
 
   const int last_ul_sched = sched_ctrl->last_ul_frame * n + last_ul_slot;
   const int diff = (now - last_ul_sched + 1024 * n) % (1024 * n);
@@ -1856,7 +1854,24 @@ static void pf_ul(module_id_t module_id,
 
     const int B = max(0, sched_ctrl->estimated_ul_buffer - sched_ctrl->sched_ul_bytes);
     /* preprocessor computed sched_frame/sched_slot */
-    const bool do_sched = nr_UE_is_to_be_scheduled(scc, 0, UE, sched_frame, sched_slot, nrmac->ulsch_max_frame_inactivity);
+    int8_t first_ul_slot = 0;
+    if (nrmac->frame_structure.is_tdd) {
+      /* Force the default transmission in a full slot as early
+         as possible in the UL portion of TDD period (first_ul_slot) */
+      if (scc->tdd_UL_DL_ConfigurationCommon->pattern1.nrofUplinkSlots != 0)
+        first_ul_slot = get_first_ul_slot_multi_tdd(scc->tdd_UL_DL_ConfigurationCommon, false);
+      else if (scc->tdd_UL_DL_ConfigurationCommon->pattern2 != NULL)
+        first_ul_slot = get_first_ul_slot_multi_tdd(scc->tdd_UL_DL_ConfigurationCommon, true);
+    } else {
+      first_ul_slot = sched_ctrl->last_ul_slot;
+    }
+    const bool do_sched = nr_UE_is_to_be_scheduled(first_ul_slot,
+                                                   &nrmac->frame_structure,
+                                                   0,
+                                                   UE,
+                                                   sched_frame,
+                                                   sched_slot,
+                                                   nrmac->ulsch_max_frame_inactivity);
 
     LOG_D(NR_MAC,"pf_ul: do_sched UE %04x => %s\n",UE->rnti,do_sched ? "yes" : "no");
     if ((B == 0 && !do_sched) || nr_timer_is_active(&sched_ctrl->transm_interrupt)) {
