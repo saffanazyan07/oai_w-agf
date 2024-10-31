@@ -76,7 +76,10 @@ void prepare_scc(NR_ServingCellConfigCommon_t *scc)
   scc->ssb_periodicityServingCell = calloc_or_fail(1, sizeof(*scc->ssb_periodicityServingCell));
   scc->ssbSubcarrierSpacing = calloc_or_fail(1, sizeof(*scc->ssbSubcarrierSpacing));
   scc->tdd_UL_DL_ConfigurationCommon = calloc_or_fail(1, sizeof(*scc->tdd_UL_DL_ConfigurationCommon));
-  scc->tdd_UL_DL_ConfigurationCommon->pattern2 = calloc_or_fail(1, sizeof(*scc->tdd_UL_DL_ConfigurationCommon->pattern2));
+  struct NR_TDD_UL_DL_ConfigCommon *tdd = scc->tdd_UL_DL_ConfigurationCommon;
+  tdd->pattern1.ext1 = calloc_or_fail(1, sizeof(*tdd->pattern1.ext1));
+  tdd->pattern1.ext1->dl_UL_TransmissionPeriodicity_v1530 =
+      calloc_or_fail(1, sizeof(*tdd->pattern1.ext1->dl_UL_TransmissionPeriodicity_v1530));
   scc->downlinkConfigCommon = calloc_or_fail(1, sizeof(*scc->downlinkConfigCommon));
   scc->downlinkConfigCommon->frequencyInfoDL = calloc_or_fail(1, sizeof(*scc->downlinkConfigCommon->frequencyInfoDL));
   scc->downlinkConfigCommon->initialDownlinkBWP = calloc_or_fail(1, sizeof(*scc->downlinkConfigCommon->initialDownlinkBWP));
@@ -171,6 +174,23 @@ void prepare_msgA_scc(NR_ServingCellConfigCommon_t *scc) {
   NR_MsgA_PUSCH_Resource_r16_t *msgA_PUSCH_Resource = msgA_PUSCH_Config_r16->msgA_PUSCH_ResourceGroupA_r16;
   msgA_PUSCH_Resource->startSymbolAndLengthMsgA_PO_r16 = calloc(1, sizeof(long));
   msgA_PUSCH_Config_r16->msgA_TransformPrecoder_r16 = calloc(1, sizeof(long));
+}
+
+/**
+ * @brief Allocate memory for option IEs in ServingCellConfigCommon
+ */
+static void alloc_scc_optional_IEs(NR_ServingCellConfigCommon_t *scc, bool pattern2Present)
+{
+  LOG_D(GNB_APP, "tdd->pattern2%spresent\n", pattern2Present ? " " : " not ");
+  fflush(stdout);
+  if (pattern2Present) {
+    // NR_TDD-UL-DL-ConfigCommon pattern2
+    struct NR_TDD_UL_DL_ConfigCommon *tdd = scc->tdd_UL_DL_ConfigurationCommon;
+    tdd->pattern2 = calloc_or_fail(1, sizeof(*tdd->pattern2));
+    tdd->pattern2->ext1 = calloc_or_fail(1, sizeof(struct NR_TDD_UL_DL_Pattern__ext1));
+    tdd->pattern2->ext1->dl_UL_TransmissionPeriodicity_v1530 =
+        calloc_or_fail(1, sizeof(*tdd->pattern2->ext1->dl_UL_TransmissionPeriodicity_v1530));
+  }
 }
 
 // Section 4.1 in 38.213
@@ -329,6 +349,41 @@ void fill_scc_sim(NR_ServingCellConfigCommon_t *scc, uint64_t *ssb_bitmap, int N
   scc->ss_PBCH_BlockPower = 20;
 }
 
+static void fix_tdd_pattern(NR_ServingCellConfigCommon_t *scc)
+{
+  NR_TDD_UL_DL_Pattern_t *pattern1 = &scc->tdd_UL_DL_ConfigurationCommon->pattern1;
+  int pattern_ext = pattern1->dl_UL_TransmissionPeriodicity - 8;
+  // Check if the pattern1 extension is configured and set the value accordingly
+  if (pattern_ext >= 0) {
+    pattern1->ext1 = calloc_or_fail(1, sizeof(struct NR_TDD_UL_DL_Pattern__ext1));
+    pattern1->ext1->dl_UL_TransmissionPeriodicity_v1530 =
+        calloc_or_fail(1, sizeof(*pattern1->ext1->dl_UL_TransmissionPeriodicity_v1530));
+    *pattern1->ext1->dl_UL_TransmissionPeriodicity_v1530 = pattern_ext;
+    pattern1->dl_UL_TransmissionPeriodicity = 5;
+  } else {
+    pattern1->ext1 = NULL;
+  }
+  struct NR_TDD_UL_DL_Pattern *pattern2 = scc->tdd_UL_DL_ConfigurationCommon->pattern2;
+  if (pattern2 != NULL) {
+    /* The pattern2 is not configured free the memory these shall not be encoded with default values in SIB1 */
+    if (pattern2->dl_UL_TransmissionPeriodicity == -1) {
+      free(pattern2);
+      pattern2 = NULL;
+    } else {
+      // Check if the pattern2 extension is configured and set the value accordingly
+      pattern_ext = pattern2->dl_UL_TransmissionPeriodicity - 8;
+      if (pattern_ext >= 0) {
+        pattern2->ext1 = calloc_or_fail(1, sizeof(*pattern2->ext1));
+        pattern2->ext1->dl_UL_TransmissionPeriodicity_v1530 =
+            CALLOC(1, sizeof(*pattern2->ext1->dl_UL_TransmissionPeriodicity_v1530));
+        *pattern2->ext1->dl_UL_TransmissionPeriodicity_v1530 = pattern_ext;
+        pattern2->dl_UL_TransmissionPeriodicity = 5;
+      } else {
+        pattern2->ext1 = NULL;
+      }
+    }
+  }
+}
 
 void fix_scc(NR_ServingCellConfigCommon_t *scc, uint64_t ssbmap)
 {
@@ -399,11 +454,7 @@ void fix_scc(NR_ServingCellConfigCommon_t *scc, uint64_t ssbmap)
     ASN_STRUCT_FREE(asn_DEF_NR_TDD_UL_DL_ConfigCommon, scc->tdd_UL_DL_ConfigurationCommon);
     scc->tdd_UL_DL_ConfigurationCommon = NULL;
   } else { // TDD
-    if (scc->tdd_UL_DL_ConfigurationCommon->pattern2->dl_UL_TransmissionPeriodicity > 320 ) {
-      free(scc->tdd_UL_DL_ConfigurationCommon->pattern2);
-      scc->tdd_UL_DL_ConfigurationCommon->pattern2 = NULL;
-    }
-
+    fix_tdd_pattern(scc);
   }
 
   if ((int)*scc->uplinkConfigCommon->initialUplinkBWP->rach_ConfigCommon->choice.setup->msg1_SubcarrierSpacing == -1) {
@@ -977,6 +1028,9 @@ static NR_ServingCellConfigCommon_t *get_scc_config(configmodule_interface_t *cf
   paramdef_t MsgASCCsParams[] = MSGASCCPARAMS_DESC(scc);
   paramlist_def_t SCCsParamList = {GNB_CONFIG_STRING_SERVINGCELLCONFIGCOMMON, NULL, 0};
   paramlist_def_t MsgASCCsParamList = {GNB_CONFIG_STRING_SERVINGCELLCONFIGCOMMON, NULL, 0};
+  // pattern2 (optional IE)
+  struct NR_TDD_UL_DL_Pattern pattern2;
+  paramdef_t SCCsOptIEsParams[] = SCC_PATTERN2_PARAMS_DESC(pattern2);
 
   char aprefix[MAX_OPTNAME_SIZE*2 + 8];
   sprintf(aprefix, "%s.[%i]", GNB_CONFIG_STRING_GNB_LIST, 0);
@@ -987,6 +1041,12 @@ static NR_ServingCellConfigCommon_t *get_scc_config(configmodule_interface_t *cf
     sprintf(aprefix, "%s.[%i].%s.[%i]", GNB_CONFIG_STRING_GNB_LIST,0,GNB_CONFIG_STRING_SERVINGCELLCONFIGCOMMON, 0);
     config_get(cfg, SCCsParams, sizeofArray(SCCsParams), aprefix);
     config_get(cfg, MsgASCCsParams, sizeofArray(MsgASCCsParams), aprefix);
+    // Optional IEs
+    config_get(cfg, SCCsOptIEsParams, sizeofArray(SCCsOptIEsParams), aprefix);
+    bool pattern2Present = config_isparamset(SCCsOptIEsParams, GNB_CONFIG_STRING_DLULTRANSMISSIONPERIODICITY2_IDX) ? true : false;
+    alloc_scc_optional_IEs(scc, pattern2Present);
+    if (pattern2Present)
+      *scc->tdd_UL_DL_ConfigurationCommon->pattern2 = pattern2;
     struct NR_FrequencyInfoDL *frequencyInfoDL = scc->downlinkConfigCommon->frequencyInfoDL;
     LOG_I(RRC,
           "Read in ServingCellConfigCommon (PhysCellId %d, ABSFREQSSB %d, DLBand %d, ABSFREQPOINTA %d, DLBW "
