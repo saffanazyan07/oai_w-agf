@@ -317,7 +317,6 @@ static void config_common(gNB_MAC_INST *nrmac,
   cfg->carrier_config.uplink_bandwidth.value = get_supported_bw_mhz(frequency_range, bw_index);
   cfg->carrier_config.uplink_bandwidth.tl.tag = NFAPI_NR_CONFIG_UPLINK_BANDWIDTH_TAG; // temporary
   cfg->num_tlv++;
-
   int UL_pointA;
   if (frequencyInfoUL->absoluteFrequencyPointA == NULL)
     UL_pointA = frequencyInfoDL->absoluteFrequencyPointA;
@@ -346,7 +345,7 @@ static void config_common(gNB_MAC_INST *nrmac,
   }
 
   uint32_t band = *frequencyInfoDL->frequencyBandList.list.array[0];
-  frequency_range = band < 100 ? FR1 : FR2;
+  frequency_range = (band > 256) ? FR2 : FR1;
 
   frame_type_t frame_type = get_frame_type(*frequencyInfoDL->frequencyBandList.list.array[0], *scc->ssbSubcarrierSpacing);
   nrmac->common_channels[0].frame_type = frame_type;
