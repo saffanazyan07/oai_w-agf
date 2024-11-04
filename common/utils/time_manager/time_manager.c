@@ -184,6 +184,7 @@ void time_manager_start(time_manager_client_t client_type,
 
   /* create entities, according to selected configuration */
   time_source = new_time_source(time_source_type);
+  time_source_set_callback(time_source, tick, NULL);
 
   if (has_time_server) {
     time_server = new_time_server(server_ip, server_port, tick, NULL);
