@@ -1206,6 +1206,60 @@ const nr_a3_event_t *get_a3_configuration(int pci)
   return NULL;
 }
 
+static void get_gap_config_from_smtc(const NR_SSB_MTC_t *ssb_mtc, NR_GapConfig_t *gap_config)
+{
+  // mgta = Measurement Gap Timing Advance, to provide sufficient time for the UE to re-tune its transceiver
+  // This allows the Measurement Gap to extend mgta ms either side of the SS/PBCH Measurement Window.
+  gap_config->mgta = NR_GapConfig__mgta_ms0dot5;
+
+  // mgrp = Measurement Gap Repetition Period
+  // gapOffset = It defines the start of the Measurement Gaps relative to the start of the radio frame with SFN = 0
+  // The Measurement Gaps need to be synchronized with the SS/PBCH transmissions which are to be measured
+  switch (ssb_mtc->periodicityAndOffset.present) {
+    case NR_SSB_MTC__periodicityAndOffset_PR_sf20:
+      gap_config->mgrp = NR_GapConfig__mgrp_ms20;
+      gap_config->gapOffset = ssb_mtc->periodicityAndOffset.choice.sf20;
+      break;
+    case NR_SSB_MTC__periodicityAndOffset_PR_sf40:
+      gap_config->mgrp = NR_GapConfig__mgrp_ms40;
+      gap_config->gapOffset = ssb_mtc->periodicityAndOffset.choice.sf40;
+      break;
+    case NR_SSB_MTC__periodicityAndOffset_PR_sf80:
+      gap_config->mgrp = NR_GapConfig__mgrp_ms80;
+      gap_config->gapOffset = ssb_mtc->periodicityAndOffset.choice.sf80;
+      break;
+    case NR_SSB_MTC__periodicityAndOffset_PR_sf160:
+      gap_config->mgrp = NR_GapConfig__mgrp_ms160;
+      gap_config->gapOffset = ssb_mtc->periodicityAndOffset.choice.sf160;
+      break;
+    default:
+      LOG_E(NR_RRC, "SMTC periodicity higher than MGRP\n");
+      gap_config->mgrp = NR_GapConfig__mgrp_ms20;
+      gap_config->gapOffset = 0;
+      if (ssb_mtc->periodicityAndOffset.present == NR_SSB_MTC__periodicityAndOffset_PR_sf5) {
+        gap_config->gapOffset = ssb_mtc->periodicityAndOffset.choice.sf5;
+      } else if (ssb_mtc->periodicityAndOffset.present == NR_SSB_MTC__periodicityAndOffset_PR_sf10) {
+        gap_config->gapOffset = ssb_mtc->periodicityAndOffset.choice.sf10;
+      }
+  }
+
+  // mgl = Measurement Gap Length, which we assume to be at least the duration of the SMTC plus 2 times the mgta
+  switch (ssb_mtc->duration) {
+    case NR_SSB_MTC__duration_sf1:
+    case NR_SSB_MTC__duration_sf2:
+      gap_config->mgl = NR_GapConfig__mgl_ms3;
+      break;
+    case NR_SSB_MTC__duration_sf3:
+      gap_config->mgl = NR_GapConfig__mgl_ms4;
+      break;
+    case NR_SSB_MTC__duration_sf4:
+      gap_config->mgl = NR_GapConfig__mgl_ms5dot5;
+      break;
+    default:
+      gap_config->mgl = NR_GapConfig__mgl_ms6;
+  }
+}
+
 NR_MeasConfig_t *get_MeasConfig(const NR_MeasTiming_t *mt,
                                 int band,
                                 int scs,
@@ -1328,6 +1382,15 @@ NR_MeasConfig_t *get_MeasConfig(const NR_MeasTiming_t *mt,
   asn1cCallocOne(qcnr->quantityConfigCell.csi_RS_FilterConfig.filterCoefficientRSRP, NR_FilterCoefficient_fc6);
   asn1cSeqAdd(&mc->quantityConfig->quantityConfigNR_List->list, qcnr);
 
+  if (ssb_mtc) {
+    mc->measGapConfig = calloc(1, sizeof(*mc->measGapConfig));
+    mc->measGapConfig->ext1 = calloc(1, sizeof(*mc->measGapConfig->ext1));
+    mc->measGapConfig->ext1->gapUE = calloc(1, sizeof(*mc->measGapConfig->ext1->gapUE));
+    mc->measGapConfig->ext1->gapUE->present = NR_SetupRelease_GapConfig_PR_setup;
+    mc->measGapConfig->ext1->gapUE->choice.setup = calloc(1, sizeof(*mc->measGapConfig->ext1->gapUE->choice.setup));
+    get_gap_config_from_smtc(ssb_mtc, mc->measGapConfig->ext1->gapUE->choice.setup);
+  }
+  
   return mc;
 }
 
