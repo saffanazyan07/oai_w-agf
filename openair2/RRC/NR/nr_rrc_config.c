@@ -32,6 +32,7 @@
 #include "nr_rrc_config.h"
 #include "common/utils/nr/nr_common.h"
 #include "openair2/LAYER2/NR_MAC_gNB/nr_mac_gNB.h"
+#include "openair2/LAYER2/NR_MAC_gNB/mac_proto.h"
 #include "executables/softmodem-common.h"
 #include "oai_asn1.h"
 #include "SIMULATION/TOOLS/sim.h" // for taus();
@@ -54,6 +55,29 @@ int get_first_ul_slot_multi_tdd(const struct NR_TDD_UL_DL_ConfigCommon *tdd, boo
     return (p1->nrofDownlinkSlots + (p1->nrofDownlinkSymbols != 0 || p1->nrofUplinkSymbols != 0) + p1->nrofUplinkSlots
             + p2->nrofDownlinkSlots + (p2->nrofDownlinkSymbols != 0 && p2->nrofUplinkSlots == 0));
   }
+}
+
+static int get_offset(const NR_ServingCellConfigCommon_t *scc, int uid, bool is_rsrp)
+{
+  frame_structure_t *fs = &RC.nrmac[0]->frame_structure;
+  int first_ul_slot_period = 0;
+  const int idx = is_rsrp ? (uid << 1) + 1 : uid;
+  const int n_ul_slots_period = get_ul_slots_per_period(fs);
+  if (fs->is_tdd) {
+    NR_TDD_UL_DL_Pattern_t *pattern1 = &scc->tdd_UL_DL_ConfigurationCommon->pattern1;
+    int ul_slots_pattern1 = pattern1->nrofUplinkSlots + (pattern1->nrofUplinkSymbols > 0);
+    if (ul_slots_pattern1 && ((idx % n_ul_slots_period) <= ul_slots_pattern1)) {
+      // Compute offset for pattern1
+      first_ul_slot_period = get_first_ul_slot_multi_tdd(scc->tdd_UL_DL_ConfigurationCommon, false);
+      return first_ul_slot_period + idx % n_ul_slots_period + (idx / n_ul_slots_period) * fs->numb_slots_period;
+    } else if (scc->tdd_UL_DL_ConfigurationCommon->pattern2) {
+      // Compute offset for pattern2
+      first_ul_slot_period = get_first_ul_slot_multi_tdd(scc->tdd_UL_DL_ConfigurationCommon, true);
+      return first_ul_slot_period + (idx % scc->tdd_UL_DL_ConfigurationCommon->pattern2->nrofUplinkSlots)
+             + (idx / n_ul_slots_period) * fs->numb_slots_period;
+    }
+  }
+  return 0;
 }
 
 static NR_BWP_t clone_generic_parameters(const NR_BWP_t *gp)
@@ -291,9 +315,13 @@ static uint64_t get_ssb_bitmap(const NR_ServingCellConfigCommon_t *scc)
   return bitmap;
 }
 
-static int set_ideal_period(const int n_slots_period, const int n_ul_slots_period)
+static int set_ideal_period(bool is_csi)
 {
-  return MAX_MOBILES_PER_GNB * 2 * n_slots_period / n_ul_slots_period; // 2 reports per UE
+  const frame_structure_t *fs = &RC.nrmac[0]->frame_structure;
+  const int nb_slots_per_period = fs->numb_slots_period;
+  const int n_ul_slots_per_period = get_ul_slots_per_period(fs);
+  // 2 reports per UE for CSI report
+  return is_csi ? MAX_MOBILES_PER_GNB * 2 * nb_slots_per_period / n_ul_slots_per_period : nb_slots_per_period * MAX_MOBILES_PER_GNB;
 }
 
 static void set_csirs_periodicity(NR_NZP_CSI_RS_Resource_t *nzpcsi0,
@@ -369,16 +397,6 @@ static void config_csirs(const NR_ServingCellConfigCommon_t *servingcellconfigco
     nzpcsirs0->aperiodicTriggeringOffset = NULL;
     nzpcsirs0->trs_Info = NULL;
     asn1cSeqAdd(&csi_MeasConfig->nzp_CSI_RS_ResourceSetToAddModList->list,nzpcsirs0);
-
-    const NR_TDD_UL_DL_Pattern_t *tdd = servingcellconfigcommon->tdd_UL_DL_ConfigurationCommon ?
-                                        &servingcellconfigcommon->tdd_UL_DL_ConfigurationCommon->pattern1 : NULL;
-
-    const int n_slots_frame = slotsperframe[*servingcellconfigcommon->ssbSubcarrierSpacing];
-    const int nb_slots_per_period = tdd ? n_slots_frame/get_nb_periods_per_frame(tdd->dl_UL_TransmissionPeriodicity): n_slots_frame;
-    const int nb_dl_slots_period = tdd ? tdd->nrofDownlinkSlots : n_slots_frame;
-    const int n_ul_slots_period = tdd ? (tdd->nrofUplinkSlots + (tdd->nrofUplinkSymbols > 0)) : n_slots_frame;
-    const int ideal_period = set_ideal_period(nb_slots_per_period, n_ul_slots_period); // same periodicity as CSI measurement report
-
     if(!csi_MeasConfig->nzp_CSI_RS_ResourceToAddModList)
       csi_MeasConfig->nzp_CSI_RS_ResourceToAddModList = calloc(1,sizeof(*csi_MeasConfig->nzp_CSI_RS_ResourceToAddModList));
     NR_NZP_CSI_RS_Resource_t *nzpcsi0 = calloc(1,sizeof(*nzpcsi0));
@@ -427,7 +445,12 @@ static void config_csirs(const NR_ServingCellConfigCommon_t *servingcellconfigco
     nzpcsi0->powerControlOffsetSS = calloc(1,sizeof(*nzpcsi0->powerControlOffsetSS));
     *nzpcsi0->powerControlOffsetSS = NR_NZP_CSI_RS_Resource__powerControlOffsetSS_db0;
     nzpcsi0->scramblingID = *servingcellconfigcommon->physCellId;
-    set_csirs_periodicity(nzpcsi0, id, ideal_period, nb_slots_per_period, nb_dl_slots_period);
+
+    const int ideal_period = set_ideal_period(true); // same periodicity as CSI measurement report
+    const frame_structure_t *fs = &(RC.nrmac[0]->frame_structure);
+    const int nb_dl_slots_period = get_dl_slots_per_period(fs);
+    set_csirs_periodicity(nzpcsi0, id, ideal_period, fs->numb_slots_period, nb_dl_slots_period);
+
     nzpcsi0->qcl_InfoPeriodicCSI_RS = calloc(1,sizeof(*nzpcsi0->qcl_InfoPeriodicCSI_RS));
     *nzpcsi0->qcl_InfoPeriodicCSI_RS = 0;
     asn1cSeqAdd(&csi_MeasConfig->nzp_CSI_RS_ResourceToAddModList->list,nzpcsi0);
@@ -608,15 +631,11 @@ long rrc_get_max_nr_csrs(const int max_rbs, const long b_SRS) {
 static struct NR_SRS_Resource__resourceType__periodic *configure_periodic_srs(const NR_ServingCellConfigCommon_t *scc,
                                                                               const int uid)
 {
-
-  const NR_TDD_UL_DL_Pattern_t *tdd = scc->tdd_UL_DL_ConfigurationCommon ? &scc->tdd_UL_DL_ConfigurationCommon->pattern1 : NULL;
-  const int n_slots_frame = slotsperframe[*scc->ssbSubcarrierSpacing];
-  const int ul_slots_period = tdd ? tdd->nrofUplinkSlots : n_slots_frame;
-  const int n_slots_period = tdd ? n_slots_frame/get_nb_periods_per_frame(tdd->dl_UL_TransmissionPeriodicity) : n_slots_frame;
-  const int first_full_ul_slot = n_slots_period - ul_slots_period;
-  const int ideal_period = n_slots_period * MAX_MOBILES_PER_GNB;
-  const int offset = first_full_ul_slot + (uid % ul_slots_period) + (n_slots_period * (uid / ul_slots_period));
+  int offset = get_offset(scc, uid, false);
   AssertFatal(offset < 2560, "Cannot allocate SRS configuration for uid %d, not enough resources\n", uid);
+
+  const int ideal_period = set_ideal_period(false);
+
   struct NR_SRS_Resource__resourceType__periodic *periodic_srs = calloc(1,sizeof(*periodic_srs));
   if (ideal_period < 5) {
     periodic_srs->periodicityAndOffset_p.present = NR_SRS_PeriodicityAndOffset_PR_sl4;
@@ -1614,46 +1633,42 @@ static void set_phr_config(NR_MAC_CellGroupConfig_t *mac_CellGroupConfig)
 
 static void set_csi_meas_periodicity(const NR_ServingCellConfigCommon_t *scc, NR_CSI_ReportConfig_t *csirep, int uid, bool is_rsrp)
 {
-  const NR_TDD_UL_DL_Pattern_t *tdd = scc->tdd_UL_DL_ConfigurationCommon ? &scc->tdd_UL_DL_ConfigurationCommon->pattern1 : NULL;
-  const int n_slots_frame = slotsperframe[*scc->ssbSubcarrierSpacing];
-  const int n_ul_slots_period = tdd ? (tdd->nrofUplinkSlots + (tdd->nrofUplinkSymbols > 0)) : n_slots_frame;
-  const int n_slots_period = tdd ? n_slots_frame / get_nb_periods_per_frame(tdd->dl_UL_TransmissionPeriodicity) : n_slots_frame;
-  const int ideal_period = set_ideal_period(n_slots_period, n_ul_slots_period);
-  const int first_ul_slot_period = tdd ? get_first_ul_slot(tdd->nrofDownlinkSlots, tdd->nrofDownlinkSymbols, tdd->nrofUplinkSymbols) : 0;
-  const int idx = (uid << 1) + is_rsrp;
-  const int offset = first_ul_slot_period + idx % n_ul_slots_period + (idx / n_ul_slots_period) * n_slots_period;
+  const int ideal_period = set_ideal_period(true);
+  int offset = get_offset(scc, uid, is_rsrp);
+  LOG_D(NR_MAC, "set_csi_meas_periodicity: uid = %d, offset = %d, ideal_period = %d", uid, offset, ideal_period);
   AssertFatal(offset < 320, "Not enough UL slots to accomodate all possible UEs. Need to rework the implementation\n");
 
+  NR_CSI_ReportPeriodicityAndOffset_t *reportSlotConfig = &csirep->reportConfigType.choice.periodic->reportSlotConfig;
   if (ideal_period < 5) {
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.present = NR_CSI_ReportPeriodicityAndOffset_PR_slots4;
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.choice.slots4 = offset;
+    reportSlotConfig->present = NR_CSI_ReportPeriodicityAndOffset_PR_slots4;
+    reportSlotConfig->choice.slots4 = offset;
   } else if (ideal_period < 6) {
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.present = NR_CSI_ReportPeriodicityAndOffset_PR_slots5;
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.choice.slots5 = offset;
+    reportSlotConfig->present = NR_CSI_ReportPeriodicityAndOffset_PR_slots5;
+    reportSlotConfig->choice.slots5 = offset;
   } else if (ideal_period < 9) {
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.present = NR_CSI_ReportPeriodicityAndOffset_PR_slots8;
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.choice.slots8 = offset;
+    reportSlotConfig->present = NR_CSI_ReportPeriodicityAndOffset_PR_slots8;
+    reportSlotConfig->choice.slots8 = offset;
   } else if (ideal_period < 11) {
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.present = NR_CSI_ReportPeriodicityAndOffset_PR_slots10;
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.choice.slots10 = offset;
+    reportSlotConfig->present = NR_CSI_ReportPeriodicityAndOffset_PR_slots10;
+    reportSlotConfig->choice.slots10 = offset;
   } else if (ideal_period < 17) {
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.present = NR_CSI_ReportPeriodicityAndOffset_PR_slots16;
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.choice.slots16 = offset;
+    reportSlotConfig->present = NR_CSI_ReportPeriodicityAndOffset_PR_slots16;
+    reportSlotConfig->choice.slots16 = offset;
   } else if (ideal_period < 21) {
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.present = NR_CSI_ReportPeriodicityAndOffset_PR_slots20;
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.choice.slots20 = offset;
+    reportSlotConfig->present = NR_CSI_ReportPeriodicityAndOffset_PR_slots20;
+    reportSlotConfig->choice.slots20 = offset;
   } else if (ideal_period < 41) {
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.present = NR_CSI_ReportPeriodicityAndOffset_PR_slots40;
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.choice.slots40 = offset;
+    reportSlotConfig->present = NR_CSI_ReportPeriodicityAndOffset_PR_slots40;
+    reportSlotConfig->choice.slots40 = offset;
   } else if (ideal_period < 81) {
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.present = NR_CSI_ReportPeriodicityAndOffset_PR_slots80;
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.choice.slots80 = offset;
+    reportSlotConfig->present = NR_CSI_ReportPeriodicityAndOffset_PR_slots80;
+    reportSlotConfig->choice.slots80 = offset;
   } else if (ideal_period < 161) {
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.present = NR_CSI_ReportPeriodicityAndOffset_PR_slots160;
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.choice.slots160 = offset;
+    reportSlotConfig->present = NR_CSI_ReportPeriodicityAndOffset_PR_slots160;
+    reportSlotConfig->choice.slots160 = offset;
   } else {
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.present = NR_CSI_ReportPeriodicityAndOffset_PR_slots320;
-    csirep->reportConfigType.choice.periodic->reportSlotConfig.choice.slots320 = offset;
+    reportSlotConfig->present = NR_CSI_ReportPeriodicityAndOffset_PR_slots320;
+    reportSlotConfig->choice.slots320 = offset;
   }
 }
 
