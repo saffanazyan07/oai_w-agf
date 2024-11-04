@@ -71,6 +71,8 @@ def CreateWorkspace(host, sourcePath, ranRepository, ranCommitID, ranTargetBranc
 	return ret.returncode == 0
 
 def CreateTag(ranCommitID, ranBranch, ranAllowMerge):
+	if ranCommitID == 'develop':
+		return 'develop'
 	shortCommit = ranCommitID[0:8]
 	if ranAllowMerge:
 		# Allowing contributor to have a name/branchName format
@@ -180,17 +182,17 @@ def GetContainerHealth(ssh, containerName):
 	return False
 
 def ExistEnvFilePrint(ssh, wd, prompt='env vars in existing'):
-	ret = ssh.run(f'cat {wd}/.env', silent=True)
+	ret = ssh.run(f'cat {wd}/.env', silent=True, reportNonZero=False)
 	if ret.returncode != 0:
 		return False
 	env_vars = ret.stdout.strip().splitlines()
 	logging.info(f'{prompt} {wd}/.env: {env_vars}')
 	return True
 
-def WriteEnvFile(ssh, services, wd, tag):
-	ret = ssh.run(f'cat {wd}/.env', silent=True)
+def WriteEnvFile(ssh, services, wd, tag, flexric_tag):
+	ret = ssh.run(f'cat {wd}/.env', silent=True, reportNonZero=False)
 	registry = "oai-ci" # pull_images() gives us this registry path
-	envs = {"REGISTRY":registry, "TAG": tag}
+	envs = {"REGISTRY":registry, "TAG": tag, "FLEXRIC_TAG": flexric_tag}
 	if ret.returncode == 0: # it exists, we have to update
 		# transforms env file to dictionary
 		old_envs = {}
@@ -231,7 +233,6 @@ def CopyinContainerLog(ssh, lSourcePath, yaml, containerName, filename):
 	remote_filename = f"{lSourcePath}/cmake_targets/log/{filename}"
 	ssh.run(f'docker logs {containerName} &> {remote_filename}')
 	local_dir = f"{os.getcwd()}/../cmake_targets/log/{yaml}"
-	os.system(f'mkdir -p {local_dir}')
 	local_filename = f"{local_dir}/{filename}"
 	return ssh.copyin(remote_filename, local_filename)
 
@@ -349,6 +350,8 @@ class Containerize():
 		self.imageToPull = []
 		#checkers from xml
 		self.ran_checkers={}
+
+		self.flexricTag = 'develop'
 
 #-----------------------------------------------------------
 # Container management functions
@@ -893,8 +896,11 @@ class Containerize():
 			return False
 		pulled_images = []
 		for image in self.imageToPull:
-			tagToUse = CreateTag(self.ranCommitID, self.ranBranch, self.ranAllowMerge)
-			imageTag = f"{image}:{tagToUse}"
+			if image == 'oai-flexric':
+				imageTag = f"{image}:{self.flexricTag}"
+			else:
+				tagToUse = CreateTag(self.ranCommitID, self.ranBranch, self.ranAllowMerge)
+				imageTag = f"{image}:{tagToUse}"
 			cmd = f'docker pull {imagePrefix}/{imageTag}'
 			response = myCmd.run(cmd, timeout=120)
 			if response.returncode != 0:
@@ -947,9 +953,15 @@ class Containerize():
 			logging.debug('Removing test images locally')
 			myCmd = cls_cmd.LocalCmd()
 
-		for image in IMAGES:
-			tag = CreateTag(self.ranCommitID, self.ranBranch, self.ranAllowMerge)
-			imageTag = f"{image}:{tag}"
+		# Adding the flexric image to list of CI images to clean
+		ciImages = IMAGES.copy()
+		ciImages.append('oai-flexric')
+		for image in ciImages:
+			if image == 'oai-flexric':
+				imageTag = f"{image}:{self.flexricTag}"
+			else:
+				tag = CreateTag(self.ranCommitID, self.ranBranch, self.ranAllowMerge)
+				imageTag = f"{image}:{tag}"
 			cmd = f'docker rmi oai-ci/{imageTag}'
 			myCmd.run(cmd, reportNonZero=False)
 
@@ -991,6 +1003,9 @@ class Containerize():
 			sys.exit('Insufficient Parameter')
 		logging.debug('\u001B[1m Deploying OAI Object on server: ' + lIpAddr + '\u001B[0m')
 		yaml = self.yamlPath[self.eNB_instance].strip('/')
+		# creating the log folder by default
+		local_dir = f"{os.getcwd()}/../cmake_targets/log/{yaml.split('/')[-1]}"
+		os.system(f'mkdir -p {local_dir}')
 		wd = f'{lSourcePath}/{yaml}'
 
 		with cls_cmd.getConnection(lIpAddr) as ssh:
@@ -1002,7 +1017,7 @@ class Containerize():
 				return False
 
 			ExistEnvFilePrint(ssh, wd)
-			WriteEnvFile(ssh, services, wd, self.deploymentTag)
+			WriteEnvFile(ssh, services, wd, self.deploymentTag, self.flexricTag)
 
 			logging.info(f"will start services {services}")
 			status = ssh.run(f'docker compose -f {wd}/docker-compose.y*ml up -d -- {services}')
