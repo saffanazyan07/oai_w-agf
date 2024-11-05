@@ -3244,7 +3244,7 @@ void send_initial_ul_rrc_message(int rnti, const uint8_t *sdu, sdu_size_t sdu_le
 static void handle_ue_rlf(int rnti)
 {
   gNB_MAC_INST *mac = RC.nrmac[0];
-  NR_SCHED_LOCK(&mac->sched_lock);
+  NR_SCHED_ENSURE_LOCKED(&mac->sched_lock);
   NR_UE_info_t *UE = find_nr_UE(&mac->UE_info, rnti);
   if (!UE) {
     LOG_E(NR_MAC, "cannot find UE %04x\n", rnti);
@@ -3252,7 +3252,6 @@ static void handle_ue_rlf(int rnti)
     return;
   }
   nr_mac_trigger_ul_failure(&UE->UE_sched_ctrl, UE->current_UL_BWP.scs);
-  NR_SCHED_UNLOCK(&mac->sched_lock);
 }
 
 bool prepare_initial_ul_rrc_message(gNB_MAC_INST *mac, NR_UE_info_t *UE)
