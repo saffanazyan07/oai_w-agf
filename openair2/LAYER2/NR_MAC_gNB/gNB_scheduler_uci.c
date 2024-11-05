@@ -384,12 +384,14 @@ int get_pucch_resourceid(NR_PUCCH_Config_t *pucch_Config, int O_uci, int pucch_r
 static void handle_dl_harq(NR_UE_info_t * UE,
                            int8_t harq_pid,
                            bool success,
-                           int harq_round_max)
+                           int harq_round_max,
+                           uint harq_confidence)
 {
   NR_UE_sched_ctrl_t *sched_ctrl = &UE->UE_sched_ctrl;
   NR_UE_harq_t *harq = &sched_ctrl->harq_processes[harq_pid];
   harq->feedback_slot = -1;
   harq->is_waiting = false;
+  nr_mac_update_pdcch_closed_loop_adjust(sched_ctrl, harq_confidence != 0 && !success);
   if (success) {
     finish_nr_dl_harq(sched_ctrl, harq_pid);
   } else if (harq->round >= harq_round_max - 1) {
@@ -988,7 +990,7 @@ static NR_UE_harq_t *find_harq(frame_t frame, sub_frame_t slot, NR_UE_info_t * U
           frame,
           slot);
     remove_front_nr_list(&sched_ctrl->feedback_dl_harq);
-    handle_dl_harq(UE, pid, 0, harq_round_max);
+    handle_dl_harq(UE, pid, 0, harq_round_max, 0);
     pid = sched_ctrl->feedback_dl_harq.head;
     if (pid < 0)
       return NULL;
@@ -1040,7 +1042,7 @@ void handle_nr_uci_pucch_0_1(module_id_t mod_id,
       const int8_t pid = sched_ctrl->feedback_dl_harq.head;
       remove_front_nr_list(&sched_ctrl->feedback_dl_harq);
       LOG_D(NR_MAC,"%4d.%2d bit %d pid %d ack/nack %d\n",frame, slot, harq_bit,pid,harq_value);
-      handle_dl_harq(UE, pid, harq_value == 0 && harq_confidence == 0, nrmac->dl_bler.harq_round_max);
+      handle_dl_harq(UE, pid, harq_value == 0 && harq_confidence == 0, nrmac->dl_bler.harq_round_max, harq_confidence);
       if (!UE->Msg4_MsgB_ACKed && harq_value == 0 && harq_confidence == 0)
         UE->Msg4_MsgB_ACKed = true;
       if (harq_confidence == 1)  UE->mac_stats.pucch0_DTX++;
@@ -1113,7 +1115,7 @@ void handle_nr_uci_pucch_2_3_4(module_id_t mod_id,
       const int8_t pid = sched_ctrl->feedback_dl_harq.head;
       remove_front_nr_list(&sched_ctrl->feedback_dl_harq);
       LOG_D(NR_MAC,"%4d.%2d bit %d pid %d ack/nack %d\n",frame, slot, harq_bit, pid, acknack);
-      handle_dl_harq(UE, pid, uci_234->harq.harq_crc != 1 && acknack, nrmac->dl_bler.harq_round_max);
+      handle_dl_harq(UE, pid, uci_234->harq.harq_crc != 1 && acknack, nrmac->dl_bler.harq_round_max, 0);
     }
     free(uci_234->harq.harq_payload);
   }

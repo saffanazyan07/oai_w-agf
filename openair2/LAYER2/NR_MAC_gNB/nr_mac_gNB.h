@@ -673,6 +673,10 @@ typedef struct {
 
   /// per-LC configuration
   seq_arr_t lc_config;
+
+  // pdcch closed loop adjust for PDCCH aggregation level, range <0, 1>
+  // 0 - good channel, 1 - bad channel
+  float pdcch_cl_adjust;
 } NR_UE_sched_ctrl_t;
 
 typedef struct {
