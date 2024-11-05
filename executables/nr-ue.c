@@ -39,6 +39,7 @@
 #include "RRC/NR/MESSAGES/asn1_msg.h"
 #include "openair1/PHY/TOOLS/phy_scope_interface.h"
 #include "PHY/MODULATION/nr_modulation.h"
+#include "position_interface.h"
 
 /*
  *  NR SLOT PROCESSING SEQUENCE
@@ -146,8 +147,8 @@ void init_nr_ue_vars(PHY_VARS_NR_UE *ue, uint8_t UE_id)
   ue->if_inst     = nr_ue_if_module_init(UE_id);
   ue->dci_thres   = 0;
   ue->target_Nid_cell = -1;
-  ue->timing_advance = ue->frame_parms.samples_per_subframe * get_nrUE_params()->ntn_ta_common;
 
+  config_position_coordinates(UE_id);
   // initialize all signal buffers
   init_nr_ue_signal(ue, nb_connected_gNB);
 
@@ -588,7 +589,7 @@ void processSlotTX(void *arg)
   int *msgData = (int *)NotifiedFifoData(newElt);
   int slots_per_frame = (UE->sl_mode == 2) ? UE->SL_UE_PHY_PARAMS.sl_frame_params.slots_per_frame
                                            : UE->frame_parms.slots_per_frame;
-  int newslot = (proc->nr_slot_tx + 1) % slots_per_frame;
+  int newslot = (proc->nr_slot_tx + 1 + proc->nr_slot_tx_offset) % slots_per_frame;
   *msgData = newslot;
   pushNotifiedFIFO(UE->tx_resume_ind_fifo + newslot, newElt);
   RU_write(rxtxD, sl_tx_action);
@@ -837,10 +838,18 @@ void *UE_thread(void *arg)
       readFrame(UE, &tmp, true);
   }
 
+  double ntn_ta_common = GET_COMPLETE_TIME_ADVANCE_MS(mac);
+  int ntn_koffset = GET_NTN_UE_K_OFFSET(mac, 0);
+
+  int duration_rx_to_tx = GET_DURATION_RX_TO_TX(mac);
+  int nr_slot_tx_offset = 0;
+  bool update_ntn_system_information = false;
+  bool apply_duration_next_run = false;
+
   while (!oai_exit) {
+    nr_slot_tx_offset = 0;
     if (syncRunning) {
       notifiedFIFO_elt_t *res=tryPullTpool(&nf,&(get_nrUE_params()->Tpool));
-
       if (res) {
         syncRunning = false;
         if (UE->is_synchronized) {
@@ -908,7 +917,7 @@ void *UE_thread(void *arg)
       openair0_write_reorder_clear_context(&UE->rfdevice);
       if (get_nrUE_params()->time_sync_I)
         // ntn_ta_commondrift is in µs/s, max_pos_acc * time_sync_I is in samples/frame
-        UE->max_pos_acc = get_nrUE_params()->ntn_ta_commondrift * 1e-6 * fp->samples_per_frame / get_nrUE_params()->time_sync_I;
+        UE->max_pos_acc = mac->ntn_ta.ntn_ta_commondrift * 1e-6 * fp->samples_per_frame / get_nrUE_params()->time_sync_I;
       else
         UE->max_pos_acc = 0;
       shiftForNextFrame = -(UE->init_sync_frame + trashed_frames + 2) * UE->max_pos_acc * get_nrUE_params()->time_sync_I; // compensate for the time drift that happened during initial sync
@@ -946,14 +955,29 @@ void *UE_thread(void *arg)
     // start of normal case, the UE is in sync
     absolute_slot++;
 
+    if (update_ntn_system_information) {
+      update_ntn_system_information = false;
+      int ta_offset = UE->frame_parms.samples_per_subframe * (GET_COMPLETE_TIME_ADVANCE_MS(mac) - ntn_ta_common);
+
+      UE->timing_advance += ta_offset;
+      ntn_ta_common = GET_COMPLETE_TIME_ADVANCE_MS(mac);
+      ntn_koffset = GET_NTN_UE_K_OFFSET(mac, 0);
+      timing_advance = ntn_koffset * (UE->frame_parms.samples_per_subframe >> mac->current_UL_BWP->scs);
+    }
+
+    if (ntn_koffset != (GET_NTN_UE_K_OFFSET(mac, 0)) && ntn_ta_common != GET_COMPLETE_TIME_ADVANCE_MS(mac)) {
+      update_ntn_system_information = true;
+      nr_slot_tx_offset = mac->ntn_ta.cell_specific_k_offset % nb_slot_frame;
+    }
+
     int slot_nr = absolute_slot % nb_slot_frame;
     nr_rxtx_thread_data_t curMsg = {0};
     curMsg.UE=UE;
     // update thread index for received subframe
     curMsg.proc.nr_slot_rx  = slot_nr;
-    curMsg.proc.nr_slot_tx  = (absolute_slot + DURATION_RX_TO_TX) % nb_slot_frame;
+    curMsg.proc.nr_slot_tx  = (absolute_slot + duration_rx_to_tx) % nb_slot_frame;
     curMsg.proc.frame_rx    = (absolute_slot / nb_slot_frame) % MAX_FRAME_NUMBER;
-    curMsg.proc.frame_tx    = ((absolute_slot + DURATION_RX_TO_TX) / nb_slot_frame) % MAX_FRAME_NUMBER;
+    curMsg.proc.frame_tx    = ((absolute_slot + duration_rx_to_tx) / nb_slot_frame) % MAX_FRAME_NUMBER;
     if (UE->received_config_request) {
       if (UE->sl_mode) {
         curMsg.proc.rx_slot_type = sl_nr_ue_slot_select(sl_cfg, curMsg.proc.nr_slot_rx, TDD);
@@ -1006,11 +1030,11 @@ void *UE_thread(void *arg)
     }
 
     // use previous timing_advance value to compute writeTimestamp
-    const openair0_timestamp writeTimestamp = rx_timestamp + fp->get_samples_slot_timestamp(slot_nr, fp, DURATION_RX_TO_TX)
+    const openair0_timestamp writeTimestamp = rx_timestamp + fp->get_samples_slot_timestamp(slot_nr, fp, duration_rx_to_tx)
                                               - firstSymSamp - UE->N_TA_offset - timing_advance;
 
     // but use current UE->timing_advance value to compute writeBlockSize
-    int writeBlockSize = fp->get_samples_per_slot((slot_nr + DURATION_RX_TO_TX) % nb_slot_frame, fp) - iq_shift_to_apply;
+    int writeBlockSize = fp->get_samples_per_slot((slot_nr + duration_rx_to_tx) % nb_slot_frame, fp) - iq_shift_to_apply;
     if (UE->timing_advance != timing_advance) {
       writeBlockSize -= UE->timing_advance - timing_advance;
       timing_advance = UE->timing_advance;
@@ -1040,7 +1064,18 @@ void *UE_thread(void *arg)
     curMsgTx->stream_status = stream_status;
     stream_status = STREAM_STATUS_SYNCED;
     tx_wait_for_dlsch[curMsgTx->proc.nr_slot_tx] = 0;
+    curMsgTx->proc.nr_slot_tx_offset = nr_slot_tx_offset;
     pushTpool(&(get_nrUE_params()->Tpool), newTx);
+
+    // apply new duration next run to avoid thread dead lock
+    if (apply_duration_next_run) {
+      duration_rx_to_tx = GET_DURATION_RX_TO_TX(mac);
+      apply_duration_next_run = false;
+    }
+
+    if (duration_rx_to_tx != GET_DURATION_RX_TO_TX(mac)) {
+      apply_duration_next_run = true;
+    }
   }
 
   return NULL;
