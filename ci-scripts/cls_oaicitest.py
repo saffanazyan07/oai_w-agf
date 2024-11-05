@@ -43,7 +43,6 @@ import json
 #import our libs
 import helpreadme as HELP
 import constants as CONST
-import sshconnection
 
 import cls_module
 import cls_cmd
@@ -895,55 +894,43 @@ class OaiCiTest():
 			SourceCodePath = self.UESourceCodePath
 		else:
 			sys.exit('Insufficient Parameter')
-		SSH = sshconnection.SSHConnection()
-		SSH.open(IPAddress, UserName, Password)
-		SSH.command(f'cd {SourceCodePath}', '\$', 5)
-		SSH.command('cd cmake_targets', '\$', 5)
-		SSH.command('rm -f build.log.zip', '\$', 5)
-		SSH.command('zip -r build.log.zip build_log_*/*', '\$', 60)
-		SSH.close()
+		with cls_cmd.getConnection(IPAddress) as cmd:
+			cmd.run(f'cd {SourceCodePath}/cmake_targets')
+			cmd.run('rm -f build.log.zip')
+			cmd.run('zip -r build.log.zip build_log_*/*')
 
 	def LogCollectPing(self,EPC):
 		# Some pipelines are using "none" IP / Credentials
 		# In that case, just forget about it
 		if EPC.IPAddress == 'none':
 			sys.exit(0)
-		SSH = sshconnection.SSHConnection()
-		SSH.open(EPC.IPAddress, EPC.UserName, EPC.Password)
-		SSH.command(f'cd {EPC.SourceCodePath}', '\$', 5)
-		SSH.command('cd scripts', '\$', 5)
-		SSH.command('rm -f ping.log.zip', '\$', 5)
-		SSH.command('zip ping.log.zip ping*.log', '\$', 60)
-		SSH.command('rm ping*.log', '\$', 5)
-		SSH.close()
+		with cls_cmd.getConnection(EPC.IPAddress) as cmd:
+			cmd.run(f'cd {EPC.SourceCodePath}/scripts')
+			cmd.run('rm -f ping.log.zip')
+			cmd.run('zip ping.log.zip ping*.log')
+			cmd.run('rm ping*.log')
 
 	def LogCollectIperf(self,EPC):
 		# Some pipelines are using "none" IP / Credentials
 		# In that case, just forget about it
 		if EPC.IPAddress == 'none':
 			sys.exit(0)
-		SSH = sshconnection.SSHConnection()
-		SSH.open(EPC.IPAddress, EPC.UserName, EPC.Password)
-		SSH.command(f'cd {EPC.SourceCodePath}', '\$', 5)
-		SSH.command('cd scripts', '\$', 5)
-		SSH.command('rm -f iperf.log.zip', '\$', 5)
-		SSH.command('zip iperf.log.zip iperf*.log', '\$', 60)
-		SSH.command('rm iperf*.log', '\$', 5)
-		SSH.close()
+		with cls_cmd.getConnection(EPC.IPAddress) as cmd:
+			cmd.run(f'cd {EPC.SourceCodePath}/scripts')
+			cmd.run('rm -f iperf.log.zip')
+			cmd.run('zip iperf.log.zip iperf*.log')
+			cmd.run('rm iperf*.log')
 	
 	def LogCollectOAIUE(self):
 		# Some pipelines are using "none" IP / Credentials
 		# In that case, just forget about it
 		if self.UEIPAddress == 'none':
 			sys.exit(0)
-		SSH = sshconnection.SSHConnection()
-		SSH.open(self.UEIPAddress, self.UEUserName, self.UEPassword)
-		SSH.command(f'cd {self.UESourceCodePath}', '\$', 5)
-		SSH.command(f'cd cmake_targets', '\$', 5)
-		SSH.command(f'echo {self.UEPassword} | sudo -S rm -f ue.log.zip', '\$', 5)
-		SSH.command(f'echo {self.UEPassword} | sudo -S zip ue.log.zip ue*.log core* ue_*record.raw ue_*.pcap ue_*txt', '\$', 60)
-		SSH.command(f'echo {self.UEPassword} | sudo -S rm ue*.log core* ue_*record.raw ue_*.pcap ue_*txt', '\$', 5)
-		SSH.close()
+		with cls_cmd.getConnection(self.UEIPAddress) as cmd:
+			cmd.run(f'cd {self.UESourceCodePath}/cmake_targets')
+			cmd.run(f'echo {self.UEPassword} | sudo -S rm -f ue.log.zip')
+			cmd.run(f'echo {self.UEPassword} | sudo -S zip ue.log.zip ue*.log core* ue_*record.raw ue_*.pcap ue_*txt')
+			cmd.run(f'echo {self.UEPassword} | sudo -S rm ue*.log core* ue_*record.raw ue_*.pcap ue_*txt')
 
 	def ShowTestID(self):
 		logging.info(f'\u001B[1m----------------------------------------\u001B[0m')
