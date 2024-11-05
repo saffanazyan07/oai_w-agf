@@ -28,6 +28,7 @@
 #include <stdio.h>
 
 #include "pnf_p7.h"
+#include "nr_fapi_p7_utils.h"
 
 #define FAPI2_IP_DSCP	0
 
@@ -272,30 +273,9 @@ void deallocate_nfapi_hi_dci0_request(nfapi_hi_dci0_request_t* req, pnf_p7_t* pn
 	pnf_p7_free(pnf_p7, req);
 }
 
-nfapi_nr_tx_data_request_t* allocate_nfapi_tx_data_request(pnf_p7_t* pnf_p7) 
-{ 
-	return pnf_p7_malloc(pnf_p7, sizeof(nfapi_nr_tx_data_request_t));
-}
-
 nfapi_tx_request_t* allocate_nfapi_tx_request(pnf_p7_t* pnf_p7) 
 { 
 	return pnf_p7_malloc(pnf_p7, sizeof(nfapi_tx_request_t));
-}
-
-//TODO: Check if deallocate_nfapi_tx_data_request defn is proper
-void deallocate_nfapi_tx_data_request(nfapi_nr_tx_data_request_t* req, pnf_p7_t* pnf_p7) 
-{
-/*
-	if(pnf_p7->_public.codec_config.deallocate)
-	{
-		(pnf_p7->_public.codec_config.deallocate)(req->pdu_list);
-	}
-	else
-	{
-		free(req->pdu_list);
-	}
-*/
-	pnf_p7_free(pnf_p7, req);
 }
 
 void deallocate_nfapi_tx_request(nfapi_tx_request_t* req, pnf_p7_t* pnf_p7) 
@@ -667,7 +647,7 @@ int pnf_p7_pack_and_send_p7_message(pnf_p7_t* pnf_p7, nfapi_p7_message_header_t*
 }
 
 
-int pnf_nr_p7_pack_and_send_p7_message(pnf_p7_t* pnf_p7, nfapi_p7_message_header_t* header, uint32_t msg_len)
+int pnf_nr_p7_pack_and_send_p7_message(pnf_p7_t* pnf_p7, nfapi_nr_p7_message_header_t* header, uint32_t msg_len)
 {
 	header->m_segment_sequence = NFAPI_P7_SET_MSS(0, 0, pnf_p7->sequence_number);
 
@@ -694,27 +674,27 @@ int pnf_nr_p7_pack_and_send_p7_message(pnf_p7_t* pnf_p7, nfapi_p7_message_header
 
 	if(len > pnf_p7->_public.segment_size)
 	{
-		int msg_body_len = len - NFAPI_P7_HEADER_LENGTH ; 
-		int seg_body_len = pnf_p7->_public.segment_size - NFAPI_P7_HEADER_LENGTH ; 
+		int msg_body_len = len - NFAPI_NR_P7_HEADER_LENGTH ;
+		int seg_body_len = pnf_p7->_public.segment_size - NFAPI_NR_P7_HEADER_LENGTH ;
 		int segment_count = (msg_body_len / (seg_body_len)) + ((msg_body_len % seg_body_len) ? 1 : 0); 
 
 		int segment = 0;
-		int offset = NFAPI_P7_HEADER_LENGTH;
+		int offset = NFAPI_NR_P7_HEADER_LENGTH;
 		uint8_t buffer[pnf_p7->_public.segment_size];
 		for(segment = 0; segment < segment_count; ++segment)
 		{
 			uint8_t last = 0;
-			uint16_t size = pnf_p7->_public.segment_size - NFAPI_P7_HEADER_LENGTH;
+			uint16_t size = pnf_p7->_public.segment_size - NFAPI_NR_P7_HEADER_LENGTH;
 			if(segment + 1 == segment_count)
 			{
 				last = 1;
 				size = (msg_body_len) - (seg_body_len * segment);
 			}
 
-			uint16_t segment_size = size + NFAPI_P7_HEADER_LENGTH;
+			uint16_t segment_size = size + NFAPI_NR_P7_HEADER_LENGTH;
 
 			// Update the header with the m and segement 
-			memcpy(&buffer[0], pnf_p7->tx_message_buffer, NFAPI_P7_HEADER_LENGTH);
+			memcpy(&buffer[0], pnf_p7->tx_message_buffer, NFAPI_NR_P7_HEADER_LENGTH);
 
 			// set the segment length
 			buffer[4] = (segment_size & 0xFF00) >> 8;
@@ -723,12 +703,12 @@ int pnf_nr_p7_pack_and_send_p7_message(pnf_p7_t* pnf_p7, nfapi_p7_message_header
 			// set the m & segment number
 			buffer[6] = ((!last) << 7) + segment;
 
-			memcpy(&buffer[NFAPI_P7_HEADER_LENGTH], pnf_p7->tx_message_buffer + offset, size);
+			memcpy(&buffer[NFAPI_NR_P7_HEADER_LENGTH], pnf_p7->tx_message_buffer + offset, size);
 			offset += size;
 
 			if(pnf_p7->_public.checksum_enabled)
 			{
-				nfapi_p7_update_checksum(buffer, segment_size);
+				nfapi_nr_p7_update_checksum(buffer, segment_size);
 			}
 
 
@@ -739,7 +719,7 @@ int pnf_nr_p7_pack_and_send_p7_message(pnf_p7_t* pnf_p7, nfapi_p7_message_header
 	{
 		if(pnf_p7->_public.checksum_enabled)
 		{
-			nfapi_p7_update_checksum(pnf_p7->tx_message_buffer, len);
+			nfapi_nr_p7_update_checksum(pnf_p7->tx_message_buffer, len);
 		}
 
 		// simple case that the message fits in a single segment
@@ -821,55 +801,6 @@ void pnf_nr_pack_and_send_timing_info(pnf_p7_t* pnf_p7)
 	pnf_p7->timing_info_ms_counter = 0;
 }
 
-
-void send_dummy_slot(pnf_p7_t* pnf_p7, uint16_t sfn, uint16_t slot)
-{
-  struct timespec t;
-  clock_gettime( CLOCK_MONOTONIC, &t);
-
-  //NFAPI_TRACE(NFAPI_TRACE_INFO, "%s(sfn_sf:%d) t:%ld.%09ld\n", __FUNCTION__, NFAPI_SFNSF2DEC(sfn_sf), t.tv_sec, t.tv_nsec);
-
-	if(pnf_p7->_public.tx_data_req_fn && pnf_p7->_public.dummy_slot.tx_data_req)
-	{
-		pnf_p7->_public.dummy_slot.tx_data_req->SFN = sfn;
-		pnf_p7->_public.dummy_slot.tx_data_req->Slot = slot;
-		//NFAPI_TRACE(NFAPI_TRACE_INFO, "Dummy tx_req - enter\n");
-		(pnf_p7->_public.tx_data_req_fn)(&pnf_p7->_public, pnf_p7->_public.dummy_slot.tx_data_req);
-		//NFAPI_TRACE(NFAPI_TRACE_INFO, "Dummy tx_req - exit\n");
-	}
-	if(pnf_p7->_public.dl_tti_req_fn && pnf_p7->_public.dummy_slot.dl_tti_req)
-	{
-		pnf_p7->_public.dummy_slot.dl_tti_req->SFN = sfn;
-		pnf_p7->_public.dummy_slot.dl_tti_req->Slot = slot;
-		//NFAPI_TRACE(NFAPI_TRACE_INFO, "Dummy dl_config_req - enter\n");
-		(pnf_p7->_public.dl_tti_req_fn)(NULL, &(pnf_p7->_public), pnf_p7->_public.dummy_slot.dl_tti_req);
-		//NFAPI_TRACE(NFAPI_TRACE_INFO, "Dummy dl_config_req - exit\n");
-	}
-	if(pnf_p7->_public.ul_tti_req_fn && pnf_p7->_public.dummy_slot.ul_tti_req)
-	{
-		pnf_p7->_public.dummy_slot.ul_tti_req->SFN = sfn;
-		pnf_p7->_public.dummy_slot.ul_tti_req->Slot = slot;
-		NFAPI_TRACE(NFAPI_TRACE_INFO, "Dummy ul_config_req - enter\n");
-		(pnf_p7->_public.ul_tti_req_fn)(NULL, &pnf_p7->_public, pnf_p7->_public.dummy_slot.ul_tti_req);
-	}
-	if(pnf_p7->_public.ul_dci_req_fn && pnf_p7->_public.dummy_slot.ul_dci_req)
-	{
-		pnf_p7->_public.dummy_slot.ul_dci_req->SFN = sfn;
-		pnf_p7->_public.dummy_slot.ul_dci_req->Slot = slot;
-		NFAPI_TRACE(NFAPI_TRACE_INFO, "Dummy hi_dci0 - enter\n");
-		(pnf_p7->_public.ul_dci_req_fn)(NULL, &pnf_p7->_public, pnf_p7->_public.dummy_slot.ul_dci_req);
-	}
-	#if 0
-	if(pnf_p7->_public.lbt_dl_config_req && pnf_p7->_public.dummy_subframe.lbt_dl_config_req) // TODO: Change later
-	{
-		pnf_p7->_public.dummy_slot.lbt_dl_config_req->sfn_sf = sfn;
-		NFAPI_TRACE(NFAPI_TRACE_INFO, "Dummy lbt - enter\n");
-		(pnf_p7->_public.lbt_dl_config_req)(&pnf_p7->_public, pnf_p7->_public.dummy_slot.lbt_dl_config_req);
-	}
-	#endif
-}
-
-
 void send_dummy_subframe(pnf_p7_t* pnf_p7, uint16_t sfn_sf)
 {
   struct timespec t;
@@ -932,7 +863,7 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 
 	// save the curren time, sfn and slot
 	pnf_p7->slot_start_time_hr = pnf_get_current_time_hr();
-	int slot_ahead = 6;
+	int slot_ahead = 0;
 	uint32_t sfn_slot_tx = sfnslot_add_slot(sfn, slot, slot_ahead);
 	uint16_t sfn_tx = NFAPI_SFNSLOT2SFN(sfn_slot_tx);
 	uint8_t slot_tx = NFAPI_SFNSLOT2SLOT(sfn_slot_tx);
@@ -977,170 +908,44 @@ int pnf_p7_slot_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn, uint16_t sl
 
 		nfapi_pnf_p7_slot_buffer_t* tx_slot_buffer = &(pnf_p7->slot_buffer[buffer_index_tx]);
 
-                // if (0) NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() shift:%d slot_buffer->sfn_sf:%d tx_slot_buffer->sfn_slot:%d sfn_sf:%d subframe_buffer[buffer_index:%u dl_config_req:%p tx_req:%p] "
-                //     "TX:sfn_sf:%d:tx_buffer_index:%d[dl_config_req:%p tx_req:%p]\n", 
-                //     __FUNCTION__, 
-                //     pnf_p7->slot_shift, 
-                //     NFAPI_SFNSLOT2DEC(rx_slot_buffer->sfn, rx_slot_buffer->slot), 
-                //     NFAPI_SFNSLOT2DEC(tx_slot_buffer->sfn, tx_slot_buffer->slot), 
-                //        	slot_dec,    buffer_index_rx, rx_slot_buffer->dl_tti_req, rx_slot_buffer->tx_data_req, 
-                //     	tx_slot_dec, buffer_index_tx, tx_slot_buffer->dl_tti_req, tx_slot_buffer->tx_data_req);
-					//TODO: Change later if required
+		if(tx_slot_buffer->dl_tti_req.dl_tti_request_body.nPDUs > 0 && tx_slot_buffer->dl_tti_req.SFN == sfn_tx && tx_slot_buffer->dl_tti_req.Slot == slot_tx)
+		{
+			DevAssert(pnf_p7->_public.dl_tti_req_fn != NULL);
+			// pnf_phy_dl_tti_req()
+			(pnf_p7->_public.dl_tti_req_fn)(NULL, &(pnf_p7->_public), &tx_slot_buffer->dl_tti_req);
+		}
 
-		// todo : how to handle the messages we don't have, send dummies for
-		// now
+		if(tx_slot_buffer->ul_tti_req.n_pdus > 0 && tx_slot_buffer->ul_tti_req.SFN == sfn_tx && tx_slot_buffer->ul_tti_req.Slot == slot_tx)
+		{
+			DevAssert(pnf_p7->_public.ul_tti_req_fn != NULL);
+			// pnf_phy_ul_tti_req()
+			(pnf_p7->_public.ul_tti_req_fn)(NULL, &(pnf_p7->_public), &tx_slot_buffer->ul_tti_req);
+		}
 
-		//printf("tx_subframe_buffer->sfn_sf:%d sfn_sf_tx:%d\n", tx_subframe_buffer->sfn_sf, sfn_sf_tx);
-		//printf("subframe_buffer->sfn_sf:%d sfn_sf:%d\n", subframe_buffer->sfn_sf, sfn_sf);
-		//printf("tx_slot_buff_sfn - %d, tx_slot_buf_slot - %d, sfn_tx = %d, sllot_tx - %d \n",tx_slot_buffer->sfn,tx_slot_buffer->slot,sfn_tx,slot_tx);
-		// if(tx_slot_buffer->slot == slot_tx && tx_slot_buffer->sfn == sfn_tx)
-		// {	
-		
-		//checking in the tx slot buffers to see if a p7 msg is present. todo: what if it's a mixed slot? 
-
-		if(tx_slot_buffer->tx_data_req != 0 && tx_slot_buffer->tx_data_req->SFN == sfn_tx && tx_slot_buffer->tx_data_req->Slot == slot_tx)
+		if(tx_slot_buffer->tx_data_req.SFN == sfn_tx && tx_slot_buffer->tx_data_req.Slot == slot_tx)
 		{
 				
-			if(pnf_p7->_public.tx_data_req_fn)
-			{	
-				//NFAPI_TRACE(NFAPI_TRACE_INFO, "Calling tx_data_req_fn in SFN/slot %d.%d \n",sfn,slot);
-				LOG_D(PHY, "Process tx_data SFN/slot %d.%d buffer index: %d \n",sfn_tx,slot_tx,buffer_index_tx);	
-				(pnf_p7->_public.tx_data_req_fn)(&(pnf_p7->_public), tx_slot_buffer->tx_data_req);
-			}
-		}
-		else 
-		{
-			// send dummy
-			if(pnf_p7->_public.tx_data_req_fn && pnf_p7->_public.dummy_slot.tx_data_req)
-			{
-				pnf_p7->_public.dummy_slot.tx_data_req->SFN = sfn_tx;
-				pnf_p7->_public.dummy_slot.tx_data_req->Slot = slot_tx; 
-					
-				(pnf_p7->_public.tx_data_req_fn)(&(pnf_p7->_public), pnf_p7->_public.dummy_slot.tx_data_req);
-			}
-		}
-		 
-		if(tx_slot_buffer->dl_tti_req != 0 && tx_slot_buffer->dl_tti_req->SFN == sfn_tx && tx_slot_buffer->dl_tti_req->Slot == slot_tx) 
-		{
-			if(pnf_p7->_public.dl_tti_req_fn)
-			{
-				LOG_D(PHY, "Process dl_tti SFN/slot %d.%d buffer index: %d \n",sfn_tx,slot_tx,buffer_index_tx);
-				(pnf_p7->_public.dl_tti_req_fn)(NULL, &(pnf_p7->_public), tx_slot_buffer->dl_tti_req);
-			}
-		}
-		else
-		{
-			// send dummy
-			if(pnf_p7->_public.dl_tti_req_fn && pnf_p7->_public.dummy_slot.dl_tti_req)
-			{   
-				pnf_p7->_public.dummy_slot.dl_tti_req->SFN = sfn_tx;
-				pnf_p7->_public.dummy_slot.dl_tti_req->Slot = slot_tx;
-				(pnf_p7->_public.dl_tti_req_fn)(NULL, &(pnf_p7->_public), pnf_p7->_public.dummy_slot.dl_tti_req);
-			}
+			DevAssert(pnf_p7->_public.tx_data_req_fn != NULL);
+			LOG_D(PHY, "Process tx_data SFN/slot %d.%d buffer index: %d \n",sfn_tx,slot_tx,buffer_index_tx);	
+			// pnf_phy_tx_data_req()
+			(pnf_p7->_public.tx_data_req_fn)(&(pnf_p7->_public), &tx_slot_buffer->tx_data_req);
 		}
 
-
-		if(tx_slot_buffer->ul_dci_req!= 0 && tx_slot_buffer->ul_dci_req->SFN == sfn_tx && tx_slot_buffer->ul_dci_req->Slot == slot_tx)
+		if(tx_slot_buffer->ul_dci_req.numPdus > 0 && tx_slot_buffer->ul_dci_req.SFN == sfn_tx && tx_slot_buffer->ul_dci_req.Slot == slot_tx)
 		{
-			if(pnf_p7->_public.ul_dci_req_fn)
-			{   
-				//NFAPI_TRACE(NFAPI_TRACE_INFO, "Calling UL_dci_req_fn in SFN/slot %d.%d \n",sfn,slot);
-				LOG_D(PHY, "Process ul_dci SFN/slot %d.%d buffer index: %d \n",sfn_tx,slot_tx,buffer_index_tx);
- 				(pnf_p7->_public.ul_dci_req_fn)(NULL, &(pnf_p7->_public), tx_slot_buffer->ul_dci_req);
-			}
-		}
-		else
-		{
-			//send dummy
-			if(pnf_p7->_public.ul_dci_req_fn && pnf_p7->_public.dummy_slot.ul_dci_req)
-			{
-				pnf_p7->_public.dummy_slot.ul_dci_req->SFN = sfn_tx;
-				pnf_p7->_public.dummy_slot.ul_dci_req->Slot = slot_tx;
-				(pnf_p7->_public.ul_dci_req_fn)(NULL, &(pnf_p7->_public), pnf_p7->_public.dummy_slot.ul_dci_req);
-			}
-		}
-		if(tx_slot_buffer->ul_tti_req != 0)
-		{
-			if(pnf_p7->_public.ul_tti_req_fn)
-			{ 
-				(pnf_p7->_public.ul_tti_req_fn)(NULL, &(pnf_p7->_public), tx_slot_buffer->ul_tti_req);
-			}
-		}
-		else
-		{
-			// send dummy
-			if(pnf_p7->_public.ul_tti_req_fn && pnf_p7->_public.dummy_slot.ul_tti_req)
-			{
-				pnf_p7->_public.dummy_slot.ul_tti_req->SFN = sfn_tx;
-				pnf_p7->_public.dummy_slot.ul_tti_req->Slot = slot_tx;
-				(pnf_p7->_public.ul_tti_req_fn)(NULL, &(pnf_p7->_public), pnf_p7->_public.dummy_slot.ul_tti_req);
-			}
-		}
-
-		//deallocate slot buffers after passing down the PDUs to PHY processing
-
-		if(tx_slot_buffer->dl_tti_req != 0)
-		{
-			deallocate_nfapi_dl_tti_request(tx_slot_buffer->dl_tti_req, pnf_p7);
-			tx_slot_buffer->dl_tti_req = 0;
-			LOG_D(PHY,"SFN/slot %d.%d Buffer index : %d freed \n",sfn_tx,slot_tx,buffer_index_tx);
-		}
-
-		if(tx_slot_buffer->tx_data_req != 0)
-		{
-			deallocate_nfapi_tx_data_request(tx_slot_buffer->tx_data_req, pnf_p7);
-			tx_slot_buffer->tx_data_req = 0;
-		}
-
-		if(tx_slot_buffer->ul_dci_req != 0)
-		{
-			deallocate_nfapi_ul_dci_request(tx_slot_buffer->ul_dci_req, pnf_p7);
-			tx_slot_buffer->ul_dci_req = 0;
-		}
-
-
-		//checking in the rx slot buffers to see if a p7 msg is present.
-
-		if(rx_slot_buffer->ul_tti_req != 0 && rx_slot_buffer->ul_tti_req->SFN == sfn && rx_slot_buffer->ul_tti_req->Slot == slot)
-		{
-			if(pnf_p7->_public.ul_tti_req_fn)
-			{ 	
-				//NFAPI_TRACE(NFAPI_TRACE_INFO, "Calling UL_tti_req_fn in SFN/slot %d.%d \n",sfn,slot);
-				(pnf_p7->_public.ul_tti_req_fn)(NULL, &(pnf_p7->_public), rx_slot_buffer->ul_tti_req);
-			}
-		}
-		else
-		{
-			// send dummy
-			if(pnf_p7->_public.ul_tti_req_fn && pnf_p7->_public.dummy_slot.ul_tti_req)
-			{
-				pnf_p7->_public.dummy_slot.ul_tti_req->SFN = sfn;
-				pnf_p7->_public.dummy_slot.ul_tti_req->Slot = slot;
-				LOG_D(PHY, "Process ul_tti SFN/slot %d.%d buffer index: %d \n",sfn,slot,buffer_index_rx);
-				(pnf_p7->_public.ul_tti_req_fn)(NULL, &(pnf_p7->_public), pnf_p7->_public.dummy_slot.ul_tti_req);
-			}
-		}
-		if(rx_slot_buffer->ul_tti_req != 0)
-		{
-			deallocate_nfapi_ul_tti_request(rx_slot_buffer->ul_tti_req, pnf_p7);
-			rx_slot_buffer->ul_tti_req = 0;
-
+			DevAssert(pnf_p7->_public.ul_dci_req_fn != NULL);
+			LOG_D(PHY, "Process ul_dci SFN/slot %d.%d buffer index: %d \n",sfn_tx,slot_tx,buffer_index_tx);
+			// pnf_phy_ul_dci_req()
+     		(pnf_p7->_public.ul_dci_req_fn)(NULL, &(pnf_p7->_public), &tx_slot_buffer->ul_dci_req);
 		}
 
 		//reset slot buffer 
 
-		if ( rx_slot_buffer->dl_tti_req == 0 &&
-			 rx_slot_buffer->tx_data_req == 0 && 
-			 rx_slot_buffer->ul_tti_req == 0)
+		if (rx_slot_buffer->ul_tti_req.n_pdus == 0)
 		{
-			memset(&(pnf_p7->slot_buffer[buffer_index_rx]), 0, sizeof(nfapi_pnf_p7_slot_buffer_t));
 			pnf_p7->slot_buffer[buffer_index_rx].sfn = -1;
 			pnf_p7->slot_buffer[buffer_index_rx].slot = -1;
 		}
-
-		//printf("pnf_p7->_public.timing_info_mode_periodic:%d pnf_p7->timing_info_period_counter:%d pnf_p7->_public.timing_info_period:%d\n", pnf_p7->_public.timing_info_mode_periodic, pnf_p7->timing_info_period_counter, pnf_p7->_public.timing_info_period);
-		//printf("pnf_p7->_public.timing_info_mode_aperiodic:%d pnf_p7->timing_info_aperiodic_send:%d\n", pnf_p7->_public.timing_info_mode_aperiodic, pnf_p7->timing_info_aperiodic_send);
-		//printf("pnf_p7->timing_info_ms_counter:%d\n", pnf_p7->timing_info_ms_counter);
 
 		//send the periodic timing info if configured
 		if(pnf_p7->_public.timing_info_mode_periodic && (pnf_p7->timing_info_period_counter++) == pnf_p7->_public.timing_info_period)
@@ -1460,85 +1265,20 @@ int pnf_p7_subframe_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn_sf)
 	return 0;
 }
 
-
-
-// return 1 if in window
-// return 0 if out of window
-
-uint8_t is_nr_p7_request_in_window(uint16_t sfn,uint16_t slot, const char* name, pnf_p7_t* phy)
+bool is_nr_p7_request_in_window(uint16_t sfn, uint16_t slot, const char* name, pnf_p7_t* phy)
 {
-	uint32_t recv_sfn_slot_dec = NFAPI_SFNSLOT2DEC(sfn,slot);
-	uint32_t current_sfn_slot_dec = NFAPI_SFNSLOT2DEC(phy->sfn,phy->slot);
-	//printf("p7_msg_sfn: %d, p7_msg_slot: %d, phy_sfn:%d , phy_slot:%d \n",sfn,slot,phy->sfn,phy->slot);
-	uint8_t in_window = 0;
-	uint8_t timing_window = phy->_public.slot_buffer_size;
-
-	// if(recv_sfn_slot_dec <= current_sfn_slot_dec)
-	// {
-	// 	// Need to check for wrap in window
-	// 	if(((recv_sfn_slot_dec + timing_window) % NFAPI_MAX_SFNSLOTDEC) < recv_sfn_slot_dec)
-	// 	{
-	// 		if(current_sfn_slot_dec > ((recv_sfn_slot_dec + timing_window) % NFAPI_MAX_SFNSLOTDEC))
-	// 		{
-	// 			// out of window
-	// 			NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is late %d (with wrap)\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
-	// 		}
-	// 		else
-	// 		{
-	// 			// ok
-	// 			//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d (with wrap)\n", current_sfn_sf_dec, name, recv_sfn_sf_dec);
-	// 			in_window = 1;
-	// 		}
-	// 	}
-	// 	else
-	// 	{
-	// 		if((current_sfn_slot_dec - recv_sfn_slot_dec) <= timing_window)
-	// 			{
-	// 				// in window
-	// 				//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
-	// 				in_window = 1;
-	// 			}
-	// 		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in late %d (delta:%d)\n", current_sfn_slot_dec, name, recv_sfn_slot_dec, (current_sfn_slot_dec - recv_sfn_slot_dec));
-	// 	}
-
-	// }
-	// else
-	// {
-	// 	// Need to check it is in window
-	// 	if((recv_sfn_slot_dec - current_sfn_slot_dec) <= timing_window)
-	// 	{
-	// 		// in window
-	// 		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_sf_dec, name, recv_sfn_sf_dec);
-	// 		in_window = 1;
-	// 	}
-	// 	else
-	// 	{
-	// 		// too far in the future
-	// 		NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is out of window %d (delta:%d) [max:%d]\n", current_sfn_slot_dec, name, recv_sfn_slot_dec,  (recv_sfn_slot_dec - current_sfn_slot_dec), timing_window);
-	// 	}
-
-	// }
-	if(current_sfn_slot_dec <= recv_sfn_slot_dec + timing_window){
-		in_window = 1;
-		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
-	}
-	else if(current_sfn_slot_dec + NFAPI_MAX_SFNSLOTDEC <= recv_sfn_slot_dec + timing_window){ //checking for wrap
-		in_window = 1;
-		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is in window %d\n", current_sfn_slot_dec, name, recv_sfn_slot_dec);
-	}
-  
-	else
-	{ 	
-		
-		NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is out of window %d (delta:%d) [max:%d]\n", current_sfn_slot_dec, name, recv_sfn_slot_dec,  (current_sfn_slot_dec - recv_sfn_slot_dec), timing_window);
-		
-	}//Need to add more cases
-	
-
-	return in_window;
+  uint32_t recv = NFAPI_SFNSLOT2DEC(sfn, slot); // unpack sfn/slot
+  uint32_t curr = NFAPI_SFNSLOT2DEC(phy->sfn, phy->slot);
+  uint8_t timing_window = phy->_public.slot_buffer_size;
+  uint32_t diff = abs(curr - recv);
+  if (diff > NFAPI_MAX_SFNSLOTDEC / 2)
+    diff = NFAPI_MAX_SFNSLOTDEC - diff;
+  if (diff > timing_window) {
+    NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] %s is out of window %d (delta:%d) [max:%d]\n", curr, name, recv, diff, timing_window);
+    return false;
+  }
+  return true;
 }
-
-
 
 uint8_t is_p7_request_in_window(uint16_t sfnsf, const char* name, pnf_p7_t* phy)
 {
@@ -1593,79 +1333,60 @@ uint8_t is_p7_request_in_window(uint16_t sfnsf, const char* name, pnf_p7_t* phy)
 }
 
 
-// P7 messages 
+// P7 messages
 void pnf_handle_dl_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 {
-	//NFAPI_TRACE(NFAPI_TRACE_INFO, "DL_CONFIG.req Received\n");
-	nfapi_nr_dl_tti_request_t* req  = allocate_nfapi_dl_tti_request(pnf_p7);
+  // NFAPI_TRACE(NFAPI_TRACE_INFO, "DL_CONFIG.req Received\n");
+  nfapi_nr_dl_tti_request_t req;
+  if (!peek_nr_nfapi_p7_sfn_slot(pRecvMsg, recvMsgLen, &req.SFN, &req.Slot)) {
+    if (pthread_mutex_lock(&(pnf_p7->mutex)) != 0) {
+      NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
+      return;
+    }
 
-	if(req == NULL)
-	{
-		NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to allocate nfapi_dl_tti_request structure\n");
-		return;
-	}
-	int unpack_result = nfapi_nr_p7_message_unpack(pRecvMsg, recvMsgLen, req, sizeof(nfapi_nr_dl_tti_request_t), &(pnf_p7->_public.codec_config));
+    if (is_nr_p7_request_in_window(req.SFN, req.Slot, "dl_tti_request", pnf_p7)) {
+      uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req.SFN, req.Slot);
+      uint8_t buffer_index = sfn_slot_dec % 20;
 
-	if(unpack_result == 0)
-	{
-		if(pthread_mutex_lock(&(pnf_p7->mutex)) != 0)
-		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
-			return;
-		}
+      struct timespec t;
+      clock_gettime(CLOCK_MONOTONIC, &t);
 
-        if(is_nr_p7_request_in_window(req->SFN,req->Slot, "dl_tti_request", pnf_p7))
-            {
-                uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req->SFN,req->Slot);
-                uint8_t buffer_index = sfn_slot_dec % 20;
+      NFAPI_TRACE(NFAPI_TRACE_DEBUG,
+                  "%s() %ld.%09ld POPULATE DL_TTI_REQ current tx sfn/slot:%d.%d p7 msg sfn/slot: %d.%d buffer_index:%d\n",
+                  __FUNCTION__,
+                  t.tv_sec,
+                  t.tv_nsec,
+                  pnf_p7->sfn,
+                  pnf_p7->slot,
+                  req.SFN,
+                  req.Slot,
+                  buffer_index);
+      if (nfapi_nr_p7_message_unpack(pRecvMsg, recvMsgLen, &req, sizeof(nfapi_nr_dl_tti_request_t), &(pnf_p7->_public.codec_config))
+          != 0) {
+        NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unpack request\n");
+        return;
+      }
+      // filling dl_tti_request in slot buffer
+      pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
+      pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
+      // copy the nFAPI header
+      pnf_p7->slot_buffer[buffer_index].dl_tti_req.header = req.header;
+      copy_dl_tti_request(&req, &pnf_p7->slot_buffer[buffer_index].dl_tti_req);
+      pnf_p7->stats.dl_tti_ontime++;
+    } else {
+      if (pnf_p7->_public.timing_info_mode_aperiodic)
+        pnf_p7->timing_info_aperiodic_send = 1;
 
-                struct timespec t;
-                clock_gettime(CLOCK_MONOTONIC, &t);
-
-                NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() %ld.%09ld POPULATE DL_TTI_REQ current tx sfn/slot:%d.%d p7 msg sfn/slot: %d.%d buffer_index:%d\n", __FUNCTION__, t.tv_sec, t.tv_nsec, pnf_p7->sfn,pnf_p7->slot, req->SFN, req->Slot, buffer_index);
-
-			// if there is already an dl_tti_req make sure we free it.
-			if(pnf_p7->slot_buffer[buffer_index].dl_tti_req != 0)
-			{
-				NFAPI_TRACE(NFAPI_TRACE_NOTE, "%s() is_nr_p7_request_in_window()=TRUE buffer_index occupied - free it first sfn_slot:%d buffer_index:%d\n", __FUNCTION__, NFAPI_SFNSLOT2DEC(req->SFN,req->Slot), buffer_index);
-				//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] Freeing dl_config_req at index %d (%d/%d)", 
-				//			pMyPhyInfo->sfnSf, bufferIdx,
-				//			SFNSF2SFN(dreq->sfn_sf), SFNSF2SF(dreq->sfn_sf));
-				deallocate_nfapi_dl_tti_request(pnf_p7->slot_buffer[buffer_index].dl_tti_req, pnf_p7);
-			}
-
-			// filling dl_tti_request in slot buffer
-			pnf_p7->slot_buffer[buffer_index].sfn = req->SFN;
-			pnf_p7->slot_buffer[buffer_index].slot = req->Slot;
-			pnf_p7->slot_buffer[buffer_index].dl_tti_req = req;
-
-			pnf_p7->stats.dl_tti_ontime++;
-		}
-		else
-		{
-			//NFAPI_TRACE(NFAPI_TRACE_NOTE, "NOT storing dl_config_req SFN/SF %d\n", req->sfn_sf);
-			deallocate_nfapi_dl_tti_request(req, pnf_p7);
-
-			if(pnf_p7->_public.timing_info_mode_aperiodic)
-			{
-				pnf_p7->timing_info_aperiodic_send = 1;
-			}
-
-			pnf_p7->stats.dl_tti_late++;
-		} 
-		if(pthread_mutex_unlock(&(pnf_p7->mutex)) != 0)
-		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unlock mutex\n");
-			return;
-		}
-	}
-	else
-	{
-		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack dl_tti_req");
-		deallocate_nfapi_dl_tti_request(req, pnf_p7);
-	}
+      pnf_p7->stats.dl_tti_late++;
+    }
+    if (pthread_mutex_unlock(&(pnf_p7->mutex)) != 0) {
+      NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unlock mutex\n");
+      return;
+    }
+  } else {
+    NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack dl_tti_req");
+  }
 }
-
 
 void pnf_handle_dl_config_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 {
@@ -1757,80 +1478,64 @@ void pnf_handle_dl_config_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_
 	}
 }
 
-
 void pnf_handle_ul_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 {
-	//NFAPI_TRACE(NFAPI_TRACE_INFO, "UL_CONFIG.req Received\n");
+  // NFAPI_TRACE(NFAPI_TRACE_INFO, "UL_CONFIG.req Received\n");
 
-	nfapi_nr_ul_tti_request_t* req  = allocate_nfapi_ul_tti_request(pnf_p7);
+  nfapi_nr_ul_tti_request_t req;
+  if (!peek_nr_nfapi_p7_sfn_slot(pRecvMsg, recvMsgLen, &req.SFN, &req.Slot)) {
+    if (pthread_mutex_lock(&(pnf_p7->mutex)) != 0) {
+      NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
+      return;
+    }
 
-	if(req == NULL)
-	{
-		NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to allocate nfapi_ul_tti_request structure\n");
-		return;
-	}
+    if (is_nr_p7_request_in_window(req.SFN, req.Slot, "ul_tti_request", pnf_p7)) {
+      uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req.SFN, req.Slot);
+      uint8_t buffer_index = (sfn_slot_dec % 20);
 
-	int unpack_result = nfapi_nr_p7_message_unpack(pRecvMsg, recvMsgLen, req, sizeof(nfapi_nr_ul_tti_request_t), &(pnf_p7->_public.codec_config));
+      struct timespec t;
+      clock_gettime(CLOCK_MONOTONIC, &t);
+      NFAPI_TRACE(NFAPI_TRACE_DEBUG,
+                  "%s() %ld.%09ld POPULATE UL_TTI_REQ current tx sfn/slot:%d.%d p7 msg sfn/slot: %d.%d buffer_index:%d\n",
+                  __FUNCTION__,
+                  t.tv_sec,
+                  t.tv_nsec,
+                  pnf_p7->sfn,
+                  pnf_p7->slot,
+                  req.SFN,
+                  req.Slot,
+                  buffer_index);
+      if (nfapi_nr_p7_message_unpack(pRecvMsg, recvMsgLen, &req, sizeof(nfapi_nr_ul_tti_request_t), &(pnf_p7->_public.codec_config))
+          != 0) {
+        NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unpack request\n");
+        return;
+      }
+      // filling slot buffer
 
-	if(unpack_result == 0)
-	{
-		if(pthread_mutex_lock(&(pnf_p7->mutex)) != 0)
-		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
-			return;
-		}
+      pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
+      pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
+      pnf_p7->slot_buffer[buffer_index].ul_tti_req.header = req.header;
+      copy_ul_tti_request(&req, &pnf_p7->slot_buffer[buffer_index].ul_tti_req);
 
-		if(is_nr_p7_request_in_window(req->SFN,req->Slot, "ul_tti_request", pnf_p7))
-		{
-			uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req->SFN,req->Slot);
-			uint8_t buffer_index = (sfn_slot_dec % 20);
+      pnf_p7->stats.ul_tti_ontime++;
+    } else {
+      NFAPI_TRACE(NFAPI_TRACE_NOTE,
+                  "[%d] NOT storing ul_tti_req OUTSIDE OF TRANSMIT BUFFER WINDOW SFN/SLOT %d\n",
+                  NFAPI_SFNSLOT2DEC(pnf_p7->sfn, pnf_p7->slot),
+                  NFAPI_SFNSLOT2DEC(req.SFN, req.Slot));
+      if (pnf_p7->_public.timing_info_mode_aperiodic)
+        pnf_p7->timing_info_aperiodic_send = 1;
 
-                        struct timespec t;
-                        clock_gettime(CLOCK_MONOTONIC, &t);
+      pnf_p7->stats.ul_tti_late++;
+    }
 
-                        NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() %ld.%09ld POPULATE UL_TTI_REQ current tx sfn/slot:%d.%d p7 msg sfn/slot: %d.%d buffer_index:%d\n", __FUNCTION__, t.tv_sec, t.tv_nsec, pnf_p7->sfn,pnf_p7->slot, req->SFN, req->Slot, buffer_index);
-
-			if(pnf_p7->slot_buffer[buffer_index].ul_tti_req != 0)
-			{
-				//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] Freeing ul_config_req at index %d (%d/%d)", 
-				//			pMyPhyInfo->sfnSf, bufferIdx,
-				//			SFNSF2SFN(dreq->sfn_sf), SFNSF2SF(dreq->sfn_sf));
-
-				deallocate_nfapi_ul_tti_request(pnf_p7->slot_buffer[buffer_index].ul_tti_req, pnf_p7);
-			}
-			
-			//filling slot buffer
-
-			pnf_p7->slot_buffer[buffer_index].sfn = req->SFN;
-			pnf_p7->slot_buffer[buffer_index].slot = req->Slot;
-			pnf_p7->slot_buffer[buffer_index].ul_tti_req = req;
-			
-			pnf_p7->stats.ul_tti_ontime++;
-		}
-		else
-		{
-			NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] NOT storing ul_tti_req OUTSIDE OF TRANSMIT BUFFER WINDOW SFN/SLOT %d\n", NFAPI_SFNSLOT2DEC(pnf_p7->sfn,pnf_p7->slot), NFAPI_SFNSLOT2DEC(req->SFN,req->Slot));
-			deallocate_nfapi_ul_tti_request(req, pnf_p7);
-
-			if(pnf_p7->_public.timing_info_mode_aperiodic)
-			{
-				pnf_p7->timing_info_aperiodic_send = 1;
-			}
-
-			pnf_p7->stats.ul_tti_late++;
-		}
-
-		if(pthread_mutex_unlock(&(pnf_p7->mutex)) != 0)
-		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unlock mutex\n");
-			return;
-		}
-	}
-	else
-	{
-		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack ul_tti_req\n");
-		deallocate_nfapi_ul_tti_request(req, pnf_p7);
-	}
+    if (pthread_mutex_unlock(&(pnf_p7->mutex)) != 0) {
+      NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unlock mutex\n");
+      return;
+    }
+  } else {
+    NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack ul_tti_req\n");
+  }
 }
 
 void pnf_handle_ul_config_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
@@ -1905,76 +1610,46 @@ void pnf_handle_ul_config_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_
 	}
 }
 
-
 void pnf_handle_ul_dci_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 {
-	//NFAPI_TRACE(NFAPI_TRACE_INFO, "HI_DCI0.req Received\n");
+  nfapi_nr_ul_dci_request_t req;
+  if (!peek_nr_nfapi_p7_sfn_slot(pRecvMsg, recvMsgLen, &req.SFN, &req.Slot)) {
+    if (pthread_mutex_lock(&(pnf_p7->mutex)) != 0) {
+      NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
+      return;
+    }
 
-	nfapi_nr_ul_dci_request_t* req  = allocate_nfapi_ul_dci_request(pnf_p7);
+    if (is_nr_p7_request_in_window(req.SFN, req.Slot, "ul_dci_request", pnf_p7)) {
+      uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req.SFN, req.Slot);
+      uint8_t buffer_index = sfn_slot_dec % 20;
+      if (nfapi_nr_p7_message_unpack(pRecvMsg, recvMsgLen, &req, sizeof(nfapi_nr_ul_dci_request_t), &pnf_p7->_public.codec_config)
+          != 0) {
+        NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unpack request\n");
+        return;
+      }
+      pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
+      pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
+      pnf_p7->slot_buffer[buffer_index].ul_dci_req.header = req.header;
+      copy_ul_dci_request(&req, &pnf_p7->slot_buffer[buffer_index].ul_dci_req);
 
-	if(req == NULL)
-	{
-		NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to allocate nfapi_ul_dci_request structure\n");
-		return;
-	}
+      pnf_p7->stats.ul_dci_ontime++;
 
-	int unpack_result = nfapi_nr_p7_message_unpack(pRecvMsg, recvMsgLen, req, sizeof(nfapi_nr_ul_dci_request_t), &pnf_p7->_public.codec_config);
+    } else {
+      if (pnf_p7->_public.timing_info_mode_aperiodic) {
+        pnf_p7->timing_info_aperiodic_send = 1;
+      }
 
-	if(unpack_result == 0)
-	{
-		if(pthread_mutex_lock(&(pnf_p7->mutex)) != 0)
-		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
-			return;
-		}
+      pnf_p7->stats.ul_dci_late++;
+    }
 
-		if(is_nr_p7_request_in_window(req->SFN,req->Slot,"ul_dci_request", pnf_p7))
-		{
-			uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req->SFN,req->Slot);
-			uint8_t buffer_index = sfn_slot_dec % 20;
-
-			if(pnf_p7->slot_buffer[buffer_index].ul_dci_req!= 0)
-			{
-				//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] Freeing hi_dci0_req at index %d (%d/%d)", 
-				//			pMyPhyInfo->sfnSf, bufferIdx,
-				//			SFNSF2SFN(dreq->sfn_sf), SFNSF2SF(dreq->sfn_sf));
-
-				deallocate_nfapi_ul_dci_request(pnf_p7->slot_buffer[buffer_index].ul_dci_req, pnf_p7);
-			}
-
-			pnf_p7->slot_buffer[buffer_index].sfn = req->SFN;
-			pnf_p7->slot_buffer[buffer_index].ul_dci_req = req;
-
-			pnf_p7->stats.ul_dci_ontime++;
-			
-		}
-		else
-		{
-			//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] NOT storing hi_dci0_req SFN/SF %d/%d\n", pMyPhyInfo->sfnSf, SFNSF2SFN(req->sfn_sf), SFNSF2SF(req->sfn_sf));
-			deallocate_nfapi_ul_dci_request(req, pnf_p7);
-
-			if(pnf_p7->_public.timing_info_mode_aperiodic)
-			{
-				pnf_p7->timing_info_aperiodic_send = 1;
-			}
-
-			pnf_p7->stats.ul_dci_late++;
-		}
-
-		if(pthread_mutex_unlock(&(pnf_p7->mutex)) != 0)
-		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unlock mutex\n");
-			return;
-		}
-	}
-	else
-	{
-		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack UL DCI req\n");
-		deallocate_nfapi_ul_dci_request(req, pnf_p7);
-	}
+    if (pthread_mutex_unlock(&(pnf_p7->mutex)) != 0) {
+      NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unlock mutex\n");
+      return;
+    }
+  } else {
+    NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack UL DCI req\n");
+  }
 }
-
-
 
 void pnf_handle_hi_dci0_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 
@@ -2045,37 +1720,30 @@ void pnf_handle_hi_dci0_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 	}
 }
 
-
 void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 {
-	//NFAPI_TRACE(NFAPI_TRACE_INFO, "TX.req Received\n");
-	
-	nfapi_nr_tx_data_request_t* req = allocate_nfapi_tx_data_request(pnf_p7);
+  // NFAPI_TRACE(NFAPI_TRACE_INFO, "TX.req Received\n");
 
-	if(req == NULL)
-	{
-		NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to allocate nfapi_tx_request structure\n");
-		return;
-	}
+  nfapi_nr_tx_data_request_t req;
+  if (!peek_nr_nfapi_p7_sfn_slot(pRecvMsg, recvMsgLen, &req.SFN, &req.Slot)) {
+    if (pthread_mutex_lock(&(pnf_p7->mutex)) != 0) {
+      NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
+      return;
+    }
 
-	int unpack_result = nfapi_nr_p7_message_unpack(pRecvMsg, recvMsgLen, req, sizeof(nfapi_nr_tx_data_request_t), &pnf_p7->_public.codec_config);
-	if(unpack_result == 0)
-	{
-		if(pthread_mutex_lock(&(pnf_p7->mutex)) != 0)
-		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
-			return;
-		}
+    if (is_nr_p7_request_in_window(req.SFN, req.Slot, "tx_request", pnf_p7)) {
+      uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req.SFN, req.Slot);
+      uint8_t buffer_index = sfn_slot_dec % 20;
+      if (nfapi_nr_p7_message_unpack(pRecvMsg, recvMsgLen, &req, sizeof(nfapi_nr_tx_data_request_t), &pnf_p7->_public.codec_config)
+          != 0) {
+        NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unpack request\n");
+        return;
+      }
+      struct timespec t;
+      clock_gettime(CLOCK_MONOTONIC, &t);
 
-		if(is_nr_p7_request_in_window(req->SFN, req->Slot,"tx_request", pnf_p7))
-		{
-			uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(req->SFN,req->Slot);
-			uint8_t buffer_index = sfn_slot_dec % 20;
-
-                        struct timespec t;
-                        clock_gettime(CLOCK_MONOTONIC, &t);
-
-                        //NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() %ld.%09ld POPULATE TX_DATA_REQ sfn_sf:%d buffer_index:%d\n", __FUNCTION__, t.tv_sec, t.tv_nsec, sfn_slot_dec, buffer_index);
+      // NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() %ld.%09ld POPULATE TX_DATA_REQ sfn_sf:%d buffer_index:%d\n", __FUNCTION__, t.tv_sec,
+      // t.tv_nsec, sfn_slot_dec, buffer_index);
 #if 0
                         if (0 && NFAPI_SFNSF2DEC(req->sfn_sf)%100==0) NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() TX_REQ.req sfn_sf:%d pdus:%d - TX_REQ is within window\n",
                             __FUNCTION__,
@@ -2083,48 +1751,32 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
                             req->tx_request_body.number_of_pdus);
 #endif
 
-			if(pnf_p7->slot_buffer[buffer_index].tx_data_req != 0)
-			{
-				//NFAPI_TRACE(NFAPI_TRACE_NOTE, "[%d] Freeing tx_req at index %d (%d/%d)", 
-				//			pMyPhyInfo->sfnSf, bufferIdx,
-				//			SFNSF2SFN(dreq->sfn_sf), SFNSF2SF(dreq->sfn_sf));
+      pnf_p7->slot_buffer[buffer_index].sfn = req.SFN;
+      pnf_p7->slot_buffer[buffer_index].slot = req.Slot;
+      pnf_p7->slot_buffer[buffer_index].tx_data_req.header = req.header;
+      copy_tx_data_request(&req, &pnf_p7->slot_buffer[buffer_index].tx_data_req);
 
-				deallocate_nfapi_tx_data_request(pnf_p7->slot_buffer[buffer_index].tx_data_req, pnf_p7);
-			}
+      pnf_p7->stats.tx_data_ontime++;
+    } else {
+      NFAPI_TRACE(NFAPI_TRACE_INFO,
+                  "%s() TX_DATA_REQUEST Request is outside of window REQ:SFN_SLOT:%d CURR:SFN_SLOT:%d\n",
+                  __FUNCTION__,
+                  NFAPI_SFNSLOT2DEC(req.SFN, req.Slot),
+                  NFAPI_SFNSLOT2DEC(pnf_p7->sfn, pnf_p7->slot));
 
-			pnf_p7->slot_buffer[buffer_index].sfn = req->SFN;
-			pnf_p7->slot_buffer[buffer_index].slot = req->Slot;
-			pnf_p7->slot_buffer[buffer_index].tx_data_req = req;
+      if (pnf_p7->_public.timing_info_mode_aperiodic) {
+        pnf_p7->timing_info_aperiodic_send = 1;
+      }
 
-			pnf_p7->stats.tx_data_ontime++;
-		}
-		else
-		{
-                  NFAPI_TRACE(NFAPI_TRACE_INFO,"%s() TX_DATA_REQUEST Request is outside of window REQ:SFN_SLOT:%d CURR:SFN_SLOT:%d\n", __FUNCTION__, NFAPI_SFNSLOT2DEC(req->SFN,req->Slot), NFAPI_SFNSLOT2DEC(pnf_p7->sfn,pnf_p7->slot));
+      pnf_p7->stats.tx_data_late++;
+    }
 
-			deallocate_nfapi_tx_data_request(req, pnf_p7);
-
-			if(pnf_p7->_public.timing_info_mode_aperiodic)
-			{
-				pnf_p7->timing_info_aperiodic_send = 1;
-			}
-
-			pnf_p7->stats.tx_data_late++;
-		}
-
-		if(pthread_mutex_unlock(&(pnf_p7->mutex)) != 0)
-		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unlock mutex\n");
-			return;
-		}
-	}
-	else
-	{
-		deallocate_nfapi_tx_data_request(req, pnf_p7);
-	}
+    if (pthread_mutex_unlock(&(pnf_p7->mutex)) != 0) {
+      NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unlock mutex\n");
+      return;
+    }
+  }
 }
-
-
 
 void pnf_handle_tx_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
 {
@@ -2609,7 +2261,7 @@ void pnf_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7,  
 
 void pnf_nr_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7,  uint32_t rx_hr_time)
 {
-	nfapi_p7_message_header_t header;
+	nfapi_nr_p7_message_header_t header;
 
 	// validate the input params
 	if(pRecvMsg == NULL || recvMsgLen < 4 || pnf_p7 == NULL)
@@ -2619,7 +2271,7 @@ void pnf_nr_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
 	}
 
 	// unpack the message header
-	if (nfapi_p7_message_header_unpack(pRecvMsg, recvMsgLen, &header, sizeof(header), &pnf_p7->_public.codec_config) < 0)
+	if (nfapi_nr_p7_message_header_unpack(pRecvMsg, recvMsgLen, &header, sizeof(header), &pnf_p7->_public.codec_config) < 0)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Unpack message header failed, ignoring\n");
 		return;
@@ -2773,7 +2425,7 @@ void pnf_handle_p7_message(void *pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7,  ui
 
 void pnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7,  uint32_t rx_hr_time)
 {
-	nfapi_p7_message_header_t messageHeader;
+	nfapi_nr_p7_message_header_t messageHeader;
 
 	// validate the input params
 	if(pRecvMsg == NULL || recvMsgLen < 4 || pnf_p7 == NULL)
@@ -2783,7 +2435,7 @@ void pnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7, 
 	}
 
 	// unpack the message header
-	if (nfapi_p7_message_header_unpack(pRecvMsg, recvMsgLen, &messageHeader, sizeof(nfapi_p7_message_header_t), &pnf_p7->_public.codec_config) < 0)
+	if (nfapi_nr_p7_message_header_unpack(pRecvMsg, recvMsgLen, &messageHeader, sizeof(nfapi_nr_p7_message_header_t), &pnf_p7->_public.codec_config) < 0)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Unpack message header failed, ignoring\n");
 		return;
@@ -2795,7 +2447,7 @@ void pnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7, 
 
 	if(pnf_p7->_public.checksum_enabled)
 	{
-		uint32_t checksum = nfapi_p7_calculate_checksum(pRecvMsg, recvMsgLen);
+		uint32_t checksum = nfapi_nr_p7_calculate_checksum(pRecvMsg, recvMsgLen);
 		if(checksum != messageHeader.checksum)
 		{
 			NFAPI_TRACE(NFAPI_TRACE_ERROR, "Checksum verification failed %d %d\n", checksum, messageHeader.checksum);
@@ -2826,7 +2478,7 @@ void pnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7, 
 			uint16_t length = 0;
 			for(i = 0; i < rx_msg->num_segments_expected; ++i)
 			{
-				length += rx_msg->segments[i].length - (i > 0 ? NFAPI_P7_HEADER_LENGTH : 0);
+				length += rx_msg->segments[i].length - (i > 0 ? NFAPI_NR_P7_HEADER_LENGTH : 0);
 			}
 			
 			if(pnf_p7->reassemby_buffer_size < length)
@@ -2859,8 +2511,8 @@ void pnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7, 
 				}
 				else
 				{
-					memcpy(pnf_p7->reassemby_buffer + offset, rx_msg->segments[i].buffer + NFAPI_P7_HEADER_LENGTH, rx_msg->segments[i].length - NFAPI_P7_HEADER_LENGTH);
-					offset += rx_msg->segments[i].length - NFAPI_P7_HEADER_LENGTH;
+					memcpy(pnf_p7->reassemby_buffer + offset, rx_msg->segments[i].buffer + NFAPI_NR_P7_HEADER_LENGTH, rx_msg->segments[i].length - NFAPI_NR_P7_HEADER_LENGTH);
+					offset += rx_msg->segments[i].length - NFAPI_NR_P7_HEADER_LENGTH;
 				}
 			}
 
@@ -2956,13 +2608,13 @@ void pnf_nr_nfapi_p7_read_dispatch_message(pnf_p7_t* pnf_p7, uint32_t now_hr_tim
 	do
 	{
 		// peek the header
-		uint8_t header_buffer[NFAPI_P7_HEADER_LENGTH];
-		recvfrom_result = recvfrom(pnf_p7->p7_sock, header_buffer, NFAPI_P7_HEADER_LENGTH, MSG_DONTWAIT | MSG_PEEK, (struct sockaddr*)&remote_addr, &remote_addr_size);
+		uint8_t header_buffer[NFAPI_NR_P7_HEADER_LENGTH];
+		recvfrom_result = recvfrom(pnf_p7->p7_sock, header_buffer, NFAPI_NR_P7_HEADER_LENGTH, MSG_DONTWAIT | MSG_PEEK, (struct sockaddr*)&remote_addr, &remote_addr_size);
 		if(recvfrom_result > 0)
 		{
 			// get the segment size
-			nfapi_p7_message_header_t header;
-			nfapi_p7_message_header_unpack(header_buffer, NFAPI_P7_HEADER_LENGTH, &header, 34, 0);
+			nfapi_nr_p7_message_header_t header;
+			nfapi_nr_p7_message_header_unpack(header_buffer, NFAPI_NR_P7_HEADER_LENGTH, &header, 34, 0);
 
 			// resize the buffer if we have a large segment
 			if(header.message_length > pnf_p7->rx_message_buffer_size)

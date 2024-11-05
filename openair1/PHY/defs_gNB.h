@@ -56,8 +56,10 @@ typedef struct {
 typedef struct {
   /// Nfapi DLSCH PDU
   nfapi_nr_dl_tti_pdsch_pdu pdsch_pdu;
-  /// pointer to pdu from MAC interface (this is "a" in 36.212)
-  uint8_t *pdu;
+  /// length of PDU to encode
+  uint32_t pdu_len;
+  /// pdu from MAC interface (this is "a" in 36.212)
+  uint8_t pdu[262144];
   /// Pointer to the payload
   uint8_t *b;
   /// Pointers to transport block segments
@@ -642,8 +644,6 @@ typedef struct processingData_L1tx {
   uint16_t num_pdsch_slot;
   int num_dl_pdcch;
   int num_ul_pdcch;
-  /* a reference to the sched_response, to release it when not needed anymore */
-  int sched_response_id;
 } processingData_L1tx_t;
 
 typedef struct processingData_L1rx {

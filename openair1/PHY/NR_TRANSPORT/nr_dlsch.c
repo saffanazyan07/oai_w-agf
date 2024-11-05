@@ -101,8 +101,9 @@ void nr_generate_pdsch(processingData_L1tx_t *msgTx, int frame, int slot)
     harq->unav_res = ptrsSymbPerSlot * n_ptrs;
 
     /// CRC, coding, interleaving and rate matching
-    AssertFatal(harq->pdu!=NULL,"harq->pdu is null\n");
+    AssertError(harq->pdu_len > 0, return, "no HARQ SDU present\n");
     unsigned char output[rel15->rbSize * NR_SYMBOLS_PER_SLOT * NR_NB_SC_PER_RB * Qm * rel15->nrOfLayers] __attribute__((aligned(64)));
+    DevAssert(harq->pdu_len < rel15->rbSize * NR_SYMBOLS_PER_SLOT * NR_NB_SC_PER_RB * Qm * rel15->nrOfLayers);
     bzero(output,rel15->rbSize * NR_SYMBOLS_PER_SLOT * NR_NB_SC_PER_RB * Qm * rel15->nrOfLayers);
     start_meas(dlsch_encoding_stats);
 
@@ -487,7 +488,7 @@ void nr_generate_pdsch(processingData_L1tx_t *msgTx, int frame, int slot)
         int rb = 0;
         while(rb < rel15->rbSize) {
           //get pmi info
-          const int pmi = (pb->prg_size > 0) ? (pb->prgs_list[(int)rb / pb->prg_size].pm_idx) : 0;
+          const int pmi = (pb->num_prgs > 0 && pb->prg_size > 0) ? (pb->prgs_list[(int)rb / pb->prg_size].pm_idx) : 0;
           const int pmi2 = (rb < (rel15->rbSize - 1) && pb->prg_size > 0) ? (pb->prgs_list[(int)(rb+1)/pb->prg_size].pm_idx) : -1;
 
           // If pmi of next RB and pmi of current RB are the same, we do 2 RB in a row

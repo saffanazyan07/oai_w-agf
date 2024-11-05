@@ -155,9 +155,8 @@ static void tx_func(processingData_L1tx_t *info)
     ru_tx_func((void *)&syncMsgRU);
     stop_meas(&info->gNB->phy_proc_tx);
   }
-  /* this thread is done with the sched_info, decrease the reference counter */
-  LOG_D(NR_PHY, "Calling deref_sched_response for id %d (tx_func) in %d.%d\n", info->sched_response_id, frame_tx, slot_tx);
-  deref_sched_response(info->sched_response_id);
+  info->num_pdsch_slot = 0;
+  info->num_dl_pdcch = 0;
 }
 
 void *L1_rx_thread(void *arg) 
@@ -204,15 +203,6 @@ static void rx_func(processingData_L1_t *info)
   int64_t absslot_rx = absslot_tx - gNB->RU_list[0]->sl_ahead;
   int rt_prof_idx = absslot_rx % RT_PROF_DEPTH;
   clock_gettime(CLOCK_MONOTONIC, &info->gNB->rt_L1_profiling.start_L1_RX[rt_prof_idx]);
-
-  // *******************************************************************
-
-  if (NFAPI_MODE == NFAPI_MODE_PNF) {
-    // I am a PNF and I need to let nFAPI know that we have a (sub)frame tick
-    // LOG_D(PHY, "oai_nfapi_slot_ind(frame:%u, slot:%d) ********\n", frame_rx, slot_rx);
-    handle_nr_slot_ind(frame_rx, slot_rx);
-  }
-  // ****************************************
 
   // RX processing
   int rx_slot_type = nr_slot_select(cfg, frame_rx, slot_rx);

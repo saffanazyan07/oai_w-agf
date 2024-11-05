@@ -29,6 +29,7 @@
 #include "nfapi/oai_integration/aerial/fapi_nvIPC.h"
 #endif
 #include "vnf_p7.h"
+#include "nr_fapi_p7_utils.h"
 
 #ifdef NDEBUG
 #  warning assert is disabled
@@ -88,16 +89,14 @@ void vnf_p7_connection_info_list_add(vnf_p7_t* vnf_p7, nfapi_vnf_p7_connection_i
 nfapi_vnf_p7_connection_info_t* vnf_p7_connection_info_list_find(vnf_p7_t* vnf_p7, uint16_t phy_id)
 {
 	nfapi_vnf_p7_connection_info_t* curr = vnf_p7->p7_connections;
-	while(curr != 0)
-	{
-		if(curr->phy_id == phy_id)
-		{
-			return curr;
-		}
-		curr = curr->next;
-	}
+  while (curr != 0) {
+    if (curr->phy_id == phy_id)
+      return curr;
+    curr = curr->next;
+  }
+  NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s(): could not find P7 connection for phy_id %d\n", __func__, phy_id);
 
-	return 0;
+  return 0;
 }
 
 nfapi_vnf_p7_connection_info_t* vnf_p7_connection_info_list_delete(vnf_p7_t* vnf_p7, uint16_t phy_id)
@@ -474,14 +473,14 @@ int vnf_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_vnf_p7_connection_info_t* p7_info, u
 	return 0;
 }
 
-int vnf_nr_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* header)
+int vnf_nr_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_nr_p7_message_header_t* header)
 {
 
 	nfapi_vnf_p7_connection_info_t* p7_connection = vnf_p7_connection_info_list_find(vnf_p7, header->phy_id);
 	if(p7_connection)
 	{
 		int send_result = 0;
-		uint8_t  buffer[1024 * 32];
+		uint8_t  buffer[1024*1024*3];
 
 		header->m_segment_sequence = NFAPI_P7_SET_MSS(0, 0, p7_connection->sequence_number);
 		
@@ -501,45 +500,45 @@ int vnf_nr_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* 
 			// todo : worry about blocking writes?
 		
 			// segmenting the transmit
-			int msg_body_len = len - NFAPI_P7_HEADER_LENGTH ; 
-			int seg_body_len = vnf_p7->_public.segment_size - NFAPI_P7_HEADER_LENGTH ; 
+			int msg_body_len = len - NFAPI_NR_P7_HEADER_LENGTH ;
+			int seg_body_len = vnf_p7->_public.segment_size - NFAPI_NR_P7_HEADER_LENGTH ;
 			int segment_count = (msg_body_len / (seg_body_len)) + ((msg_body_len % seg_body_len) ? 1 : 0); 
 				
 			int segment = 0;
-			int offset = NFAPI_P7_HEADER_LENGTH;
+			int offset = NFAPI_NR_P7_HEADER_LENGTH;
 			uint8_t tx_buffer[vnf_p7->_public.segment_size];
-                        NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() MORE THAN ONE SEGMENT phy_id:%d nfapi_p7_message_pack()=len=%d vnf_p7->_public.segment_size:%u\n", __FUNCTION__, header->phy_id, len, vnf_p7->_public.segment_size);
+                        NFAPI_TRACE(NFAPI_TRACE_DEBUG, "%s() MORE THAN ONE SEGMENT phy_id:%d nfapi_p7_message_pack()=len=%d vnf_p7->_public.segment_size:%u\n", __FUNCTION__, header->phy_id, len, vnf_p7->_public.segment_size);
 			for(segment = 0; segment < segment_count; ++segment)
 			{
 				uint8_t last = 0;
-				uint16_t size = vnf_p7->_public.segment_size - NFAPI_P7_HEADER_LENGTH;
+				uint16_t size = vnf_p7->_public.segment_size - NFAPI_NR_P7_HEADER_LENGTH;
 				if(segment + 1 == segment_count)
 				{
 					last = 1;
 					size = (msg_body_len) - (seg_body_len * segment);
 				}
 
-				uint16_t segment_size = size + NFAPI_P7_HEADER_LENGTH;
+				uint16_t segment_size = size + NFAPI_NR_P7_HEADER_LENGTH;
 
 				// Update the header with the m and segement 
-				memcpy(&tx_buffer[0], buffer, NFAPI_P7_HEADER_LENGTH);
+				memcpy(&tx_buffer[0], buffer, NFAPI_NR_P7_HEADER_LENGTH);
 
 				// set the segment length
-				tx_buffer[4] = (segment_size & 0xFF00) >> 8;
-				tx_buffer[5] = (segment_size & 0xFF);
+				tx_buffer[6] = (segment_size & 0xFF00) >> 8;
+				tx_buffer[7] = (segment_size & 0xFF);
 
 				// set the m & segment number
-				tx_buffer[6] = ((!last) << 7) + segment;
+				tx_buffer[8] = ((!last) << 7) + segment;
 
-				memcpy(&tx_buffer[NFAPI_P7_HEADER_LENGTH], &buffer[0] + offset, size);
+				memcpy(&tx_buffer[NFAPI_NR_P7_HEADER_LENGTH], &buffer[0] + offset, size);
 				offset += size;
 
 				if(vnf_p7->_public.checksum_enabled)
 				{
-					nfapi_p7_update_checksum(tx_buffer, segment_size);
+					nfapi_nr_p7_update_checksum(tx_buffer, segment_size);
 				}
 			
-				nfapi_p7_update_transmit_timestamp(buffer, calculate_transmit_timestamp(p7_connection->sfn, p7_connection->slot, vnf_p7->slot_start_time_hr));	
+				nfapi_nr_p7_update_transmit_timestamp(buffer, calculate_transmit_timestamp(p7_connection->sfn, p7_connection->slot, vnf_p7->slot_start_time_hr));
 
 				send_result = vnf_send_p7_msg(vnf_p7, p7_connection,  &tx_buffer[0], segment_size);
 
@@ -549,10 +548,10 @@ int vnf_nr_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* 
 		{
 			if(vnf_p7->_public.checksum_enabled)
 			{
-				nfapi_p7_update_checksum(buffer, len);
+				nfapi_nr_p7_update_checksum(buffer, len);
 			}
 
-			nfapi_p7_update_transmit_timestamp(buffer, calculate_transmit_timestamp(p7_connection->sfn, p7_connection->slot, vnf_p7->slot_start_time_hr));	
+			nfapi_nr_p7_update_transmit_timestamp(buffer, calculate_transmit_timestamp(p7_connection->sfn, p7_connection->slot, vnf_p7->slot_start_time_hr));
 
 			// simple case that the message fits in a single segement
 			send_result = vnf_send_p7_msg(vnf_p7, p7_connection, &buffer[0], len);
@@ -1084,6 +1083,37 @@ void vnf_handle_p7_vendor_extension(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vn
 }
 
 
+void vnf_nr_handle_p7_vendor_extension(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7, uint16_t message_id)
+{
+  if (pRecvMsg == NULL || vnf_p7 == NULL)
+  {
+    NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s: NULL parameters\n", __FUNCTION__);
+  }
+  else if(vnf_p7->_public.allocate_p7_vendor_ext)
+  {
+    uint16_t msg_size;
+    nfapi_nr_p7_message_header_t* msg = vnf_p7->_public.allocate_p7_vendor_ext(message_id, &msg_size);
+
+    if(msg == 0)
+    {
+      NFAPI_TRACE(NFAPI_TRACE_INFO, "%s failed to allocate vendor extention structure\n", __FUNCTION__);
+      return;
+    }
+
+    int unpack_result = nfapi_nr_p7_message_unpack(pRecvMsg, recvMsgLen, msg, msg_size, &vnf_p7->_public.codec_config);
+
+    if(unpack_result == 0)
+    {
+      if(vnf_p7->_public.vendor_ext)
+        vnf_p7->_public.vendor_ext(&(vnf_p7->_public), msg);
+    }
+
+    if(vnf_p7->_public.deallocate_p7_vendor_ext)
+      vnf_p7->_public.deallocate_p7_vendor_ext(msg);
+
+  }
+}
+
 void vnf_handle_ul_node_sync(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
 {
 	uint32_t now_time_hr = vnf_get_current_time_hr();
@@ -1467,7 +1497,7 @@ void vnf_handle_nr_slot_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf
 	}
 	else
 	{
-		nfapi_nr_slot_indication_scf_t ind;
+		nfapi_nr_slot_indication_scf_t ind = {0};
 	
 		if(nfapi_nr_p7_message_unpack(pRecvMsg, recvMsgLen, &ind, sizeof(ind), &vnf_p7->_public.codec_config) < 0)
 		{
@@ -1480,6 +1510,7 @@ void vnf_handle_nr_slot_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf
 			{
 				(vnf_p7->_public.nr_slot_indication)(&ind);
 			}
+      free_slot_indication(&ind);
 		}
 
 	}
@@ -1501,11 +1532,12 @@ void vnf_handle_nr_rx_data_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* 
 		}
 		else
 		{
-			NFAPI_TRACE(NFAPI_TRACE_INFO, "%s: Handling RX Indication\n", __FUNCTION__);
+			NFAPI_TRACE(NFAPI_TRACE_DEBUG, "%s: Handling RX Indication\n", __FUNCTION__);
                         if(vnf_p7->_public.nr_rx_data_indication)
 			{
 				(vnf_p7->_public.nr_rx_data_indication)(&ind);
 			}
+      free_rx_data_indication(&ind);
 		}
 	}
 }
@@ -1527,11 +1559,12 @@ void vnf_handle_nr_crc_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_
 		}
 		else
 		{
-		        NFAPI_TRACE(NFAPI_TRACE_INFO, "%s: Handling CRC Indication\n", __FUNCTION__);
+		        NFAPI_TRACE(NFAPI_TRACE_DEBUG, "%s: Handling CRC Indication\n", __FUNCTION__);
 			if(vnf_p7->_public.nr_crc_indication)
 			{
 				(vnf_p7->_public.nr_crc_indication)(&ind);
 			}
+      free_crc_indication(&ind);
 		}
 	}
 }
@@ -1557,6 +1590,7 @@ void vnf_handle_nr_srs_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_
 			{
 				(vnf_p7->_public.nr_srs_indication)(&ind);
 			}
+      free_srs_indication(&ind);
 		}
 	}
 }
@@ -1578,11 +1612,12 @@ void vnf_handle_nr_uci_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_
 		}
 		else
 		{
-		        NFAPI_TRACE(NFAPI_TRACE_INFO, "%s: Handling UCI Indication\n", __FUNCTION__);
+		        NFAPI_TRACE(NFAPI_TRACE_DEBUG, "%s: Handling UCI Indication\n", __FUNCTION__);
 			if(vnf_p7->_public.nr_uci_indication)
 			{
 				(vnf_p7->_public.nr_uci_indication)(&ind);
 			}
+      free_uci_indication(&ind);
 		}
 	}
 }
@@ -1609,6 +1644,7 @@ void vnf_handle_nr_rach_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf
 			{
 				(vnf_p7->_public.nr_rach_indication)(&ind);
 			}
+      free_rach_indication(&ind);
 		}
 	}
 }
@@ -2056,9 +2092,9 @@ void vnf_nr_handle_timing_info(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
           // Panos: Careful here!!! Modification of the original nfapi-code
           //if (vnf_pnf_sfnsf_delta>1 || vnf_pnf_sfnsf_delta < -1)
 		  //printf("VNF-PNF delta - %d", vnf_pnf_sfnslot_delta);
-          if (vnf_pnf_sfnslot_delta != 0)
+          if (vnf_pnf_sfnslot_delta > 1) // we need to have a small delta, otherwise it would mean we don't advance
           {
-            NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() LARGE SFN/SLOT DELTA between PNF and VNF. Delta %d. PNF:%d.%d VNF:%d.%d\n\n\n\n\n\n\n\n\n",
+            NFAPI_TRACE(NFAPI_TRACE_WARN, "%s() LARGE SFN/SLOT DELTA between PNF and VNF. Delta %d slots. PNF:%d.%d VNF:%d.%d\n",
                         __FUNCTION__, vnf_pnf_sfnslot_delta,
                         ind.last_sfn, ind.last_slot,
                         vnf_p7->p7_connections[0].sfn, vnf_p7->p7_connections[0].slot);
@@ -2166,7 +2202,7 @@ void vnf_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
 
 void vnf_nr_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
 {
-	nfapi_p7_message_header_t header;
+	nfapi_nr_p7_message_header_t header;
 
 	// validate the input params
 	if(pRecvMsg == NULL || recvMsgLen < 4 || vnf_p7 == NULL)
@@ -2176,7 +2212,7 @@ void vnf_nr_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7
 	}
 
 	// unpack the message header
-	if (nfapi_p7_message_header_unpack(pRecvMsg, recvMsgLen, &header, sizeof(header), &vnf_p7->_public.codec_config) < 0)
+	if (nfapi_nr_p7_message_header_unpack(pRecvMsg, recvMsgLen, &header, sizeof(header), &vnf_p7->_public.codec_config) < 0)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Unpack message header failed, ignoring\n");
 		return;
@@ -2363,7 +2399,7 @@ void vnf_handle_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
 
 void vnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7) 
 {
-	nfapi_p7_message_header_t messageHeader;
+	nfapi_nr_p7_message_header_t messageHeader;
 
 	// validate the input params
 	if(pRecvMsg == NULL || recvMsgLen < 4 || vnf_p7 == NULL)
@@ -2373,7 +2409,7 @@ void vnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
 	}
 
 	// unpack the message header
-	if (nfapi_p7_message_header_unpack(pRecvMsg, recvMsgLen, &messageHeader, sizeof(nfapi_p7_message_header_t), &vnf_p7->_public.codec_config) < 0)
+	if (nfapi_nr_p7_message_header_unpack(pRecvMsg, recvMsgLen, &messageHeader, sizeof(nfapi_nr_p7_message_header_t), &vnf_p7->_public.codec_config) < 0)
 	{
 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Unpack message header failed, ignoring\n");
 		return;
@@ -2381,7 +2417,7 @@ void vnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
 
 	if(vnf_p7->_public.checksum_enabled)
 	{
-		uint32_t checksum = nfapi_p7_calculate_checksum(pRecvMsg, recvMsgLen);
+		uint32_t checksum = nfapi_nr_p7_calculate_checksum(pRecvMsg, recvMsgLen);
 		if(checksum != messageHeader.checksum)
 		{
 			NFAPI_TRACE(NFAPI_TRACE_ERROR, "Checksum verification failed %d %d msg:%d len:%d\n", checksum, messageHeader.checksum, messageHeader.message_id, recvMsgLen);
@@ -2422,7 +2458,7 @@ void vnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
 				uint16_t length = 0;
 				for(i = 0; i < rx_msg->num_segments_expected; ++i)
 				{
-					length += rx_msg->segments[i].length - (i > 0 ? NFAPI_P7_HEADER_LENGTH : 0);
+					length += rx_msg->segments[i].length - (i > 0 ? NFAPI_NR_P7_HEADER_LENGTH : 0);
 				}
 
 				if(phy->reassembly_buffer_size < length)
@@ -2455,8 +2491,8 @@ void vnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
 					}
 					else
 					{
-						memcpy(phy->reassembly_buffer + offset, rx_msg->segments[i].buffer + NFAPI_P7_HEADER_LENGTH, rx_msg->segments[i].length - NFAPI_P7_HEADER_LENGTH);
-						offset += rx_msg->segments[i].length - NFAPI_P7_HEADER_LENGTH;
+						memcpy(phy->reassembly_buffer + offset, rx_msg->segments[i].buffer + NFAPI_NR_P7_HEADER_LENGTH, rx_msg->segments[i].length - NFAPI_NR_P7_HEADER_LENGTH);
+						offset += rx_msg->segments[i].length - NFAPI_NR_P7_HEADER_LENGTH;
 					}
 				}
 
@@ -2488,14 +2524,14 @@ int vnf_nr_p7_read_dispatch_message(vnf_p7_t* vnf_p7)
 	do
 	{
 		// peek the header
-		uint8_t header_buffer[NFAPI_P7_HEADER_LENGTH];
-		recvfrom_result = recvfrom(vnf_p7->socket, header_buffer, NFAPI_P7_HEADER_LENGTH, MSG_DONTWAIT | MSG_PEEK, (struct sockaddr*)&remote_addr, &remote_addr_size);
+		uint8_t header_buffer[NFAPI_NR_P7_HEADER_LENGTH];
+		recvfrom_result = recvfrom(vnf_p7->socket, header_buffer, NFAPI_NR_P7_HEADER_LENGTH, MSG_DONTWAIT | MSG_PEEK, (struct sockaddr*)&remote_addr, &remote_addr_size);
 
 		if(recvfrom_result > 0)
 		{
 			// get the segment size
-			nfapi_p7_message_header_t header;
-			if(nfapi_p7_message_header_unpack(header_buffer, NFAPI_P7_HEADER_LENGTH, &header, sizeof(header), 0) < 0)
+			nfapi_nr_p7_message_header_t header;
+			if(nfapi_nr_p7_message_header_unpack(header_buffer, NFAPI_NR_P7_HEADER_LENGTH, &header, sizeof(header), 0) < 0)
 			{
 				NFAPI_TRACE(NFAPI_TRACE_ERROR, "Unpack message header failed, ignoring\n");
 				return -1;
