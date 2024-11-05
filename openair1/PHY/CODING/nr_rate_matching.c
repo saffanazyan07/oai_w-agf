@@ -392,18 +392,22 @@ int nr_get_R_ldpc_decoder(int rvidx,
                           int BG,
                           int Z,
                           int *llrLen,
-                          int round) {
+                          int round)
+{
   AssertFatal(BG == 1 || BG == 2, "Unknown BG %d\n", BG);
 
-  int Ncb = (BG==1)?(66*Z):(50*Z);
-  int infoBits = (index_k0[BG-1][rvidx] * Z + E);
+  int Ncb = (BG == 1) ? (66 * Z) : (50 * Z);
+  int infoBits = (index_k0[BG - 1][rvidx] * Z + E);
 
-  if (round == 0) *llrLen = infoBits;
-  if (infoBits > Ncb) infoBits = Ncb;
-  if (infoBits > *llrLen) *llrLen = infoBits;
+  if (round == 0)
+    *llrLen = infoBits;
+  if (infoBits > Ncb)
+    infoBits = Ncb;
+  if (infoBits > *llrLen)
+    *llrLen = infoBits;
 
-  int sysBits = (BG==1)?(22*Z):(10*Z);
-  float decoderR = (float)sysBits/(infoBits + 2*Z);
+  int sysBits = (BG == 1) ? (22 * Z): (10 * Z);
+  float decoderR = (float)sysBits / (infoBits + 2 * Z);
 
   if (BG == 2)
     if (decoderR < 0.3333)
@@ -427,76 +431,84 @@ int nr_rate_matching_ldpc(uint32_t Tbslbrm,
                           uint8_t *w,
                           uint8_t *e,
                           uint8_t C,
-			  uint32_t F,
-			  uint32_t Foffset,
+                          uint32_t F,
+                          uint32_t Foffset,
                           uint8_t rvidx,
                           uint32_t E)
 {
-  uint32_t Ncb,ind,k=0,Nref,N;
-
-  if (C==0) {
-    LOG_E(PHY,"nr_rate_matching: invalid parameters (C %d\n",C);
+  if (C == 0) {
+    LOG_E(PHY, "nr_rate_matching: invalid parameter C %d\n", C);
     return -1;
   }
 
   //Bit selection
-  N = (BG==1)?(66*Z):(50*Z);
-
+  uint32_t N = (BG ==1 ) ? (66 * Z) : (50 * Z);
+  uint32_t Ncb;
   if (Tbslbrm == 0)
-      Ncb = N;
+    Ncb = N;
   else {
-      Nref = 3*Tbslbrm/(2*C); //R_LBRM = 2/3
-      Ncb = min(N, Nref);
+    uint32_t Nref = 3 * Tbslbrm / (2 * C); //R_LBRM = 2/3
+    Ncb = min(N, Nref);
   }
 
-  ind = (index_k0[BG-1][rvidx]*Ncb/N)*Z;
+  uint32_t ind = (index_k0[BG - 1][rvidx] * Ncb / N) * Z;
 
 #ifdef RM_DEBUG
   printf("nr_rate_matching_ldpc: E %u, F %u, Foffset %u, k0 %u, Ncb %u, rvidx %d, Tbslbrm %u\n", E, F, Foffset, ind, Ncb, rvidx, Tbslbrm);
 #endif
 
   if (Foffset > E) {
-    LOG_E(PHY,"nr_rate_matching: invalid parameters (Foffset %d > E %d) F %d, k0 %d, Ncb %d, rvidx %d, Tbslbrm %d\n",Foffset,E,F, ind, Ncb, rvidx, Tbslbrm);
+    LOG_E(PHY,
+          "nr_rate_matching: invalid parameters (Foffset %d > E %d) F %d, k0 %d, Ncb %d, rvidx %d, Tbslbrm %d\n",
+          Foffset,
+          E,
+          F,
+          ind,
+          Ncb,
+          rvidx,
+          Tbslbrm);
     return -1;
   }
   if (Foffset > Ncb) {
-    LOG_E(PHY,"nr_rate_matching: invalid parameters (Foffset %d > Ncb %d)\n",Foffset,Ncb);
+    LOG_E(PHY,"nr_rate_matching: invalid parameters (Foffset %d > Ncb %d)\n", Foffset, Ncb);
     return -1;
   }
 
-  if (ind >= Foffset && ind < (F+Foffset)) ind = F+Foffset;
+  if (ind >= Foffset && ind < (F + Foffset))
+    ind = F + Foffset;
 
+  uint32_t k = 0;
   if (ind < Foffset) { // case where we have some bits before the filler and the rest after
-    memcpy((void*)e,(void*)(w+ind),Foffset-ind);
+    memcpy((void*)e, (void*)(w + ind), Foffset - ind);
 
-    if (E + F <= Ncb-ind) { // E+F doesn't contain all coded bits
-      memcpy((void*)(e+Foffset-ind),(void*)(w+Foffset+F),E-Foffset+ind);
-      k=E;
+    if (E + F <= Ncb - ind) { // E+F doesn't contain all coded bits
+      memcpy((void*)(e + Foffset - ind), (void*)(w + Foffset + F), E - Foffset + ind);
+      k = E;
     }
     else {
-      memcpy((void*)(e+Foffset-ind),(void*)(w+Foffset+F),Ncb-Foffset-F);
-      k=Ncb-F-ind;
+      memcpy((void*)(e + Foffset - ind), (void*)(w + Foffset + F), Ncb - Foffset - F);
+      k = Ncb - F - ind;
     }
   }
   else {
-    if (E <= Ncb-ind) { //E+F doesn't contain all coded bits
-      memcpy((void*)(e),(void*)(w+ind),E);
-      k=E;
+    if (E <= Ncb - ind) { //E+F doesn't contain all coded bits
+      memcpy((void*)e, (void*)(w + ind), E);
+      k = E;
     }
     else {
-      memcpy((void*)(e),(void*)(w+ind),Ncb-ind);
-      k=Ncb-ind;
+      memcpy((void*)e, (void*)(w + ind), Ncb - ind);
+      k = Ncb - ind;
     }
   }
 
-  while(k<E) { // case where we do repetitions (low mcs)
-    for (ind=0; (ind<Ncb)&&(k<E); ind++) {
+  while(k < E) { // case where we do repetitions (low mcs)
+    for (ind = 0; (ind < Ncb) && (k < E); ind++) {
 
 #ifdef RM_DEBUG
-      printf("RM_TX k%u Ind: %u (%d)\n",k,ind,w[ind]);
+      printf("RM_TX k%u Ind: %u (%d)\n", k, ind, w[ind]);
 #endif
 
-      if (w[ind] != NR_NULL) e[k++]=w[ind];
+      if (w[ind] != NR_NULL) e[k++] = w[ind];
     }
   }
 
@@ -516,89 +528,93 @@ int nr_rate_matching_ldpc_rx(uint32_t Tbslbrm,
                              uint32_t F,
                              uint32_t Foffset)
 {
-  uint32_t Ncb,ind,k,Nref,N;
-
 #ifdef RM_DEBUG
-  int nulled=0;
+  int nulled = 0;
 #endif
 
-  if (C==0) {
-    LOG_E(PHY,"nr_rate_matching: invalid parameters (C %d\n",C);
+  if (C == 0) {
+    LOG_E(PHY,"nr_rate_matching: invalid parameter C %d\n", C);
     return -1;
   }
 
   //Bit selection
-  N = (BG==1)?(66*Z):(50*Z);
-
+  uint32_t N = (BG == 1) ? (66 * Z) : (50 * Z);
+  uint32_t Ncb;
   if (Tbslbrm == 0)
     Ncb = N;
   else {
-    Nref = (3*Tbslbrm/(2*C)); //R_LBRM = 2/3
+    uint32_t Nref = (3 * Tbslbrm / (2 * C)); //R_LBRM = 2/3
     Ncb = min(N, Nref);
   }
 
-  ind = (index_k0[BG-1][rvidx]*Ncb/N)*Z;
+  uint32_t ind = (index_k0[BG - 1][rvidx] * Ncb / N) * Z;
   if (Foffset > E) {
-    LOG_E(PHY,"nr_rate_matching: invalid parameters (Foffset %d > E %d)\n",Foffset,E);
+    LOG_E(PHY,"nr_rate_matching: invalid parameters (Foffset %d > E %d)\n", Foffset, E);
     return -1;
   }
   if (Foffset > Ncb) {
-    LOG_E(PHY,"nr_rate_matching: invalid parameters (Foffset %d > Ncb %d)\n",Foffset,Ncb);
+    LOG_E(PHY,"nr_rate_matching: invalid parameters (Foffset %d > Ncb %d)\n", Foffset, Ncb);
     return -1;
   }
 
 #ifdef RM_DEBUG
-  printf("nr_rate_matching_ldpc_rx: Clear %d, E %u, Foffset %u, k0 %u, Ncb %u, rvidx %d, Tbslbrm %u\n", clear, E, Foffset, ind, Ncb, rvidx, Tbslbrm);
+  printf("nr_rate_matching_ldpc_rx: Clear %d, E %u, Foffset %u, k0 %u, Ncb %u, rvidx %d, Tbslbrm %u\n",
+         clear,
+         E,
+         Foffset,
+         ind,
+         Ncb,
+         rvidx,
+         Tbslbrm);
 #endif
 
   if (clear == 1)
     memset(w, 0, Ncb * sizeof(int16_t));
 
-  k=0;
-
+  uint32_t k = 0;
   if (ind < Foffset)
-    for (; (ind<Foffset)&&(k<E); ind++) {
+    for (; (ind < Foffset) && (k < E); ind++) {
 #ifdef RM_DEBUG
-      printf("RM_RX k%u Ind %u(before filler): %d (%d)=>",k,ind,w[ind],soft_input[k]);
-#endif
-      w[ind]+=soft_input[k++];
-#ifdef RM_DEBUG
-      printf("%d\n",w[ind]);
-#endif
-    }
-  if (ind >= Foffset && ind < Foffset+F) ind=Foffset+F;
-
-  for (; (ind<Ncb)&&(k<E); ind++) {
-#ifdef RM_DEBUG
-    printf("RM_RX k%u Ind %u(after filler) %d (%d)=>",k,ind,w[ind],soft_input[k]);
+      printf("RM_RX k%u Ind %u(before filler): %d (%d)=>", k, ind, w[ind], soft_input[k]);
 #endif
       w[ind] += soft_input[k++];
 #ifdef RM_DEBUG
-      printf("%d\n",w[ind]);
+      printf("%d\n", w[ind]);
+#endif
+    }
+  if (ind >= Foffset && ind < Foffset + F)
+    ind = Foffset + F;
+
+  for (; (ind < Ncb) && (k < E); ind++) {
+#ifdef RM_DEBUG
+    printf("RM_RX k%u Ind %u(after filler) %d (%d)=>", k, ind, w[ind], soft_input[k]);
+#endif
+    w[ind] += soft_input[k++];
+#ifdef RM_DEBUG
+    printf("%d\n", w[ind]);
 #endif
   }
 
-  while(k<E) {
-    for (ind=0; (ind<Foffset)&&(k<E); ind++) {
+  while(k < E) {
+    for (ind = 0; (ind < Foffset) && (k < E); ind++) {
 #ifdef RM_DEBUG
-      printf("RM_RX k%u Ind %u(before filler) %d(%d)=>",k,ind,w[ind],soft_input[k]);
-#endif
-      w[ind]+=soft_input[k++];
-#ifdef RM_DEBUG
-      printf("%d\n",w[ind]);
-#endif
-    }
-    for (ind=Foffset+F; (ind<Ncb)&&(k<E); ind++) {
-#ifdef RM_DEBUG
-      printf("RM_RX (after filler) k%u Ind: %u (%d)(soft in %d)=>",k,ind,w[ind],soft_input[k]);
+      printf("RM_RX k%u Ind %u(before filler) %d(%d)=>", k, ind, w[ind], soft_input[k]);
 #endif
       w[ind] += soft_input[k++];
 #ifdef RM_DEBUG
-      printf("%d\n",w[ind]);
+      printf("%d\n", w[ind]);
+#endif
+    }
+    for (ind = Foffset + F; (ind < Ncb) && (k < E); ind++) {
+#ifdef RM_DEBUG
+      printf("RM_RX (after filler) k%u Ind: %u (%d)(soft in %d)=>", k, ind, w[ind], soft_input[k]);
+#endif
+      w[ind] += soft_input[k++];
+#ifdef RM_DEBUG
+      printf("%d\n", w[ind]);
 #endif
     }
   }
-
   return 0;
 }
 
