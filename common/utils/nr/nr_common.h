@@ -121,6 +121,29 @@ typedef enum frequency_range_e {
   FR2
 } frequency_range_t;
 
+#define MAX_NUM_SLOTS_ALLOWED 80 // up to numerology 3 (120 KHz SCS) is supported
+enum slot_type { TDD_NR_DOWNLINK_SLOT, TDD_NR_UPLINK_SLOT, TDD_NR_MIXED_SLOT };
+
+typedef struct tdd_bitmap {
+  enum slot_type slot_type;
+  uint8_t num_dl_symbols;
+  uint8_t num_ul_symbols;
+} tdd_bitmap_t;
+
+typedef struct tdd_period_config_s {
+  tdd_bitmap_t tdd_slot_bitmap[MAX_NUM_SLOTS_ALLOWED];
+  uint8_t num_dl_slots;
+  uint8_t num_ul_slots;
+} tdd_period_config_t;
+
+typedef struct frame_structure_s {
+  tdd_period_config_t period_cfg;
+  int8_t numb_slots_frame;
+  int8_t numb_slots_period;
+  int8_t numb_period_frame;
+  bool is_tdd;
+} frame_structure_t;
+
 typedef struct {
   /// Time shift in number of samples estimated based on DMRS-PDSCH/PUSCH
   int est_delay;
@@ -254,6 +277,8 @@ void check_ssb_raster(uint64_t freq, int band, int scs);
 int get_smallest_supported_bandwidth_index(int scs, frequency_range_t frequency_range, int n_rbs);
 unsigned short get_m_srs(int c_srs, int b_srs);
 unsigned short get_N_b_srs(int c_srs, int b_srs);
+
+int get_slot_idx_in_period(const int slot, const frame_structure_t *fs);
 
 #define CEILIDIV(a,b) ((a+b-1)/b)
 #define ROUNDIDIV(a,b) (((a<<1)+b)/(b<<1))
