@@ -173,12 +173,11 @@ def GetContainerHealth(ssh, containerName):
 		return False
 	if 'db_init' in containerName or 'db-init' in containerName: # exits with 0, there cannot be healthy
 		return True
-	time.sleep(5)
-	for _ in range(3):
+	for _ in range(8):
 		result = ssh.run(f'docker inspect --format="{{{{.State.Health.Status}}}}" {containerName}', silent=True)
 		if result.stdout == 'healthy':
 			return True
-		time.sleep(10)
+		time.sleep(5)
 	return False
 
 def ExistEnvFilePrint(ssh, wd, prompt='env vars in existing'):
@@ -351,7 +350,7 @@ class Containerize():
 		#checkers from xml
 		self.ran_checkers={}
 
-		self.flexricTag = 'develop'
+		self.flexricTag = ''
 
 #-----------------------------------------------------------
 # Container management functions

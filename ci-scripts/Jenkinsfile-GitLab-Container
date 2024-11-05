@@ -285,11 +285,11 @@ pipeline {
             }
           }
         }
-        stage ("FLEXRIC-5G-RAN-Test") {
+        stage ("OAI-FLEXRIC-RAN-Integration-Test") {
           when { expression {do5Gtest} }
           steps {
             script {
-              triggerSlaveJob ('OAI-FLEXRIC-RAN-Integration-Test', 'FLEXRIC-5G-RAN-Test')
+              triggerSlaveJob ('OAI-FLEXRIC-RAN-Integration-Test', 'OAI-FLEXRIC-RAN-Integration-Test')
             }
           }
           post {

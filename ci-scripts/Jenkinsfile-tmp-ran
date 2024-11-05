@@ -151,6 +151,8 @@ pipeline {
                     }
 
                     if (params.Flexric_Tag != null) {
+                        echo "This pipeline is configured to run with a FlexRIC deployment."
+                        echo "Appending FlexRicTag option to the list of options"
                         flexricOption = "--FlexRicTag=${params.Flexric_Tag}"
                         echo "Using new Flexric option: ${flexricOption}"
                     }
