@@ -63,6 +63,7 @@ typedef enum {
   SGSmobilitymanagementmessages=0x7e,
 } Extendedprotocoldiscriminator_t;
 
+// clang-format off
 #define FOREACH_TYPE(TYPE_DEF)                               \
   TYPE_DEF(REGISTRATION_REQUEST, 0x41)                       \
   TYPE_DEF(REGISTRATION_ACCEPT, 0x42)                        \
@@ -72,9 +73,9 @@ typedef enum {
   TYPE_DEF(FGS_DEREGISTRATION_ACCEPT_UE_ORIGINATING, 0x46)   \
   TYPE_DEF(DeregistrationrequestUEterminated, 0x47)          \
   TYPE_DEF(DeregistrationacceptUEterminated, 0x48)           \
-  TYPE_DEF(Servicerequest, 0x4c)                             \
-  TYPE_DEF(Servicereject, 0x4d)                              \
-  TYPE_DEF(Serviceaccept, 0x4e)                              \
+  TYPE_DEF(FGS_SERVICE_REQUEST, 0x4c)                        \
+  TYPE_DEF(FGS_SERVICE_REJECT, 0x4d)                         \
+  TYPE_DEF(FGS_SERVICE_ACCEPT, 0x4e)                         \
   TYPE_DEF(Controlplaneservicerequest, 0x4f)                 \
   TYPE_DEF(Networkslicespecificauthenticationcommand, 0x50)  \
   TYPE_DEF(Networkslicespecificauthenticationcomplete, 0x51) \
@@ -112,6 +113,7 @@ typedef enum {
   TYPE_DEF(PDUsessionreleasecommand, 0xd3)                   \
   TYPE_DEF(PDUsessionreleasecomplete, 0xd4)                  \
   TYPE_DEF(SGSMstatus, 0xd6)
+// clang-format on
 
 static const text_info_t message_text_info[] = {
   FOREACH_TYPE(TO_TEXT)

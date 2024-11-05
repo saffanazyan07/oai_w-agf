@@ -151,5 +151,8 @@ int encode_5gs_mobile_identity(FGSMobileIdentity *fgsmobileidentity, uint8_t iei
 
 int decode_5gs_mobile_identity(FGSMobileIdentity *fgsmobileidentity, uint8_t iei, const uint8_t *buffer, uint32_t len);
 
+int encode_stmsi_5gs_mobile_identity(Stmsi5GSMobileIdentity_t *stmsi, uint8_t *buffer);
+int decode_stmsi_5gs_mobile_identity(Stmsi5GSMobileIdentity_t *stmsi, const uint8_t *buffer);
+
 #endif /* FGS MOBILE IDENTITY_H_ */
 
