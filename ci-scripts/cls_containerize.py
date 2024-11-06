@@ -612,9 +612,6 @@ class Containerize():
 		self.cli = 'docker'
 		self.cliBuildOptions = ''
 
-		# Workaround for some servers, we need to erase completely the workspace
-		if self.forcedWorkspaceCleanup:
-			ssh.run(f'echo {lPassWord} | sudo -S rm -Rf {lSourcePath}')
 
 		oldRanCommidID = self.ranCommitID
 		oldRanRepository = self.ranRepository
@@ -624,7 +621,6 @@ class Containerize():
 		self.ranRepository = 'https://github.com/EpiSci/oai-lte-5g-multi-ue-proxy.git'
 		self.ranAllowMerge = False
 		self.ranTargetBranch = 'master'
-		ssh.cd(lSourcePath)
 		# to prevent accidentally overwriting data that might be used later
 		self.ranCommitID = oldRanCommidID
 		self.ranRepository = oldRanRepository
@@ -641,7 +637,12 @@ class Containerize():
 		# check if the corresponding proxy image with tag exists. If not, build it
 		ret = ssh.run(f'{self.cli} image inspect --format=\'Size = {{{{.Size}}}} bytes\' proxy:{tag}')
 		if ret.returncode != 0:
-			ssh.run(f'{self.cli} build {self.cliBuildOptions} --target oai-lte-multi-ue-proxy --tag proxy:{tag} --file docker/Dockerfile.ubuntu18.04 . > cmake_targets/log/proxy-build.log 2>&1')
+			ssh.run(f'rm -Rf {lSourcePath}')
+			success = CreateWorkspace(lIpAddr, lSourcePath, self.ranRepository, self.ranCommitID, self.ranTargetBranch, self.ranAllowMerge)
+			if not success:
+				raise Exception("could not clone proxy repository")
+
+			ssh.run(f'{self.cli} build {self.cliBuildOptions} --target oai-lte-multi-ue-proxy --tag proxy:{tag} --file {lSourcePath}/docker/Dockerfile.ubuntu18.04 {lSourcePath} > cmake_targets/log/proxy-build.log 2>&1')
 			ssh.run(f'{self.cli} image prune --force')
 			ret = ssh.run(f'{self.cli} image inspect --format=\'Size = {{{{.Size}}}} bytes\' proxy:{tag}')
 			if ret.returncode != 0:
