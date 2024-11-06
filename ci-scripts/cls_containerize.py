@@ -677,7 +677,7 @@ class Containerize():
 			ssh.run(f'mv log/* {absdir}')
 			if (os.path.isfile('f./{rdir}.zip')):
 				os.remove(f'./{rdir}.zip')
-			if (os.path.isdir(f'./{rdir}'):
+			if (os.path.isdir(f'./{rdir}')):
 				shutil.rmtree(f'./{rdir}')
 			ssh.run(f'zip -r -qq {absdir}.zip {absdir}')
 			filename = f'build_log_{self.testCase_id}.zip'
