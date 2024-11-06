@@ -26,7 +26,12 @@
 #include <netinet/sctp.h>
 #include <stdint.h>
 #include <stdio.h>
-
+struct f1ap_gnb_du_configuration_update_s;
+struct f1ap_lost_connection_t;
+struct f1ap_served_cell_info_t;
+struct f1ap_setup_req_s;
+struct gNB_RRC_INST_s;
+struct nr_rrc_du_container_t;
 struct f1ap_setup_req_s;
 struct f1ap_lost_connection_t;
 struct gNB_RRC_INST_s;
