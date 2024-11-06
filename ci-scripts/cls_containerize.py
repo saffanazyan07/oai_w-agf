@@ -671,16 +671,17 @@ class Containerize():
 		# Analyzing the logs
 		if buildProxy:
 			self.testCase_id = HTML.testCase_id
-			ssh.cd(f'{lSourcePath}/cmake_targets')
-			ssh.run(f'mkdir -p proxy_build_log_{self.testCase_id}')
-			ssh.run(f'mv log/* proxy_build_log_{self.testCase_id}')
-			if (os.path.isfile('./proxy_build_log_' + self.testCase_id + '.zip')):
-				os.remove('./proxy_build_log_' + self.testCase_id + '.zip')
-			if (os.path.isdir('./proxy_build_log_' + self.testCase_id)):
-				shutil.rmtree('./proxy_build_log_' + self.testCase_id)
-			ssh.run(f'zip -r -qq proxy_build_log_{self.testCase_id}.zip proxy_build_log_{self.testCase_id}')
+			rdir = f'proxy_build_log_{self.testCase_id}'
+			absdir = f'{lSourcePath}/cmake_targets/{rdir}'
+			ssh.run(f'mkdir -p {absdir}')
+			ssh.run(f'mv log/* {absdir}')
+			if (os.path.isfile('f./{rdir}.zip')):
+				os.remove(f'./{rdir}.zip')
+			if (os.path.isdir(f'./{rdir}'):
+				shutil.rmtree(f'./{rdir}')
+			ssh.run(f'zip -r -qq {absdir}.zip {absdir}')
 			filename = f'build_log_{self.testCase_id}.zip'
-			ssh.copyin(f'{lSourcePath}/cmake_targets/{filename}', filename)
+			ssh.copyin(f'{absdir}', filename)
 			# don't delete such that we might recover the zips
 			#ssh.run(f'rm -f build_log_{self.testCase_id}.zip')
 
