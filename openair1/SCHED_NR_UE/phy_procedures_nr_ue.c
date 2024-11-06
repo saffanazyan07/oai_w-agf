@@ -515,7 +515,7 @@ static int nr_ue_pdsch_procedures(PHY_VARS_NR_UE *ue,
     memset(ptrs_re_per_slot, 0, sizeof(ptrs_re_per_slot));
 
     const uint32_t rx_size_symbol = (dlsch[0].dlsch_config.number_rbs * NR_NB_SC_PER_RB + 15) & ~15;
-    __attribute__((aligned(32))) int32_t rxdataF_comp[dlsch[0].Nl][ue->frame_parms.nb_antennas_rx][rx_size_symbol * NR_SYMBOLS_PER_SLOT];
+    __attribute__((aligned(32))) int32_t rxdataF_comp[dlsch[0].Nl * ue->frame_parms.nb_antennas_rx][rx_size_symbol * NR_SYMBOLS_PER_SLOT];
     memset(rxdataF_comp, 0, sizeof(rxdataF_comp));
 
     uint32_t nvar = 0;
@@ -606,11 +606,11 @@ static int nr_ue_pdsch_procedures(PHY_VARS_NR_UE *ue,
                       pdsch_dl_ch_estimates,
                       llr,
                       dl_valid_re,
+                      ue->frame_parms.samples_per_slot_wCP,
                       rxdataF,
                       llr_offset,
                       &log2_maxh,
                       rx_size_symbol,
-                      ue->frame_parms.nb_antennas_rx,
                       rxdataF_comp,
                       ptrs_phase_per_slot,
                       ptrs_re_per_slot,

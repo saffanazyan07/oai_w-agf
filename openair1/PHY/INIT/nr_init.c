@@ -223,12 +223,12 @@ void phy_init_nr_gNB(PHY_VARS_gNB *gNB)
       pusch->rxdataF_comp[i] = (int32_t *)malloc16_clear(sizeof(int32_t) * nb_re_pusch2 * fp->symbols_per_slot);
     }
 
+    // [hna] 6144 is LTE and (8*((3*8*6144)+12)) is not clear
     for (int i = 0; i < max_ul_mimo_layers; i++) {
-      pusch->llr_layers[i] = (int16_t *)malloc16_clear((8 * ((3 * 8 * 6144) + 12))
-                                                       * sizeof(int16_t)); // [hna] 6144 is LTE and (8*((3*8*6144)+12)) is not clear
+      pusch->llr_layers[i] = (int16_t *)malloc16_clear((8 * ((3 * 8 * 6144) + 12)) * sizeof(int16_t)); 
     }
-    pusch->llr = (int16_t *)malloc16_clear((8 * ((3 * 8 * 6144) + 12))
-                                           * sizeof(int16_t)); // [hna] 6144 is LTE and (8*((3*8*6144)+12)) is not clear
+    // [hna] 6144 is LTE and (8*((3*8*6144)+12)) is not clear
+    pusch->llr = (int16_t *)malloc16_clear((8 * ((3 * 8 * 6144) + 12)) * sizeof(int16_t));
     pusch->ul_valid_re_per_slot = (int16_t *)malloc16_clear(sizeof(int16_t) * fp->symbols_per_slot);
   } // ulsch_id
 }
@@ -299,9 +299,8 @@ void phy_free_nr_gNB(PHY_VARS_gNB *gNB)
     free_and_zero(pusch_vars->ptrs_phase_per_slot);
     free_and_zero(pusch_vars->ul_ch_estimates_time);
     free_and_zero(pusch_vars->ul_valid_re_per_slot);
-    free_and_zero(pusch_vars->rxdataF_comp);
-
     free_and_zero(pusch_vars->llr);
+    free_and_zero(pusch_vars->rxdataF_comp);
   } // ULSCH_id
   free(gNB->pusch_vars);
 }

@@ -52,13 +52,6 @@
 */
 void nr_ue_dlsch_init(NR_UE_DLSCH_t *dlsch_list, int num_dlsch, uint8_t max_ldpc_iterations);
 
-void nr_dlsch_deinterleaving(uint8_t symbol,
-                             uint8_t start_symbol,
-                             uint16_t L,
-                             uint16_t *llr,
-                             uint16_t *llr_deint,
-                             uint16_t nb_rb_pdsch);
-
 void nr_conjch0_mult_ch1(int *ch0,
                          int *ch1,
                          int32_t *ch0conj_ch1,
@@ -303,12 +296,12 @@ int nr_rx_pdsch(PHY_VARS_NR_UE *ue,
                 int32_t dl_ch_estimates[][pdsch_est_size],
                 int16_t *llr[2],
                 uint32_t dl_valid_re[NR_SYMBOLS_PER_SLOT],
-                c16_t rxdataF[][ue->frame_parms.samples_per_slot_wCP],
+                int samples_per_slot_wCP,
+                c16_t rxdataF[][samples_per_slot_wCP],
                 uint32_t llr_offset[NR_SYMBOLS_PER_SLOT],
                 int32_t *log2_maxh,
-                int rx_size_symbol,
-                int nbRx,
-                int32_t rxdataF_comp[][nbRx][rx_size_symbol * NR_SYMBOLS_PER_SLOT],
+                uint32_t rx_size_symbol,
+                int32_t rxdataF_comp[][rx_size_symbol * NR_SYMBOLS_PER_SLOT],
                 c16_t ptrs_phase_per_slot[][NR_SYMBOLS_PER_SLOT],
                 int32_t ptrs_re_per_slot[][NR_SYMBOLS_PER_SLOT],
                 int G,

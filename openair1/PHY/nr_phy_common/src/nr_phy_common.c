@@ -354,6 +354,150 @@ void nr_256qam_llr(int32_t *rxdataF_comp, int32_t *ch_mag, int32_t *ch_mag2, int
   simde_mm_empty();
 }
 
+void nr_channel_compensation(uint32_t buffer_length,
+                             c16_t rxFext[][buffer_length],
+                             c16_t chFext[][buffer_length],
+                             int ch_maga[][buffer_length],
+                             int ch_magb[][buffer_length],
+                             int ch_magc[][buffer_length],
+                             int32_t rxComp[][buffer_length * NR_SYMBOLS_PER_SLOT],
+                             c16_t *rho,
+                             int nb_rx_ant,
+                             int mod_order,
+                             int nrOfLayers,
+                             uint32_t symbol,
+                             uint32_t output_shift)
+{
+  simde__m256i QAM_ampa_256 = simde_mm256_setzero_si256();
+  simde__m256i QAM_ampb_256 = simde_mm256_setzero_si256();
+  simde__m256i QAM_ampc_256 = simde_mm256_setzero_si256();
+
+  if (mod_order == 4) {
+    QAM_ampa_256 = simde_mm256_set1_epi16(QAM16_n1);
+    QAM_ampb_256 = simde_mm256_setzero_si256();
+    QAM_ampc_256 = simde_mm256_setzero_si256();
+  }
+  else if (mod_order == 6) {
+    QAM_ampa_256 = simde_mm256_set1_epi16(QAM64_n1);
+    QAM_ampb_256 = simde_mm256_set1_epi16(QAM64_n2);
+    QAM_ampc_256 = simde_mm256_setzero_si256();
+  }
+  else if (mod_order == 8) {
+    QAM_ampa_256 = simde_mm256_set1_epi16(QAM256_n1);
+    QAM_ampb_256 = simde_mm256_set1_epi16(QAM256_n2);
+    QAM_ampc_256 = simde_mm256_set1_epi16(QAM256_n3);
+  }
+
+  simde__m256i xmmp0, xmmp1, xmmp2, xmmp3, xmmp4;
+  simde__m256i complex_shuffle256 = simde_mm256_set_epi8(29,28,31,30,25,24,27,26,21,20,23,22,17,16,19,18,13,12,15,14,9,8,11,10,5,4,7,6,1,0,3,2);
+  simde__m256i conj256 = simde_mm256_set_epi16(1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1);
+
+  for (int l = 0; l < nrOfLayers; l++) {
+    simde__m256i *rxComp_256 = (simde__m256i*)&rxComp[l * nb_rx_ant][symbol * buffer_length];
+    simde__m256i *rxF_ch_maga_256 = (simde__m256i*)&ch_maga[l];
+    simde__m256i *rxF_ch_magb_256 = (simde__m256i*)&ch_magb[l];
+    simde__m256i *rxF_ch_magc_256 = (simde__m256i*)&ch_magc[l];
+    for (int aarx = 0; aarx < nb_rx_ant; aarx++) {
+      simde__m256i *rxF_256 = (simde__m256i*) &rxFext[aarx];
+      simde__m256i *chF_256 = (simde__m256i*) &chFext[l * nb_rx_ant + aarx];
+
+      for (int i = 0; i < buffer_length >> 3; i++) {
+        xmmp0  = simde_mm256_madd_epi16(chF_256[i], rxF_256[i]);
+        // xmmp0 contains real part of 4 consecutive outputs (32-bit) of conj(H_m[i])*R_m[i]
+        xmmp1  = simde_mm256_shuffle_epi8(chF_256[i], complex_shuffle256);
+        xmmp1  = simde_mm256_sign_epi16(xmmp1, conj256);
+        xmmp1  = simde_mm256_madd_epi16(xmmp1, rxF_256[i]);
+        // xmmp1 contains imag part of 4 consecutive outputs (32-bit) of conj(H_m[i])*R_m[i]
+        xmmp0  = simde_mm256_srai_epi32(xmmp0, output_shift);
+        xmmp1  = simde_mm256_srai_epi32(xmmp1, output_shift);
+        xmmp2  = simde_mm256_unpacklo_epi32(xmmp0, xmmp1);
+        xmmp3  = simde_mm256_unpackhi_epi32(xmmp0, xmmp1);
+        xmmp4  = simde_mm256_packs_epi32(xmmp2, xmmp3);
+
+        xmmp0 = simde_mm256_madd_epi16(chF_256[i], chF_256[i]); // |h|^2
+        xmmp0 = simde_mm256_srai_epi32(xmmp0, output_shift);
+        xmmp0 = simde_mm256_packs_epi32(xmmp0, xmmp0);
+        xmmp1 = simde_mm256_unpacklo_epi16(xmmp0, xmmp0);
+
+        xmmp2 = simde_mm256_mulhrs_epi16(xmmp1, QAM_ampa_256);
+        xmmp3 = simde_mm256_mulhrs_epi16(xmmp1, QAM_ampb_256);
+        xmmp1 = simde_mm256_mulhrs_epi16(xmmp1, QAM_ampc_256);
+
+        // MRC
+        rxComp_256[i] = simde_mm256_add_epi16(rxComp_256[i], xmmp4);
+        if (mod_order > 2)
+          rxF_ch_maga_256[i] = simde_mm256_add_epi16(rxF_ch_maga_256[i], xmmp2);
+        if (mod_order > 4)
+          rxF_ch_magb_256[i] = simde_mm256_add_epi16(rxF_ch_magb_256[i], xmmp3);
+        if (mod_order > 6)
+          rxF_ch_magc_256[i] = simde_mm256_add_epi16(rxF_ch_magc_256[i], xmmp1);
+      }
+      if (rho != NULL) {
+        for (int ll = 0; ll < nrOfLayers; ll++) {
+          simde__m256i *rho_256 = (simde__m256i *)&rho[(l * nrOfLayers + ll) * buffer_length];
+          simde__m256i *chF_256 = (simde__m256i *)&chFext[l * nb_rx_ant + aarx];
+          simde__m256i *chF2_256 = (simde__m256i *)&chFext[ll * nb_rx_ant + aarx];
+          for (int i = 0; i < buffer_length >> 3; i++) {
+            // multiply by conjugated channel
+            xmmp0 = simde_mm256_madd_epi16(chF_256[i], chF2_256[i]);
+            // xmmp0 contains real part of 4 consecutive outputs (32-bit)
+            xmmp1 = simde_mm256_shuffle_epi8(chF_256[i], complex_shuffle256);
+            xmmp1 = simde_mm256_sign_epi16(xmmp1, conj256);
+            xmmp1 = simde_mm256_madd_epi16(xmmp1, chF2_256[i]);
+            // xmmp0 contains imag part of 4 consecutive outputs (32-bit)
+            xmmp0 = simde_mm256_srai_epi32(xmmp0, output_shift);
+            xmmp1 = simde_mm256_srai_epi32(xmmp1, output_shift);
+            xmmp2 = simde_mm256_unpacklo_epi32(xmmp0, xmmp1);
+            xmmp3 = simde_mm256_unpackhi_epi32(xmmp0, xmmp1);
+
+            rho_256[i] = simde_mm256_adds_epi16(rho_256[i], simde_mm256_packs_epi32(xmmp2, xmmp3));
+          }
+        }
+      }
+    }
+  }
+
+  simde_mm_empty();
+  simde_m_empty();
+}
+
+
+// compute average channel_level on each antenna
+void nr_xlsch_channel_level(int size_est,
+                            c16_t ch_estimates_ext[][size_est],
+                            int nb_antennas_rx,
+                            int32_t avg[][nb_antennas_rx],
+                            uint8_t symbol,
+                            uint32_t len,
+                            uint8_t nrOfLayers)
+{
+  simde__m128i *ul_ch128, avg128U;
+
+  int16_t x = factor2(len);
+  int16_t y = (len)>>x;
+
+  for (int l = 0; l < nrOfLayers; l++) {
+    for (int aarx = 0; aarx < nb_antennas_rx; aarx++) {
+      //clear average level
+      avg128U = simde_mm_setzero_si128();
+
+      ul_ch128 = (simde__m128i *)&ch_estimates_ext[l * nb_antennas_rx + aarx][symbol * len];
+
+      for (int i = 0; i < len >> 2; i++) {
+        avg128U = simde_mm_add_epi32(avg128U, simde_mm_srai_epi32(simde_mm_madd_epi16(ul_ch128[i], ul_ch128[i]), x));
+      }
+
+      int32_t *avg32i = (int32_t *)&avg128U;
+      int64_t avg64 = (int64_t)avg32i[0] + avg32i[1] + avg32i[2] + avg32i[3];
+      avg[l][aarx] = avg64 / y;
+      LOG_D(PHY, "Channel level: %d\n", avg[l][aarx]);
+    }
+  }
+
+  simde_mm_empty();
+  simde_m_empty();
+}
+
 void freq2time(uint16_t ofdm_symbol_size, int16_t *freq_signal, int16_t *time_signal)
 {
   const idft_size_idx_t idft_size = get_idft(ofdm_symbol_size);

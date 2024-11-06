@@ -492,7 +492,8 @@ void nr_pusch_ptrs_processing(PHY_VARS_gNB *gNB,
                               uint8_t ulsch_id,
                               uint8_t nr_tti_rx,
                               unsigned char symbol,
-                              uint32_t nb_re_pusch)
+                              uint32_t nb_re_pusch,
+                              int32_t rxdataF_comp[][nb_re_pusch * NR_SYMBOLS_PER_SLOT])
 {
   NR_gNB_PUSCH *pusch_vars = &gNB->pusch_vars[ulsch_id];
   int32_t *ptrs_re_symbol   = NULL;
@@ -557,7 +558,7 @@ void nr_pusch_ptrs_processing(PHY_VARS_gNB *gNB,
                              nr_tti_rx,
                              symbol,
                              frame_parms->ofdm_symbol_size,
-                             (int16_t *)&pusch_vars->rxdataF_comp[aarx][(symbol * nb_re_pusch)],
+                             (int16_t *)&rxdataF_comp[aarx][(symbol * nb_re_pusch)],
                              gold,
                              (int16_t *)&phase_per_symbol[symbol],
                              ptrs_re_symbol);
@@ -586,9 +587,9 @@ void nr_pusch_ptrs_processing(PHY_VARS_gNB *gNB,
 #ifdef DEBUG_UL_PTRS
           printf("[PHY][UL][PTRS]: Rotate Symbol %2d with  %d + j* %d\n", i, phase_per_symbol[i].r,phase_per_symbol[i].i);
 #endif
-          rotate_cpx_vector((c16_t *)&pusch_vars->rxdataF_comp[aarx][i * nb_re_pusch],
+          rotate_cpx_vector((c16_t *)&rxdataF_comp[aarx][i * nb_re_pusch],
                             &phase_per_symbol[i],
-                            (c16_t *)&pusch_vars->rxdataF_comp[aarx][i * nb_re_pusch],
+                            (c16_t *)&rxdataF_comp[aarx][i * nb_re_pusch],
                             ((*nb_rb) * NR_NB_SC_PER_RB),
                             15);
         } // if not DMRS Symbol

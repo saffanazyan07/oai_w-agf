@@ -23,6 +23,7 @@
 #define __NR_PHY_COMMON__H__
 #include "PHY/impl_defs_top.h"
 #include "PHY/TOOLS/tools_defs.h"
+#include "PHY/defs_nr_common.h"
 #include "PHY/NR_REFSIG/nr_refsig_common.h"
 #include "PHY/MODULATION/nr_modulation.h"
 
@@ -64,6 +65,26 @@ int get_cdm_group_size(int cdm_type);
 double get_csi_rho(int freq_density);
 uint32_t get_csi_beta_amplitude(const int16_t amp, int power_control_offset_ss);
 int get_csi_modulation_length(double rho, int freq_density, int kprime, int start_rb, int nb_rbs);
+void nr_xlsch_channel_level(int size_est,
+                            c16_t ch_estimates_ext[][size_est],
+                            int nb_antennas_rx,
+                            int32_t avg[][nb_antennas_rx],
+                            uint8_t symbol,
+                            uint32_t len,
+                            uint8_t nrOfLayers);
+void nr_channel_compensation(uint32_t buffer_length,
+                             c16_t rxFext[][buffer_length],
+                             c16_t chFext[][buffer_length],
+                             int ch_maga[][buffer_length],
+                             int ch_magb[][buffer_length],
+                             int ch_magc[][buffer_length],
+                             int32_t rxComp[][buffer_length * NR_SYMBOLS_PER_SLOT],
+                             c16_t *rho,
+                             int nb_rx_ant,
+                             int mod_order,
+                             int nrOfLayers,
+                             uint32_t symbol,
+                             uint32_t output_shift);
 void nr_qpsk_llr(int32_t *rxdataF_comp, int16_t *llr, uint32_t nb_re);
 void nr_16qam_llr(int32_t *rxdataF_comp, int32_t *ch_mag_in, int16_t *llr, uint32_t nb_re);
 void nr_64qam_llr(int32_t *rxdataF_comp, int32_t *ch_mag, int32_t *ch_mag2, int16_t *llr, uint32_t nb_re);
