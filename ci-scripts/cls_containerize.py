@@ -636,7 +636,8 @@ class Containerize():
 		logging.debug('building L2sim proxy image for tag ' + tag)
 		# check if the corresponding proxy image with tag exists. If not, build it
 		ret = ssh.run(f'{self.cli} image inspect --format=\'Size = {{{{.Size}}}} bytes\' proxy:{tag}')
-		if ret.returncode != 0:
+		buildProxy = ret.returncode != 0 # if no image, build new proxy
+		if buildProxy:
 			ssh.run(f'rm -Rf {lSourcePath}')
 			success = CreateWorkspace(lIpAddr, lSourcePath, self.ranRepository, self.ranCommitID, self.ranTargetBranch, self.ranAllowMerge)
 			if not success:
