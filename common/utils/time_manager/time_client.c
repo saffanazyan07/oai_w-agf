@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <poll.h>
 #include <sys/eventfd.h>
@@ -37,7 +38,6 @@
 
 typedef struct {
   pthread_t thread_id;
-  _Atomic bool exit;
   int exit_fd;
   struct sockaddr_in server_ip;
   int server_port;
@@ -48,16 +48,53 @@ typedef struct {
 static int connect_to_server(time_client_private_t *time_client)
 {
   int sock = -1;
+  int opts;
+  int r;
+  struct pollfd fds[2];
+
   /* try forever (or exit requested) until we success */
-  /* todo: set socket non blocking, use exit_fd and poll, no sleep, for
-   * fast exit (and thus remove 'exit')
-   */
-  while (!time_client->exit) {
+  while (1) {
     sock = socket(AF_INET, SOCK_STREAM, 0);
     DevAssert(sock != -1);
+    int v = 1;
+    r = setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &v, sizeof(v));
+    DevAssert(r == 0);
+    /* unblock socket */
+    opts = fcntl(sock, F_GETFL);
+    DevAssert(opts >= 0);
+    opts |= O_NONBLOCK;
+    r = fcntl(sock, F_SETFL, opts);
+    DevAssert(r == 0);
     if (connect(sock, (struct sockaddr *)&time_client->server_ip,
                sizeof(time_client->server_ip)) == 0)
       break;
+    if (errno == EINPROGRESS) {
+      /* connection not completed yet, we need to wait */
+      fds[0].fd = sock;
+      fds[0].events = POLLOUT;
+      fds[1].fd = time_client->exit_fd;
+      fds[1].events = POLLIN;
+      r = poll(fds, 2, -1);
+      DevAssert(r >= 0);
+      /* do we need to exit? */
+      if (fds[1].revents) {
+        shutdown(sock, SHUT_RDWR);
+        close(sock);
+        sock = -1;
+        break;
+      }
+      /* check if connection is successful */
+      if (fds[0].revents & POLLOUT) {
+        int so_error;
+        socklen_t so_error_len = sizeof(so_error);
+        r = getsockopt(sock, SOL_SOCKET, SO_ERROR, &so_error, &so_error_len);
+        DevAssert(r == 0 && so_error_len == sizeof(so_error));
+        if (so_error == 0)
+          /* success */
+          break;
+      }
+    }
+    /* connection failed, try again in 1s (or stop if exit requested) */
     close(sock);
     sock = -1;
     char server_address[256];
@@ -66,7 +103,24 @@ static int connect_to_server(time_client_private_t *time_client)
     DevAssert(ret != NULL);
     LOG_W(UTIL, "time client: connection to %s:%d failed, try again in 1s\n",
           server_address, time_client->server_port);
-    sleep(1);
+    /* sleep 1s (or exit requested) */
+    fds[0].fd = time_client->exit_fd;
+    fds[0].events = POLLIN;
+    r = poll(fds, 1, 1000);
+    DevAssert(r >= 0);
+    /* exit requested? */
+    if (fds[0].revents) {
+      shutdown(sock, SHUT_RDWR);
+      close(sock);
+      sock = -1;
+      break;
+    }
+  }
+  if (sock != -1) {
+    /* reblock socket */
+    opts &= ~O_NONBLOCK;
+    r = fcntl(sock, F_SETFL, opts);
+    DevAssert(r == 0);
   }
   return sock;
 }
@@ -74,10 +128,13 @@ static int connect_to_server(time_client_private_t *time_client)
 static void *time_client_thread(void *tc)
 {
   time_client_private_t *time_client = tc;
-  int socket = connect_to_server(time_client);
   int ret;
+  int socket = connect_to_server(time_client);
+  /* if socket is -1 at this point, it means that exit was requested */
+  if (socket == -1)
+    return NULL;
 
-  while (!time_client->exit) {
+  while (1) {
     struct pollfd polls[2];
     /* polls[0] is for the socket */
     polls[0].fd = socket;
@@ -165,7 +222,6 @@ void free_time_client(time_client_t *tc)
 {
   time_client_private_t *time_client = tc;
 
-  time_client->exit = true;
   uint64_t v = 1;
   int ret = write(time_client->exit_fd, &v, 8);
   DevAssert(ret == 8);

@@ -156,6 +156,7 @@ void time_manager_start(time_manager_client_t client_type,
         has_time_server = false;
         has_time_client = true;
       } else {
+printf("mother fucker\n"); fflush(stdout);
         AssertFatal(0, "bad parameter 'mode' in section 'time_management', unknown value \"%s\". Valid values are \"standalone\", \"server\" and \"client\"\n", param);
       }
     }
@@ -183,8 +184,10 @@ void time_manager_start(time_manager_client_t client_type,
     server_port = default_server_port;
 
   /* create entities, according to selected configuration */
-  time_source = new_time_source(time_source_type);
-  time_source_set_callback(time_source, tick, NULL);
+  if (!has_time_client) {
+    time_source = new_time_source(time_source_type);
+    time_source_set_callback(time_source, tick, NULL);
+  }
 
   if (has_time_server) {
     time_server = new_time_server(server_ip, server_port, tick, NULL);
@@ -217,7 +220,10 @@ void time_manager_iq_samples(uint64_t iq_samples_count,
 void time_manager_finish(void)
 {
   /* time source has to be shutdown first */
-  free_time_source(time_source);
+  if (time_source != NULL) {
+    free_time_source(time_source);
+    time_source = NULL;
+  }
 
   if (time_server != NULL) {
     free_time_server(time_server);

@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <poll.h>
 #include <errno.h>
@@ -63,7 +64,7 @@ static void *time_server_thread(void *ts)
 
     /* add clients */
     for (int i = 0; i < client_count; i++) {
-printf("adding socket_fds[%d] = %d\n", i, socket_fds[i]);
+//printf("adding socket_fds[%d] = %d\n", i, socket_fds[i]);
       polls[i + 2].fd = socket_fds[i];
       polls[i + 2].events = POLLIN;
     }
@@ -135,7 +136,7 @@ printf("new client socket %d\n", new_socket);
 
     /* any event on a client socket is to be considered as an error */
     for (int i = 0; i < client_count; i++) {
-printf("i %d\n", i);
+//printf("i %d\n", i);
       if (polls[i + 2].revents == 0)
         continue;
 
@@ -190,6 +191,10 @@ time_server_t *new_time_server(const char *ip,
 
   int v = 1;
   ret = setsockopt(ts->server_socket, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
+  DevAssert(ret == 0);
+  v = 1;
+  ret = setsockopt(ts->server_socket, IPPROTO_TCP, TCP_NODELAY, &v, sizeof(v));
+  DevAssert(ret == 0);
   ts->tick_fd = eventfd(0, 0);
   DevAssert(ts->tick_fd != -1);
 

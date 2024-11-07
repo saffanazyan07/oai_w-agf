@@ -44,5 +44,3 @@ void time_manager_iq_samples(uint64_t iq_samples_count,
 void time_manager_finish(void);
 
 #endif /* COMMON_UTIL_TIME_MANAGER_TIME_MANAGER */
-
-

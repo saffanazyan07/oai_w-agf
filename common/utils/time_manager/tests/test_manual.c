@@ -29,6 +29,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <signal.h>
 
 #include "common/utils/system.h"
 #include "common/utils/LOG/log.h"
@@ -59,7 +60,7 @@ void *iq_generate_thread(void *ts)
   time_source_t *time_source = ts;
 
   while (!test_exit) {
-    printf("iq_generate_thread calls time_source_iq_add(time_source, 1000, 10000)\n");
+    printf("iq_generate_thread calls time_source_iq_add(time_source, 100, 10000)\n");
     time_source_iq_add(time_source, 100, 10000);
     sleep(1);
   }
@@ -90,16 +91,26 @@ void usage(void)
 void server_callback(void *callback_data)
 {
   printf("server_callback called (callback_data %p)\n", callback_data);
+  DevAssert(callback_data == (void *)1);
 }
 
 void client_callback(void *callback_data)
 {
   printf("client_callback called (callback_data %p)\n", callback_data);
+  DevAssert(callback_data == (void *)2);
+}
+
+/* dummy sig handler to quit immediately when pressing enter
+ * (we send a signal to iq_generate_thread to interrupt sleep())
+ */
+void sig_handle(int n)
+{
+  /* nothing */
 }
 
 int main(int n, char **v)
 {
-  time_source_t *ts;
+  time_source_t *ts = NULL;
   time_server_t *server = NULL;
   time_client_t *client = NULL;
   int mode = STANDALONE;
@@ -118,12 +129,18 @@ int main(int n, char **v)
   }
 
   logInit();
+  /* hack: set log to info (logInit doesn't do it because we don't call load_configmodule()) */
+  for (int i = 0; i < MAX_LOG_COMPONENTS; i++)
+    g_log->log_component[i].level = OAILOG_INFO;
 
-  ts = new_time_source(time_source_type);
-
-  if (mode != CLIENT)
-    if (time_source_type == TIME_SOURCE_IQ_SAMPLES)
+  if (mode != CLIENT) {
+    ts = new_time_source(time_source_type);
+    if (time_source_type == TIME_SOURCE_IQ_SAMPLES) {
+      void *ret = signal(SIGHUP, sig_handle);
+      DevAssert(ret != SIG_ERR);
       threadCreate(&iq_thread, iq_generate_thread, ts, "time source iq samples",-1, SCHED_OAI);
+    }
+  }
 
   if (mode == SERVER) {
     /* (void*)1 to check if callback data is passed correctly */
@@ -139,15 +156,18 @@ int main(int n, char **v)
   printf("main: press enter to quit\n");
   getchar();
 
-  test_exit = 1;
+  test_exit = true;
 
   if (mode != CLIENT)
     if (time_source_type == TIME_SOURCE_IQ_SAMPLES) {
+      (void)pthread_kill(iq_thread, SIGHUP);
       int ret = pthread_join(iq_thread, NULL);
       DevAssert(ret == 0);
     }
 
-  free_time_source(ts);
+  if (mode != CLIENT) {
+    free_time_source(ts);
+  }
 
   if (mode == SERVER) {
     free_time_server(server);
