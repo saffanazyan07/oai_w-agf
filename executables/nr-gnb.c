@@ -220,10 +220,9 @@ static void rx_func(processingData_L1_t *info)
     LOG_D(NR_PHY, "%d.%d Starting RX processing\n", frame_rx, slot_rx);
 
     // UE-specific RX processing for subframe n
-    // TODO: check if this is correct for PARALLEL_RU_L1_TRX_SPLIT
-
+    NR_UL_IND_t UL_INFO = {.frame = frame_rx, .slot = slot_rx, .module_id = gNB->Mod_id, .CC_id = gNB->CC_id};
     // Do PRACH RU processing
-    L1_nr_prach_procedures(gNB,frame_rx,slot_rx);
+    L1_nr_prach_procedures(gNB, frame_rx, slot_rx, &UL_INFO);
 
     //WA: comment rotation in tx/rx
     if (gNB->phase_comp) {
@@ -242,15 +241,11 @@ static void rx_func(processingData_L1_t *info)
         }
       }
     }
-    phy_procedures_gNB_uespec_RX(gNB, frame_rx, slot_rx);
+    phy_procedures_gNB_uespec_RX(gNB, frame_rx, slot_rx, &UL_INFO);
 
     // Call the scheduler
     start_meas(&gNB->ul_indication_stats);
-    gNB->UL_INFO.frame = frame_rx;
-    gNB->UL_INFO.slot = slot_rx;
-    gNB->UL_INFO.module_id = gNB->Mod_id;
-    gNB->UL_INFO.CC_id = gNB->CC_id;
-    gNB->if_inst->NR_UL_indication(&gNB->UL_INFO);
+    gNB->if_inst->NR_UL_indication(&UL_INFO);
     stop_meas(&gNB->ul_indication_stats);
 
 #ifndef OAI_FHI72
@@ -463,15 +458,7 @@ void init_gNB(int wait_for_sync) {
 
     AssertFatal((gNB->if_inst = NR_IF_Module_init(inst)) != NULL, "Cannot register interface");
     gNB->if_inst->NR_Schedule_response   = nr_schedule_response;
-    gNB->if_inst->NR_PHY_config_req      = nr_phy_config_request;
-    memset(&gNB->UL_INFO, 0, sizeof(gNB->UL_INFO));
-
-    gNB->UL_INFO.rx_ind.pdu_list = gNB->rx_pdu_list;
-    gNB->UL_INFO.crc_ind.crc_list = gNB->crc_pdu_list;
-    /*gNB->UL_INFO.sr_ind.sr_indication_body.sr_pdu_list = gNB->sr_pdu_list;
-    gNB->UL_INFO.harq_ind.harq_indication_body.harq_pdu_list = gNB->harq_pdu_list;
-    gNB->UL_INFO.cqi_ind.cqi_pdu_list = gNB->cqi_pdu_list;
-    gNB->UL_INFO.cqi_ind.cqi_raw_pdu_list = gNB->cqi_raw_pdu_list;*/
+    gNB->if_inst->NR_PHY_config_req = nr_phy_config_request;
 
     gNB->prach_energy_counter = 0;
     gNB->chest_time = get_softmodem_params()->chest_time;

@@ -852,15 +852,15 @@ typedef struct nfapi_vnf_p7_config
 	int (*nr_rx_data_indication)(nfapi_nr_rx_data_indication_t* ind);
 	int (*nr_uci_indication)(nfapi_nr_uci_indication_t* ind);
 	int (*nr_rach_indication)(nfapi_nr_rach_indication_t* ind);
-	int (*nr_srs_indication)(nfapi_nr_srs_indication_t* ind);
+  int (*nr_srs_indication)(nfapi_nr_srs_indication_t* ind);
 
-	/*! A callback for any vendor extension messages
-     *  \param config A pointer to the vnf p7 configuration
-	 *  \param msg A data structure for the decoded vendor extention message allocated
-	 *			   using the allocate_p7_vendor_ext callback
-	 *  \return not currently used.
-	 */	
-	int (*vendor_ext)(struct nfapi_vnf_p7_config* config, nfapi_p7_message_header_t* msg);
+  /*! A callback for any vendor extension messages
+   *  \param config A pointer to the vnf p7 configuration
+   *  \param msg A data structure for the decoded vendor extention message allocated
+   *			   using the allocate_p7_vendor_ext callback
+   *  \return not currently used.
+   */
+  int (*vendor_ext)(struct nfapi_vnf_p7_config* config, nfapi_p7_message_header_t* msg);
 
 	/*! Optional userdata that will be passed back in the callbacks*/
 	void* user_data;
