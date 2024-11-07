@@ -59,6 +59,8 @@
 #define HLP_L1TX_BO "Backoff from full-scale output at the L1 entity(frequency domain), ex. 12 would corresponding to 14-bit input level (6 dB/bit). Default 36 dBFS for OAI RU entity"
 #define CONFIG_STRING_L1_PHASE_COMP                        "phase_compensation"
 #define HLP_L1_PHASE_COMP "Apply NR symbolwise phase rotation"
+#define CONFIG_STRING_L1_RX_POWER_REFERENCE_DBM            "rx_power_reference_dBm"
+#define HLP_L1_RX_POWER_REFERENCE_DBM                      "RX power reference in dBm. Configures receiver sensitivity. Only used with --calibrated-radio. This should be in line with p0Nominal."
 /*----------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*                                            L1 configuration parameters                                                                             */
 /*   optname                                         helpstr   paramflags    XXXptr              defXXXval                  type           numelt     */
@@ -84,6 +86,7 @@
   {CONFIG_STRING_L1_TX_THREAD_CORE,                    NULL,       0,         .uptr=NULL,           .defintval=-1,              TYPE_UINT,     0},          \
   {CONFIG_STRING_L1_TX_AMP_BACKOFF_dB,                 HLP_L1TX_BO,0,         .uptr=NULL,           .defintval=36,              TYPE_UINT,     0},         \
   {CONFIG_STRING_L1_PHASE_COMP,                        HLP_L1_PHASE_COMP,PARAMFLAG_BOOL, .uptr=NULL,.defintval=1,               TYPE_UINT,     0},         \
+  {CONFIG_STRING_L1_RX_POWER_REFERENCE_DBM,            HLP_L1_RX_POWER_REFERENCE_DBM, .iptr=NULL,   .defintval=-90,             TYPE_INT,      0},         \
 }
 // clang-format on
 #define L1_CC_IDX                                          0
@@ -105,6 +108,7 @@
 #define L1_TX_THREAD_CORE                                  16
 #define L1_TX_AMP_BACKOFF_dB                               17
 #define L1_PHASE_COMP                                      18
+#define L1_RX_POWER_REFERENCE_DBM                          19
 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #endif

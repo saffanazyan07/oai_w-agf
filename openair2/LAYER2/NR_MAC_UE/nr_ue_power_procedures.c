@@ -40,22 +40,21 @@
 static int nb_pucch_format_4_in_subframes[LTE_NUMBER_OF_SUBFRAMES_PER_FRAME] = {0};
 
 /* TS 38.211 Table 6.4.1.3.3.2-1: DM-RS positions for PUCCH format 3 and 4 */
-static const int nb_symbols_excluding_dmrs[11][2][2]
-= {
-/*                     No additional DMRS            Additional DMRS   */
-/* PUCCH length      No hopping   hopping         No hopping   hopping */
-/* index                  0          1                 0          1    */
-/*    4     */    {{      3    ,     2   }   ,  {      3     ,    2    }},
-/*    5     */    {{      3    ,     3   }   ,  {      3     ,    3    }},
-/*    6     */    {{      4    ,     4   }   ,  {      4     ,    4    }},
-/*    7     */    {{      5    ,     5   }   ,  {      5     ,    5    }},
-/*    8     */    {{      6    ,     6   }   ,  {      6     ,    6    }},
-/*    9     */    {{      7    ,     7   }   ,  {      7     ,    7    }},
-/*   10     */    {{      8    ,     8   }   ,  {      6     ,    6    }},
-/*   11     */    {{      9    ,     9   }   ,  {      7     ,    7    }},
-/*   12     */    {{     10    ,    10   }   ,  {      8     ,    8    }},
-/*   13     */    {{     11    ,    11   }   ,  {      9     ,    9    }},
-/*   14     */    {{     12    ,    12   }   ,  {     10     ,   10    }},
+static const int nb_symbols_excluding_dmrs[11][2][2] = {
+    /*                     No additional DMRS            Additional DMRS   */
+    /* PUCCH length      No hopping   hopping         No hopping   hopping */
+    /* index                  0          1                 0          1    */
+    /*    4     */ {{3, 2}, {3, 2}},
+    /*    5     */ {{3, 3}, {3, 3}},
+    /*    6     */ {{4, 4}, {4, 4}},
+    /*    7     */ {{5, 5}, {5, 5}},
+    /*    8     */ {{6, 6}, {6, 6}},
+    /*    9     */ {{7, 7}, {7, 7}},
+    /*   10     */ {{8, 8}, {6, 6}},
+    /*   11     */ {{9, 9}, {7, 7}},
+    /*   12     */ {{10, 10}, {8, 8}},
+    /*   13     */ {{11, 11}, {9, 9}},
+    /*   14     */ {{12, 12}, {10, 10}},
 };
 
 static int get_deltatf(uint16_t nb_of_prbs,
@@ -66,7 +65,8 @@ static int get_deltatf(uint16_t nb_of_prbs,
                        int O_UCI);
 
 // ∆MPR according to Table 6.2.2-3 38.101-1
-static float get_delta_mpr(uint16_t nr_band, frame_type_t frame_type, int scs, int channel_bandwidth, int n_prbs, int start_prb, int power_class)
+static float
+get_delta_mpr(uint16_t nr_band, frame_type_t frame_type, int scs, int channel_bandwidth, int n_prbs, int start_prb, int power_class)
 {
   if (compare_relative_ul_channel_bw(nr_band, scs, channel_bandwidth, frame_type)) {
     if (power_class == 3) {
@@ -231,10 +231,9 @@ float nr_get_Pcmax(int p_Max,
   }
 }
 
-float nr_get_Pcmin(int bandwidth_index) {
-  const float table_38101_6_3_1_1[] = {
-    -40, -40, -40, -40, -39, -38.2, -37.5, -37, -36.5, -35.2, -34.6, -34, -33.5, -33
-  };
+float nr_get_Pcmin(int bandwidth_index)
+{
+  const float table_38101_6_3_1_1[] = {-40, -40, -40, -40, -39, -38.2, -37.5, -37, -36.5, -35.2, -34.6, -34, -33.5, -33};
   return table_38101_6_3_1_1[bandwidth_index];
 }
 
@@ -287,8 +286,8 @@ int16_t get_pucch_tx_power_ue(NR_UE_MAC_INST_t *mac,
 
   int16_t P_O_UE_PUCCH = 0;
 
-  if (pucch_Config->spatialRelationInfoToAddModList != NULL) {  /* FFS TODO NR */
-    LOG_D(MAC,"PUCCH Spatial relation infos are not yet implemented\n");
+  if (pucch_Config->spatialRelationInfoToAddModList != NULL) { /* FFS TODO NR */
+    LOG_D(MAC, "PUCCH Spatial relation infos are not yet implemented\n");
     return (PUCCH_POWER_DEFAULT);
   }
 
@@ -309,12 +308,12 @@ int16_t get_pucch_tx_power_ue(NR_UE_MAC_INST_t *mac,
   switch (format_type) {
     case 0:
       N_ref_PUCCH = 2;
-      DELTA_TF = 10 * log10(N_ref_PUCCH/N_symb_PUCCH);
+      DELTA_TF = 10 * log10(N_ref_PUCCH / N_symb_PUCCH);
       delta_F_PUCCH_config = power_config->deltaF_PUCCH_f0;
       break;
     case 1:
       N_ref_PUCCH = 14;
-      DELTA_TF = 10 * log10(N_ref_PUCCH/N_symb_PUCCH * O_uci);
+      DELTA_TF = 10 * log10(N_ref_PUCCH / N_symb_PUCCH * O_uci);
       delta_F_PUCCH_config = power_config->deltaF_PUCCH_f1;
       break;
     case 2:
@@ -328,13 +327,12 @@ int16_t get_pucch_tx_power_ue(NR_UE_MAC_INST_t *mac,
       delta_F_PUCCH_config = power_config->deltaF_PUCCH_f3;
       break;
     case 4:
-      N_sc_ctrl_RB = 14/(nb_pucch_format_4_in_subframes[subframe_number]);
+      N_sc_ctrl_RB = 14 / (nb_pucch_format_4_in_subframes[subframe_number]);
       DELTA_TF = get_deltatf(nb_of_prbs, N_symb_PUCCH, freq_hop_flag, add_dmrs_flag, N_sc_ctrl_RB, O_uci);
       delta_F_PUCCH_config = power_config->deltaF_PUCCH_f4;
       break;
-    default:
-    {
-      LOG_E(MAC,"PUCCH unknown pucch format %d\n", format_type);
+    default: {
+      LOG_E(MAC, "PUCCH unknown pucch format %d\n", format_type);
       return (0);
     }
   }
@@ -361,10 +359,10 @@ int16_t get_pucch_tx_power_ue(NR_UE_MAC_INST_t *mac,
   int16_t pathloss = compute_nr_SSB_PL(mac, mac->ssb_measurements.ssb_rsrp_dBm);
 
   if (power_config->twoPUCCH_PC_AdjustmentStates && *power_config->twoPUCCH_PC_AdjustmentStates > 1) {
-    LOG_E(MAC,"PUCCH power control adjustment states with 2 states not yet implemented\n");
+    LOG_E(MAC, "PUCCH power control adjustment states with 2 states not yet implemented\n");
     return (PUCCH_POWER_DEFAULT);
   }
-  int M_pucch_component = (10 * log10((double)(pow(2,scs) * nb_of_prbs)));
+  int M_pucch_component = (10 * log10((double)(pow(2, scs) * nb_of_prbs)));
 
   int16_t pucch_power_without_g_pucch = P_O_PUCCH + M_pucch_component + pathloss + delta_F_PUCCH + DELTA_TF;
 
@@ -372,29 +370,35 @@ int16_t get_pucch_tx_power_ue(NR_UE_MAC_INST_t *mac,
     if (mac->pucch_power_control_initialized == false) {
       // Initialize power control state
       // Assuming only sending on PCell
-      NR_PRACH_RESOURCES_t* prach_resources = &mac->ra.prach_resources;
-      float DELTA_P_rampup_requested = (prach_resources->RA_PREAMBLE_POWER_RAMPING_COUNTER - 1) * prach_resources->RA_PREAMBLE_POWER_RAMPING_STEP;
+      NR_PRACH_RESOURCES_t *prach_resources = &mac->ra.prach_resources;
+      float DELTA_P_rampup_requested =
+          (prach_resources->RA_PREAMBLE_POWER_RAMPING_COUNTER - 1) * prach_resources->RA_PREAMBLE_POWER_RAMPING_STEP;
       float DELTA_P_rampup = P_CMAX - (P_O_PUCCH + pathloss + delta_F_PUCCH + DELTA_TF + sum_delta_pucch);
       DELTA_P_rampup = max(min(0, DELTA_P_rampup), DELTA_P_rampup_requested);
       mac->G_b_f_c = DELTA_P_rampup + sum_delta_pucch;
       mac->pucch_power_control_initialized = true;
-    }
-    else {
+    } else {
       // PUCCH closed loop power control state
       G_b_f_c = mac->G_b_f_c;
-      if (!((pucch_power_without_g_pucch + G_b_f_c >= P_CMAX && sum_delta_pucch > 0) ||
-        (pucch_power_without_g_pucch + G_b_f_c <= P_CMIN && sum_delta_pucch < 0))) {
+      if (!((pucch_power_without_g_pucch + G_b_f_c >= P_CMAX && sum_delta_pucch > 0)
+            || (pucch_power_without_g_pucch + G_b_f_c <= P_CMIN && sum_delta_pucch < 0))) {
         G_b_f_c += sum_delta_pucch;
       }
       mac->G_b_f_c = G_b_f_c;
     }
   }
 
-
   int pucch_power = min(P_CMAX, pucch_power_without_g_pucch + G_b_f_c);
 
-  LOG_D(MAC, "PUCCH ( Tx power : %d dBm ) ( 10Log(...) : %d ) ( from Path Loss : %d ) ( delta_F_PUCCH : %d ) ( DELTA_TF : %d ) ( G_b_f_c : %d ) \n",
-        pucch_power, M_pucch_component, pathloss, delta_F_PUCCH, DELTA_TF, G_b_f_c);
+  LOG_D(MAC,
+        "PUCCH ( Tx power : %d dBm ) ( 10Log(...) : %d ) ( from Path Loss : %d ) ( delta_F_PUCCH : %d ) ( DELTA_TF : %d ) ( "
+        "G_b_f_c : %d ) \n",
+        pucch_power,
+        M_pucch_component,
+        pathloss,
+        delta_F_PUCCH,
+        DELTA_TF,
+        G_b_f_c);
 
   return pucch_power;
 }
@@ -421,8 +425,8 @@ static int get_deltatf(uint16_t nb_of_prbs,
   return DELTA_TF;
 }
 
-// Returns the pathloss in dB for the active UL BWP on the selected carrier based on the DL RS associated with the PRACH transmission
-// computation according to clause 7.4 (Physical random access channel) of 3GPP TS 38.213 version 16.3.0 Release 16
+// Returns the pathloss in dB for the active UL BWP on the selected carrier based on the DL RS associated with the PRACH
+// transmission computation according to clause 7.4 (Physical random access channel) of 3GPP TS 38.213 version 16.3.0 Release 16
 // Assumptions:
 // - PRACH transmission from a UE is not in response to a detection of a PDCCH order by the UE
 // Measurement units:
@@ -431,16 +435,17 @@ int16_t compute_nr_SSB_PL(NR_UE_MAC_INST_t *mac, short ssb_rsrp_dBm)
 {
   fapi_nr_config_request_t *cfg = &mac->phy_config.config_req;
   int referenceSignalPower = cfg->ssb_config.ss_pbch_power;
-  //TODO improve PL measurements. Probably not correct as it is.
+  // TODO improve PL measurements. Probably not correct as it is.
 
   int16_t pathloss = (int16_t)(referenceSignalPower - ssb_rsrp_dBm);
 
-  LOG_D(NR_MAC, "pathloss %d dB, referenceSignalPower %d dBm/RE (%f mW), RSRP %d dBm (%f mW)\n",
+  LOG_D(NR_MAC,
+        "pathloss %d dB, referenceSignalPower %d dBm/RE (%f mW), RSRP %d dBm (%f mW)\n",
         pathloss,
         referenceSignalPower,
-        pow(10, referenceSignalPower/10),
+        pow(10, referenceSignalPower / 10),
         ssb_rsrp_dBm,
-        pow(10, ssb_rsrp_dBm/10));
+        pow(10, ssb_rsrp_dBm / 10));
 
   return pathloss;
 }
@@ -572,16 +577,17 @@ int get_pusch_tx_power_ue(NR_UE_MAC_INST_t *mac,
     f_b_f_c = delta_pusch;
   } else {
     if (!mac->pusch_power_control_initialized && is_rar_tx_retx) {
-      NR_PRACH_RESOURCES_t* prach_resources = &mac->ra.prach_resources;
-      float DELTA_P_rampup_requested = (prach_resources->RA_PREAMBLE_POWER_RAMPING_COUNTER - 1) * prach_resources->RA_PREAMBLE_POWER_RAMPING_STEP;
+      NR_PRACH_RESOURCES_t *prach_resources = &mac->ra.prach_resources;
+      float DELTA_P_rampup_requested =
+          (prach_resources->RA_PREAMBLE_POWER_RAMPING_COUNTER - 1) * prach_resources->RA_PREAMBLE_POWER_RAMPING_STEP;
       float DELTA_P_rampup = P_CMAX - (P_O_PUSCH + M_pusch_component + alpha * pathloss + DELTA_TF + delta_pusch);
       DELTA_P_rampup = min(DELTA_P_rampup_requested, max(0, DELTA_P_rampup));
       mac->f_b_f_c = DELTA_P_rampup + delta_pusch;
       mac->pusch_power_control_initialized = true;
       mac->delta_msg2 = delta_pusch;
     } else {
-      if (!((pusch_power_without_f_b_f_c + mac->f_b_f_c >= P_CMAX && delta_pusch > 0) ||
-        (pusch_power_without_f_b_f_c + mac->f_b_f_c <= P_CMIN && delta_pusch < 0))) {
+      if (!((pusch_power_without_f_b_f_c + mac->f_b_f_c >= P_CMAX && delta_pusch > 0)
+            || (pusch_power_without_f_b_f_c + mac->f_b_f_c <= P_CMIN && delta_pusch < 0))) {
         mac->f_b_f_c += delta_pusch;
       }
     }
@@ -676,4 +682,130 @@ int get_srs_tx_power_ue(NR_UE_MAC_INST_t *mac,
   }
 
   return min(P_CMAX, srs_power_without_h_b_f_c + h_b_f_c);
+}
+
+/* TS 38.321 subclause 7.3 - return DELTA_PREAMBLE values in dB */
+static int8_t nr_get_DELTA_PREAMBLE(NR_UE_MAC_INST_t *mac, int CC_id, uint16_t prach_format)
+{
+  NR_RACH_ConfigCommon_t *nr_rach_ConfigCommon = mac->current_UL_BWP->rach_ConfigCommon;
+  NR_SubcarrierSpacing_t scs = *nr_rach_ConfigCommon->msg1_SubcarrierSpacing;
+  int prach_sequence_length = nr_rach_ConfigCommon->prach_RootSequenceIndex.present - 1;
+  uint8_t prachConfigIndex, mu;
+
+  AssertFatal(CC_id == 0, "Transmission on secondary CCs is not supported yet\n");
+
+  // SCS configuration from msg1_SubcarrierSpacing and table 4.2-1 in TS 38.211
+
+  switch (scs) {
+    case NR_SubcarrierSpacing_kHz15:
+      mu = 0;
+      break;
+
+    case NR_SubcarrierSpacing_kHz30:
+      mu = 1;
+      break;
+
+    case NR_SubcarrierSpacing_kHz60:
+      mu = 2;
+      break;
+
+    case NR_SubcarrierSpacing_kHz120:
+      mu = 3;
+      break;
+
+    case NR_SubcarrierSpacing_kHz240:
+      mu = 4;
+      break;
+
+    case NR_SubcarrierSpacing_kHz480_v1700:
+      mu = 5;
+      break;
+
+    case NR_SubcarrierSpacing_kHz960_v1700:
+      mu = 6;
+      break;
+
+    case NR_SubcarrierSpacing_spare1:
+      mu = 7;
+      break;
+
+    default:
+      AssertFatal(1 == 0, "Unknown msg1_SubcarrierSpacing %lu\n", scs);
+  }
+
+  // Preamble formats given by prach_ConfigurationIndex and tables 6.3.3.2-2 and 6.3.3.2-2 in TS 38.211
+
+  prachConfigIndex = nr_rach_ConfigCommon->rach_ConfigGeneric.prach_ConfigurationIndex;
+
+  if (prach_sequence_length == 0) {
+    AssertFatal(prach_format < 4, "Illegal PRACH format %d for sequence length 839\n", prach_format);
+    switch (prach_format) {
+      // long preamble formats
+      case 0:
+      case 3:
+        return 0;
+
+      case 1:
+        return -3;
+
+      case 2:
+        return -6;
+    }
+  } else {
+    switch (prach_format) { // short preamble formats
+      case 0:
+      case 3:
+        return 8 + 3 * mu;
+
+      case 1:
+      case 4:
+      case 8:
+        return 5 + 3 * mu;
+
+      case 2:
+      case 5:
+        return 3 + 3 * mu;
+
+      case 6:
+        return 3 * mu;
+
+      case 7:
+        return 5 + 3 * mu;
+
+      default:
+        AssertFatal(1 == 0,
+                    "[UE %d] ue_procedures.c: FATAL, Illegal preambleFormat %d, prachConfigIndex %d\n",
+                    mac->ue_id,
+                    prach_format,
+                    prachConfigIndex);
+    }
+  }
+  return 0;
+}
+
+// TS 38.321 subclause 5.1.3 - RA preamble transmission - ra_PREAMBLE_RECEIVED_TARGET_POWER configuration
+// Measurement units:
+// - preambleReceivedTargetPower      dBm (-202..-60, 2 dBm granularity)
+// - delta_preamble                   dB
+// - RA_PREAMBLE_POWER_RAMPING_STEP   dB
+// - POWER_OFFSET_2STEP_RA            dB
+// returns receivedTargerPower in dBm
+int nr_get_Po_NOMINAL_PUSCH(NR_UE_MAC_INST_t *mac, NR_PRACH_RESOURCES_t *prach_resources, uint8_t CC_id)
+{
+  int8_t receivedTargerPower;
+  int8_t delta_preamble;
+
+  NR_RACH_ConfigCommon_t *nr_rach_ConfigCommon = mac->current_UL_BWP->rach_ConfigCommon;
+  long preambleReceivedTargetPower = nr_rach_ConfigCommon->rach_ConfigGeneric.preambleReceivedTargetPower;
+  delta_preamble = nr_get_DELTA_PREAMBLE(mac, CC_id, prach_resources->prach_format);
+
+  receivedTargerPower = preambleReceivedTargetPower + delta_preamble
+                        + (prach_resources->RA_PREAMBLE_POWER_RAMPING_COUNTER - 1) * prach_resources->RA_PREAMBLE_POWER_RAMPING_STEP
+                        + prach_resources->POWER_OFFSET_2STEP_RA;
+
+  LOG_I(MAC,
+        "ReceivedTargerPower is %d dBm counter %d \n",
+        receivedTargerPower,
+        prach_resources->RA_PREAMBLE_POWER_RAMPING_COUNTER);
+  return receivedTargerPower;
 }
