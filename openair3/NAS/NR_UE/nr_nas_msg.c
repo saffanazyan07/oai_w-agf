@@ -57,30 +57,56 @@ extern uint16_t NB_UE_INST;
 static nr_ue_nas_t nr_ue_nas[MAX_NAS_UE] = {0};
 static nr_nas_msg_snssai_t nas_allowed_nssai[8];
 
+const char *nr_release_cause_desc[] = {"RRC_CONNECTION_FAILURE", "RRC_RESUME_FAILURE", "OTHER"};
+const char *security_state_strings[] = {"NAS_SECURITY_NO_SECURITY_CONTEXT",
+                                        "NAS_SECURITY_NEW_SECURITY_CONTEXT",
+                                        "NAS_SECURITY_UNPROTECTED",
+                                        "NAS_SECURITY_INTEGRITY_FAILED",
+                                        "NAS_SECURITY_INTEGRITY_PASSED",
+                                        "NAS_SECURITY_BAD_INPUT"};
+
+const char *security_header_type_s[] = {"NONE",
+                                        "INTEGRITY_PROTECTED",
+                                        "INTEGRITY_PROTECTED_AND_CIPHERED",
+                                        "INTEGRITY_PROTECTED_WITH_NEW_SECU_CTX",
+                                        "INTEGRITY_PROTECTED_AND_CIPHERED_WITH_NEW_SECU_CTX"};
+
 typedef enum {
   NAS_SECURITY_NO_SECURITY_CONTEXT,
+  NAS_SECURITY_NEW_SECURITY_CONTEXT,
   NAS_SECURITY_UNPROTECTED,
   NAS_SECURITY_INTEGRITY_FAILED,
   NAS_SECURITY_INTEGRITY_PASSED,
   NAS_SECURITY_BAD_INPUT
 } security_state_t;
 
-security_state_t nas_security_rx_process(nr_ue_nas_t *nas, uint8_t *pdu_buffer, int pdu_length)
+static security_state_t nas_security_rx_process(nr_ue_nas_t *nas, uint8_t *pdu_buffer, int pdu_length)
 {
   if (nas->security_container == NULL)
     return NAS_SECURITY_NO_SECURITY_CONTEXT;
-  if (pdu_buffer[1] == 0)
-    return NAS_SECURITY_UNPROTECTED;
   /* header is 7 bytes, require at least one byte of payload */
   if (pdu_length < 8)
     return NAS_SECURITY_BAD_INPUT;
-  /* only accept "integrity protected and ciphered" messages */
-  if (pdu_buffer[1] != 2) {
-    LOG_E(NAS, "todo: unhandled security type %d\n", pdu_buffer[2]);
-    return NAS_SECURITY_BAD_INPUT;
+
+  switch (pdu_buffer[1]) {
+    case PLAIN_5GS_MSG:
+      return NAS_SECURITY_UNPROTECTED;
+      break;
+    case INTEGRITY_PROTECTED:
+    case INTEGRITY_PROTECTED_WITH_NEW_SECU_CTX:
+    case INTEGRITY_PROTECTED_AND_CIPHERED_WITH_NEW_SECU_CTX:
+      /* only accept "integrity protected and ciphered" messages */
+      if (pdu_buffer[6] == 0)
+        LOG_E(NAS, "Received nas_count_dl = %d\n", pdu_buffer[6]);
+      LOG_E(NAS, "todo: unhandled security type %s (pdu_buffer[1] = %d)\n", security_header_type_s[pdu_buffer[1]], pdu_buffer[1]);
+      return NAS_SECURITY_BAD_INPUT;
+      break;
+    default:
+      break;
   }
 
   /* synchronize NAS SQN, based on 24.501 4.4.3.1 */
+  // Sequence number
   int nas_sqn = pdu_buffer[6];
   int target_sqn = nas->security.nas_count_dl & 0xff;
   if (nas_sqn != target_sqn) {
@@ -97,33 +123,34 @@ security_state_t nas_security_rx_process(nr_ue_nas_t *nas, uint8_t *pdu_buffer, 
   }
 
   /* check integrity */
-  uint8_t computed_mac[4];
+  uint8_t computed_mac[MAC_INTEGRITY_SIZE];
   nas_stream_cipher_t stream_cipher;
   stream_cipher.context = nas->security_container->integrity_context;
   stream_cipher.count = nas->security.nas_count_dl;
   stream_cipher.bearer = 1; /* todo: don't hardcode */
   stream_cipher.direction = 1;
-  stream_cipher.message = pdu_buffer + 6;
+  stream_cipher.message = pdu_buffer + SECURITY_PROTECTED_5GS_NAS_MESSAGE_HEADER_LENGTH - 1;
   /* length in bits */
-  stream_cipher.blength = (pdu_length - 6) << 3;
+  stream_cipher.blength = (pdu_length - SECURITY_PROTECTED_5GS_NAS_MESSAGE_HEADER_LENGTH + 1) << 3;
   stream_compute_integrity(nas->security_container->integrity_algorithm, &stream_cipher, computed_mac);
 
   uint8_t *received_mac = pdu_buffer + 2;
 
-  if (memcmp(received_mac, computed_mac, 4) != 0)
+  if (memcmp(received_mac, computed_mac, MAC_INTEGRITY_SIZE) != 0)
     return NAS_SECURITY_INTEGRITY_FAILED;
 
   /* decipher */
-  uint8_t buf[pdu_length - 7];
+  uint8_t payload_len = pdu_length - SECURITY_PROTECTED_5GS_NAS_MESSAGE_HEADER_LENGTH;
+  uint8_t buf[payload_len];
   stream_cipher.context = nas->security_container->ciphering_context;
   stream_cipher.count = nas->security.nas_count_dl;
   stream_cipher.bearer = 1; /* todo: don't hardcode */
   stream_cipher.direction = 1;
-  stream_cipher.message = pdu_buffer + 7;
+  stream_cipher.message = pdu_buffer + SECURITY_PROTECTED_5GS_NAS_MESSAGE_HEADER_LENGTH;
   /* length in bits */
-  stream_cipher.blength = (pdu_length - 7) << 3;
+  stream_cipher.blength = (payload_len) << 3;
   stream_compute_encrypt(nas->security_container->ciphering_algorithm, &stream_cipher, buf);
-  memcpy(pdu_buffer + 7, buf, pdu_length - 7);
+  memcpy(pdu_buffer + SECURITY_PROTECTED_5GS_NAS_MESSAGE_HEADER_LENGTH, buf, payload_len);
 
   nas->security.nas_count_dl++;
 
@@ -219,7 +246,7 @@ static int fill_imeisv(FGSMobileIdentity *mi, const uicc_t *uicc)
   return 19;
 }
 
-int mm_msg_encode(MM_msg *mm_msg, uint8_t *buffer, uint32_t len)
+static int mm_msg_encode(MM_msg *mm_msg, uint8_t *buffer, uint32_t len)
 {
   LOG_FUNC_IN;
   int header_result;
@@ -395,7 +422,7 @@ void derive_knas(algorithm_type_dist_t nas_alg_type, uint8_t nas_alg_id, uint8_t
   memcpy(knas, out + 16, 16);
 }
 
-void derive_kgnb(uint8_t kamf[32], uint32_t count, uint8_t *kgnb)
+static void derive_kgnb(uint8_t kamf[32], uint32_t count, uint8_t *kgnb)
 {
   /* Compute the KDF input parameter
    * S = FC(0x6E) || UL NAS Count || 0x00 0x04 || 0x01 || 0x00 0x01
@@ -430,7 +457,7 @@ void derive_kgnb(uint8_t kamf[32], uint32_t count, uint8_t *kgnb)
   printf("\n");
 }
 
-void derive_ue_keys(uint8_t *buf, nr_ue_nas_t *nas)
+static void derive_ue_keys(uint8_t *buf, nr_ue_nas_t *nas)
 {
   uint8_t ak[6];
   uint8_t sqn[6];
@@ -1386,11 +1413,11 @@ void *nas_nrue(void *args_p)
 
         uint8_t *pdu_buffer = NAS_DOWNLINK_DATA_IND(msg_p).nasMsg.nas_data;
         int pdu_length = NAS_DOWNLINK_DATA_IND(msg_p).nasMsg.length;
+        int msg_type = get_msg_type(pdu_buffer, pdu_length);
 
         security_state_t security_state = nas_security_rx_process(nas, pdu_buffer, pdu_length);
         /* special cases accepted without protection */
         if (security_state == NAS_SECURITY_UNPROTECTED) {
-          int msg_type = get_msg_type(pdu_buffer, pdu_length);
           /* for the moment, only FGS_DEREGISTRATION_ACCEPT is accepted */
           if (msg_type == FGS_DEREGISTRATION_ACCEPT_UE_ORIGINATING)
             security_state = NAS_SECURITY_INTEGRITY_PASSED;
@@ -1400,8 +1427,6 @@ void *nas_nrue(void *args_p)
           LOG_E(NAS, "NAS integrity failed, discard incoming message\n");
           break;
         }
-
-        int msg_type = get_msg_type(pdu_buffer, pdu_length);
 
         switch (msg_type) {
           case FGS_IDENTITY_REQUEST:
