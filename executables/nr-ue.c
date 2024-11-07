@@ -334,6 +334,20 @@ static void *NRUE_phy_stub_standalone_pnf_task(void *arg)
   return NULL;
 }
 
+static void set_default_ssb_table(fapi_nr_config_request_t *cfg, const NR_DL_FRAME_PARMS *fp)
+{
+  cfg->ssb_table.ssb_period = 2; // 20ms
+  // TS 38.213 4.1
+  if (fp->dl_CarrierFreq < 6e9) { // FR1
+    const uint32_t ssb_mask = 1 << (31 - fp->ssb_index);
+    cfg->ssb_table.ssb_mask_list[0].ssb_mask = ssb_mask;
+    cfg->ssb_table.ssb_mask_list[1].ssb_mask = 0;
+  } else {
+    const uint64_t ssb_mask = 1 << (63 - fp->ssb_index);
+    cfg->ssb_table.ssb_mask_list[0].ssb_mask = (ssb_mask >> 32);
+    cfg->ssb_table.ssb_mask_list[1].ssb_mask = (ssb_mask & 0xffffffff);
+  }
+}
 
 /*!
  * It performs band scanning and synchonization.
@@ -858,6 +872,9 @@ void *UE_thread(void *arg)
           decoded_frame_rx = (decoded_frame_rx + UE->init_sync_frame + trashed_frames) % MAX_FRAME_NUMBER;
           syncData_t *syncMsg = (syncData_t *)NotifiedFifoData(res);
           intialSyncOffset = syncMsg->rx_offset;
+          // set SSB table with index obtained from initial sync to decode PBCH till SIB1 is received
+          if (!UE->received_config_request)
+            set_default_ssb_table(cfg, &UE->frame_parms);
         }
         delNotifiedFIFO_elt(res);
         stream_status = STREAM_STATUS_UNSYNC;
