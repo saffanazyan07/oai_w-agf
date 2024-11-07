@@ -140,10 +140,6 @@ static void nr_rrc_ue_process_RadioBearerConfig(NR_UE_RRC_INST_t *ue_rrc,
                                                 NR_RadioBearerConfig_t *const radioBearerConfig);
 static void nr_rrc_ue_generate_rrcReestablishmentComplete(const NR_UE_RRC_INST_t *rrc, const NR_RRCReestablishment_t *rrcReestablishment);
 static void process_lte_nsa_msg(NR_UE_RRC_INST_t *rrc, nsa_msg_t *msg, int msg_len);
-static void nr_rrc_ue_process_rrcReconfiguration(NR_UE_RRC_INST_t *rrc,
-                                                 int gNB_index,
-                                                 NR_RRCReconfiguration_t *rrcReconfiguration);
-
 static void nr_rrc_ue_process_ueCapabilityEnquiry(NR_UE_RRC_INST_t *rrc, NR_UECapabilityEnquiry_t *UECapabilityEnquiry);
 static void nr_rrc_ue_process_masterCellGroup(NR_UE_RRC_INST_t *rrc,
                                               OCTET_STRING_t *masterCellGroup,
@@ -163,43 +159,298 @@ static void set_DRB_status(NR_UE_RRC_INST_t *rrc, NR_DRB_Identity_t drb_id, NR_R
   rrc->status_DRBs[drb_id - 1] = status;
 }
 
-static void nr_rrc_ue_process_rrcReconfiguration(NR_UE_RRC_INST_t *rrc,
-                                                 int gNB_index,
-                                                 NR_RRCReconfiguration_t *rrcReconfiguration)
+static void nr_decode_SI(NR_UE_RRC_SI_INFO *SI_info, NR_SystemInformation_t *si)
+{
+  VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_RRC_UE_DECODE_SI, VCD_FUNCTION_IN);
+
+  // Dump contents
+  if (si->criticalExtensions.present == NR_SystemInformation__criticalExtensions_PR_systemInformation
+      || si->criticalExtensions.present == NR_SystemInformation__criticalExtensions_PR_criticalExtensionsFuture_r16) {
+    LOG_D(NR_RRC,
+          "[UE] si->criticalExtensions.choice.NR_SystemInformation_t->sib_TypeAndInfo.list.count %d\n",
+          si->criticalExtensions.choice.systemInformation->sib_TypeAndInfo.list.count);
+  } else {
+    LOG_D(NR_RRC, "[UE] Unknown criticalExtension version (not Rel16)\n");
+    return;
+  }
+
+  for (int i = 0; i < si->criticalExtensions.choice.systemInformation->sib_TypeAndInfo.list.count; i++) {
+    SystemInformation_IEs__sib_TypeAndInfo__Member *typeandinfo;
+    typeandinfo = si->criticalExtensions.choice.systemInformation->sib_TypeAndInfo.list.array[i];
+    LOG_I(NR_RRC, "Found SIB%d\n", typeandinfo->present + 1);
+    switch(typeandinfo->present) {
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib2:
+        UPDATE_IE(SI_info->sib2, typeandinfo->choice.sib2, NR_SIB2_t);
+        nr_timer_start(&SI_info->sib2_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib3:
+        UPDATE_IE(SI_info->sib3, typeandinfo->choice.sib3, NR_SIB3_t);
+        nr_timer_start(&SI_info->sib3_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib4:
+        UPDATE_IE(SI_info->sib4, typeandinfo->choice.sib4, NR_SIB4_t);
+        nr_timer_start(&SI_info->sib4_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib5:
+        UPDATE_IE(SI_info->sib5, typeandinfo->choice.sib5, NR_SIB5_t);
+        nr_timer_start(&SI_info->sib5_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib6:
+        UPDATE_IE(SI_info->sib6, typeandinfo->choice.sib6, NR_SIB6_t);
+        nr_timer_start(&SI_info->sib6_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib7:
+        UPDATE_IE(SI_info->sib7, typeandinfo->choice.sib7, NR_SIB7_t);
+        nr_timer_start(&SI_info->sib7_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib8:
+        UPDATE_IE(SI_info->sib8, typeandinfo->choice.sib8, NR_SIB8_t);
+        nr_timer_start(&SI_info->sib8_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib9:
+        UPDATE_IE(SI_info->sib9, typeandinfo->choice.sib9, NR_SIB9_t);
+        nr_timer_start(&SI_info->sib9_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib10_v1610:
+        UPDATE_IE(SI_info->sib10, typeandinfo->choice.sib10_v1610, NR_SIB10_r16_t);
+        nr_timer_start(&SI_info->sib10_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib11_v1610:
+        UPDATE_IE(SI_info->sib11, typeandinfo->choice.sib11_v1610, NR_SIB11_r16_t);
+        nr_timer_start(&SI_info->sib11_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib12_v1610:
+        UPDATE_IE(SI_info->sib12, typeandinfo->choice.sib12_v1610, NR_SIB12_r16_t);
+        nr_timer_start(&SI_info->sib12_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib13_v1610:
+        UPDATE_IE(SI_info->sib13, typeandinfo->choice.sib13_v1610, NR_SIB13_r16_t);
+        nr_timer_start(&SI_info->sib13_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib14_v1610:
+        UPDATE_IE(SI_info->sib14, typeandinfo->choice.sib14_v1610, NR_SIB14_r16_t);
+        nr_timer_start(&SI_info->sib14_timer);
+        break;
+
+      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib19_v1700:
+        UPDATE_IE(SI_info->SInfo_r17.sib19, typeandinfo->choice.sib19_v1700, NR_SIB19_r17_t);
+        if (g_log->log_component[NR_RRC].level >= OAILOG_DEBUG)
+          xer_fprint(stdout, &asn_DEF_NR_SIB19_r17, (const void *)SI_info->SInfo_r17.sib19);
+        nr_timer_start(&SI_info->SInfo_r17.sib19_timer);
+        break;
+      default:
+        break;
+    }
+  }
+  VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_RRC_UE_DECODE_SI, VCD_FUNCTION_OUT);
+}
+
+static void nr_rrc_ue_prepare_RRCSetupRequest(NR_UE_RRC_INST_t *rrc)
+{
+  LOG_D(NR_RRC, "Generation of RRCSetupRequest\n");
+  uint8_t rv[6];
+  // Get RRCConnectionRequest, fill random for now
+  // Generate random byte stream for contention resolution
+  for (int i = 0; i < 6; i++) {
+#ifdef SMBV
+    // if SMBV is configured the contention resolution needs to be fix for the connection procedure to succeed
+    rv[i] = i;
+#else
+    rv[i] = taus() & 0xff;
+#endif
+  }
+
+  uint8_t buf[1024];
+  int len = do_RRCSetupRequest(buf, sizeof(buf), rv);
+
+  nr_rlc_srb_recv_sdu(rrc->ue_id, 0, buf, len);
+}
+
+static void nr_rrc_configure_default_SI(NR_UE_RRC_SI_INFO *SI_info, NR_SIB1_t *sib1)
+{
+  struct NR_SI_SchedulingInfo *si_SchedulingInfo = sib1->si_SchedulingInfo;
+  struct NR_SI_SchedulingInfo_v1700 *si_SchedulingInfo_v1700 = NULL;
+
+  if (sib1->nonCriticalExtension && sib1->nonCriticalExtension->nonCriticalExtension
+      && sib1->nonCriticalExtension->nonCriticalExtension->nonCriticalExtension
+      && sib1->nonCriticalExtension->nonCriticalExtension->nonCriticalExtension->si_SchedulingInfo_v1700) {
+    si_SchedulingInfo_v1700 = sib1->nonCriticalExtension->nonCriticalExtension->nonCriticalExtension->si_SchedulingInfo_v1700;
+  }
+
+  if (si_SchedulingInfo) {
+    SI_info->default_otherSI_map = 0;
+    for (int i = 0; i < si_SchedulingInfo->schedulingInfoList.list.count; i++) {
+      struct NR_SchedulingInfo *schedulingInfo = si_SchedulingInfo->schedulingInfoList.list.array[i];
+      for (int j = 0; j < schedulingInfo->sib_MappingInfo.list.count; j++) {
+        struct NR_SIB_TypeInfo *sib_Type = schedulingInfo->sib_MappingInfo.list.array[j];
+        SI_info->default_otherSI_map |= 1 << sib_Type->type;
+      }
+    }
+  }
+
+  if (si_SchedulingInfo_v1700) {
+    SI_info->SInfo_r17.default_otherSI_map_r17 = 0;
+    for (int i = 0; i < si_SchedulingInfo_v1700->schedulingInfoList2_r17.list.count; i++) {
+      struct NR_SchedulingInfo2_r17 *schedulingInfo2 = si_SchedulingInfo_v1700->schedulingInfoList2_r17.list.array[i];
+      for (int j = 0; j < schedulingInfo2->sib_MappingInfo_r17.list.count; j++) {
+        struct NR_SIB_TypeInfo_v1700 *sib_TypeInfo_v1700 = schedulingInfo2->sib_MappingInfo_r17.list.array[j];
+        if (sib_TypeInfo_v1700->sibType_r17.present == NR_SIB_TypeInfo_v1700__sibType_r17_PR_type1_r17) {
+          SI_info->SInfo_r17.default_otherSI_map_r17 |= 1 << sib_TypeInfo_v1700->sibType_r17.choice.type1_r17;
+        }
+      }
+    }
+  }
+}
+
+static void nr_rrc_process_sib1(NR_UE_RRC_INST_t *rrc, NR_UE_RRC_SI_INFO *SI_info, NR_SIB1_t *systemInformationBlockType1)
+{
+  UPDATE_IE(SI_info->sib1, systemInformationBlockType1, NR_SIB1_t);
+  if(g_log->log_component[NR_RRC].level >= OAILOG_DEBUG)
+    xer_fprint(stdout, &asn_DEF_NR_SIB1, (const void *) SI_info->sib1);
+  LOG_A(NR_RRC, "SIB1 decoded\n");
+  nr_timer_start(&SI_info->sib1_timer);
+  if (rrc->nrRrcState == RRC_STATE_IDLE_NR) {
+    rrc->ra_trigger = RRC_CONNECTION_SETUP;
+    // preparing RRC setup request payload in advance
+    nr_rrc_ue_prepare_RRCSetupRequest(rrc);
+  }
+  // configure default SI
+  nr_rrc_configure_default_SI(SI_info, SI_info->sib1);
+  // configure timers and constant
+  nr_rrc_set_sib1_timers_and_constants(&rrc->timers_and_constants, SI_info->sib1);
+
+  NR_SI_SchedulingInfo_v1700_t *si_SchedulingInfo_v1700 = NULL;
+  if (SI_info->sib1->nonCriticalExtension && SI_info->sib1->nonCriticalExtension->nonCriticalExtension
+      && SI_info->sib1->nonCriticalExtension->nonCriticalExtension->nonCriticalExtension) {
+    si_SchedulingInfo_v1700 = SI_info->sib1->nonCriticalExtension->nonCriticalExtension->nonCriticalExtension->si_SchedulingInfo_v1700;
+  }
+
+  nr_rrc_mac_config_req_sib1(rrc->ue_id, 0, SI_info->sib1->si_SchedulingInfo, si_SchedulingInfo_v1700, SI_info->sib1->servingCellConfigCommon);
+}
+
+static void nr_rrc_process_reconfiguration_v1530(NR_UE_RRC_INST_t *rrc, NR_RRCReconfiguration_v1530_IEs_t *rec_1530, int gNB_index)
+{
+  if (rec_1530->fullConfig) {
+    // TODO perform the full configuration procedure as specified in 5.3.5.11 of 331
+    LOG_E(NR_RRC, "RRCReconfiguration includes fullConfig but this is not implemented yet\n");
+  }
+  if (rec_1530->masterCellGroup)
+    nr_rrc_ue_process_masterCellGroup(rrc, rec_1530->masterCellGroup, rec_1530->fullConfig);
+  if (rec_1530->masterKeyUpdate) {
+    // TODO perform AS security key update procedure as specified in 5.3.5.7
+    LOG_E(NR_RRC, "RRCReconfiguration includes masterKeyUpdate but this is not implemented yet\n");
+  }
+  /* Check if there is dedicated NAS information to forward to NAS */
+  if (rec_1530->dedicatedNAS_MessageList) {
+    struct NR_RRCReconfiguration_v1530_IEs__dedicatedNAS_MessageList *tmp = rec_1530->dedicatedNAS_MessageList;
+    for (int i = 0; i < tmp->list.count; i++) {
+      MessageDef *ittiMsg = itti_alloc_new_message(TASK_RRC_NRUE, rrc->ue_id, NAS_CONN_ESTABLI_CNF);
+      nas_establish_cnf_t *msg = &NAS_CONN_ESTABLI_CNF(ittiMsg);
+      msg->errCode = AS_SUCCESS;
+      msg->nasMsg.length = tmp->list.array[i]->size;
+      msg->nasMsg.nas_data = tmp->list.array[i]->buf;
+      itti_send_msg_to_task(TASK_NAS_NRUE, rrc->ue_id, ittiMsg);
+    }
+    tmp->list.count = 0; // to prevent the automatic free by ASN1_FREE
+  }
+  NR_UE_RRC_SI_INFO *SI_info = &rrc->perNB[gNB_index].SInfo;
+  if (rec_1530->dedicatedSIB1_Delivery) {
+    NR_SIB1_t *sib1 = NULL;
+    asn_dec_rval_t dec_rval = uper_decode(NULL,
+                                          &asn_DEF_NR_SIB1,
+                                          (void **)&sib1,
+                                          (uint8_t *)rec_1530->dedicatedSIB1_Delivery->buf,
+                                          rec_1530->dedicatedSIB1_Delivery->size,
+                                          0,
+                                          0);
+    if ((dec_rval.code != RC_OK) && (dec_rval.consumed == 0)) {
+      LOG_E(NR_RRC, "dedicatedSIB1-Delivery decode error\n");
+      SEQUENCE_free(&asn_DEF_NR_SIB1, sib1, 1);
+    } else {
+      nr_rrc_process_sib1(rrc, SI_info, sib1);
+    }
+  }
+  if (rec_1530->dedicatedSystemInformationDelivery) {
+    NR_SystemInformation_t *si = NULL;
+    asn_dec_rval_t dec_rval = uper_decode(NULL,
+                                          &asn_DEF_NR_SystemInformation,
+                                          (void **)&si,
+                                          (uint8_t *)rec_1530->dedicatedSystemInformationDelivery->buf,
+                                          rec_1530->dedicatedSystemInformationDelivery->size,
+                                          0,
+                                          0);
+    if ((dec_rval.code != RC_OK) && (dec_rval.consumed == 0)) {
+      LOG_E(NR_RRC, "dedicatedSystemInformationDelivery decode error\n");
+      SEQUENCE_free(&asn_DEF_NR_SystemInformation, si, 1);
+    } else {
+      LOG_I(NR_RRC, "[UE %ld] Decoding dedicatedSystemInformationDelivery\n", rrc->ue_id);
+      nr_decode_SI(SI_info, si);
+    }
+  }
+  if (rec_1530->otherConfig) {
+    // TODO perform the other configuration procedure as specified in 5.3.5.9
+    LOG_E(NR_RRC, "RRCReconfiguration includes otherConfig but this is not handled yet\n");
+  }
+  NR_RRCReconfiguration_v1540_IEs_t *rec_1540 = rec_1530->nonCriticalExtension;
+  if (rec_1540) {
+    NR_RRCReconfiguration_v1560_IEs_t *rec_1560 = rec_1540->nonCriticalExtension;
+    if (rec_1560->sk_Counter) {
+      // TODO perform AS security key update procedure as specified in 5.3.5.7
+      LOG_E(NR_RRC, "RRCReconfiguration includes sk-Counter but this is not implemented yet\n");
+    }
+    if (rec_1560->mrdc_SecondaryCellGroupConfig) {
+      // TODO perform handling of mrdc-SecondaryCellGroupConfig as specified in 5.3.5.3
+      LOG_E(NR_RRC, "RRCReconfiguration includes mrdc-SecondaryCellGroupConfig but this is not handled yet\n");
+    }
+    if (rec_1560->radioBearerConfig2) {
+      NR_RadioBearerConfig_t *RadioBearerConfig = NULL;
+      asn_dec_rval_t dec_rval = uper_decode(NULL,
+                                            &asn_DEF_NR_RadioBearerConfig,
+                                            (void **)&RadioBearerConfig,
+                                            (uint8_t *)rec_1560->radioBearerConfig2->buf,
+                                            rec_1560->radioBearerConfig2->size,
+                                            0,
+                                            0);
+      if ((dec_rval.code != RC_OK) && (dec_rval.consumed == 0)) {
+        LOG_E(NR_RRC, "radioBearerConfig2 decode error\n");
+        SEQUENCE_free(&asn_DEF_NR_RadioBearerConfig, RadioBearerConfig, 1);
+      } else
+        nr_rrc_ue_process_RadioBearerConfig(rrc, RadioBearerConfig);
+    }
+  }
+}
+
+static void nr_rrc_ue_process_rrcReconfiguration(NR_UE_RRC_INST_t *rrc, int gNB_index, NR_RRCReconfiguration_t *reconfiguration)
 {
   rrcPerNB_t *rrcNB = rrc->perNB + gNB_index;
 
-  switch (rrcReconfiguration->criticalExtensions.present) {
+  switch (reconfiguration->criticalExtensions.present) {
     case NR_RRCReconfiguration__criticalExtensions_PR_rrcReconfiguration: {
-      NR_RRCReconfiguration_IEs_t *ie = rrcReconfiguration->criticalExtensions.choice.rrcReconfiguration;
+      NR_RRCReconfiguration_IEs_t *ie = reconfiguration->criticalExtensions.choice.rrcReconfiguration;
 
-      if (ie->radioBearerConfig != NULL) {
-        LOG_I(NR_RRC, "radio Bearer Configuration is present\n");
+      if (ie->radioBearerConfig) {
+        LOG_I(NR_RRC, "RRCReconfiguration includes radio Bearer Configuration\n");
         nr_rrc_ue_process_RadioBearerConfig(rrc, ie->radioBearerConfig);
         if (LOG_DEBUGFLAG(DEBUG_ASN1))
           xer_fprint(stdout, &asn_DEF_NR_RadioBearerConfig, (const void *)ie->radioBearerConfig);
       }
 
-      if (ie->nonCriticalExtension) {
-        NR_RRCReconfiguration_v1530_IEs_t *ext = ie->nonCriticalExtension;
-        if (ext->masterCellGroup)
-          nr_rrc_ue_process_masterCellGroup(rrc, ext->masterCellGroup, ext->fullConfig);
-        /* Check if there is dedicated NAS information to forward to NAS */
-        if (ie->nonCriticalExtension->dedicatedNAS_MessageList) {
-          struct NR_RRCReconfiguration_v1530_IEs__dedicatedNAS_MessageList *tmp = ext->dedicatedNAS_MessageList;
-          for (int i = 0; i < tmp->list.count; i++) {
-            MessageDef *ittiMsg = itti_alloc_new_message(TASK_RRC_NRUE, rrc->ue_id, NAS_CONN_ESTABLI_CNF);
-            nas_establish_cnf_t *msg = &NAS_CONN_ESTABLI_CNF(ittiMsg);
-            msg->errCode = AS_SUCCESS;
-            msg->nasMsg.length = tmp->list.array[i]->size;
-            msg->nasMsg.nas_data = tmp->list.array[i]->buf;
-            itti_send_msg_to_task(TASK_NAS_NRUE, rrc->ue_id, ittiMsg);
-          }
-          tmp->list.count = 0; // to prevent the automatic free by ASN1_FREE
-        }
-      }
+      if (ie->nonCriticalExtension)
+        nr_rrc_process_reconfiguration_v1530(rrc, ie->nonCriticalExtension, gNB_index);
 
-      if (ie->secondaryCellGroup != NULL) {
+      if (ie->secondaryCellGroup) {
         NR_CellGroupConfig_t *cellGroupConfig = NULL;
         asn_dec_rval_t dec_rval = uper_decode(NULL,
                                               &asn_DEF_NR_CellGroupConfig, // might be added prefix later
@@ -227,15 +478,14 @@ static void nr_rrc_ue_process_rrcReconfiguration(NR_UE_RRC_INST_t *rrc,
         nr_rrc_mac_config_req_cg(rrc->ue_id, 0, cellGroupConfig, rrc->UECap.UE_NR_Capability);
         asn1cFreeStruc(asn_DEF_NR_CellGroupConfig, cellGroupConfig);
       }
-      if (ie->measConfig != NULL) {
-        LOG_I(NR_RRC, "Measurement Configuration is present\n");
+      if (ie->measConfig) {
+        LOG_I(NR_RRC, "RRCReconfiguration includes Measurement Configuration\n");
         nr_rrc_ue_process_measConfig(rrcNB, ie->measConfig, &rrc->timers_and_constants);
       }
-      if (ie->lateNonCriticalExtension != NULL) {
-        //  unuse now
+      if (ie->lateNonCriticalExtension) {
+        LOG_E(NR_RRC, "RRCReconfiguration includes lateNonCriticalExtension. Not handled.\n");
       }
     } break;
-
     case NR_RRCReconfiguration__criticalExtensions_PR_NOTHING:
     case NR_RRCReconfiguration__criticalExtensions_PR_criticalExtensionsFuture:
     default:
@@ -257,7 +507,7 @@ void process_nsa_message(NR_UE_RRC_INST_t *rrc, nsa_message_t nsa_message_type, 
       if ((dec_rval.code != RC_OK) && (dec_rval.consumed == 0)) {
         LOG_E(NR_RRC, "NR_RRCReconfiguration decode error\n");
         // free the memory
-        SEQUENCE_free( &asn_DEF_NR_RRCReconfiguration, RRCReconfiguration, 1 );
+        SEQUENCE_free(&asn_DEF_NR_RRCReconfiguration, RRCReconfiguration, 1);
         return;
       }
       nr_rrc_ue_process_rrcReconfiguration(rrc, 0, RRCReconfiguration);
@@ -323,6 +573,7 @@ NR_UE_RRC_INST_t* nr_rrc_init_ue(char* uecap_file, int nb_inst, int num_ant_tx)
     rrc->ul_bwp_id = 0;
     rrc->as_security_activated = false;
     rrc->detach_after_release = false;
+    rrc->reconfig_after_reestab = false;
 
     FILE *f = NULL;
     if (uecap_file)
@@ -565,133 +816,6 @@ static void nr_rrc_ue_decode_NR_BCCH_BCH_Message(NR_UE_RRC_INST_t *rrc,
   return;
 }
 
-static int nr_decode_SI(NR_UE_RRC_SI_INFO *SI_info, NR_SystemInformation_t *si)
-{
-  VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME( VCD_SIGNAL_DUMPER_FUNCTIONS_RRC_UE_DECODE_SI, VCD_FUNCTION_IN );
-
-  // Dump contents
-  if (si->criticalExtensions.present == NR_SystemInformation__criticalExtensions_PR_systemInformation ||
-      si->criticalExtensions.present == NR_SystemInformation__criticalExtensions_PR_criticalExtensionsFuture_r16) {
-    LOG_D(NR_RRC,
-          "[UE] si->criticalExtensions.choice.NR_SystemInformation_t->sib_TypeAndInfo.list.count %d\n",
-          si->criticalExtensions.choice.systemInformation->sib_TypeAndInfo.list.count);
-  } else {
-    LOG_D(NR_RRC, "[UE] Unknown criticalExtension version (not Rel16)\n");
-    return -1;
-  }
-
-  for (int i = 0; i < si->criticalExtensions.choice.systemInformation->sib_TypeAndInfo.list.count; i++) {
-    SystemInformation_IEs__sib_TypeAndInfo__Member *typeandinfo;
-    typeandinfo = si->criticalExtensions.choice.systemInformation->sib_TypeAndInfo.list.array[i];
-    LOG_I(NR_RRC, "Found SIB%d\n", typeandinfo->present + 1);
-    switch(typeandinfo->present) {
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib2:
-        if(!SI_info->sib2)
-          SI_info->sib2 = calloc(1, sizeof(*SI_info->sib2));
-        memcpy(SI_info->sib2, typeandinfo->choice.sib2, sizeof(NR_SIB2_t));
-        nr_timer_start(&SI_info->sib2_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib3:
-        if(!SI_info->sib3)
-          SI_info->sib3 = calloc(1, sizeof(*SI_info->sib3));
-        memcpy(SI_info->sib3, typeandinfo->choice.sib3, sizeof(NR_SIB3_t));
-        nr_timer_start(&SI_info->sib3_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib4:
-        if(!SI_info->sib4)
-          SI_info->sib4 = calloc(1, sizeof(*SI_info->sib4));
-        memcpy(SI_info->sib4, typeandinfo->choice.sib4, sizeof(NR_SIB4_t));
-        nr_timer_start(&SI_info->sib4_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib5:
-        if(!SI_info->sib5)
-          SI_info->sib5 = calloc(1, sizeof(*SI_info->sib5));
-        memcpy(SI_info->sib5, typeandinfo->choice.sib5, sizeof(NR_SIB5_t));
-        nr_timer_start(&SI_info->sib5_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib6:
-        if(!SI_info->sib6)
-          SI_info->sib6 = calloc(1, sizeof(*SI_info->sib6));
-        memcpy(SI_info->sib6, typeandinfo->choice.sib6, sizeof(NR_SIB6_t));
-        nr_timer_start(&SI_info->sib6_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib7:
-        if(!SI_info->sib7)
-          SI_info->sib7 = calloc(1, sizeof(*SI_info->sib7));
-        memcpy(SI_info->sib7, typeandinfo->choice.sib7, sizeof(NR_SIB7_t));
-        nr_timer_start(&SI_info->sib7_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib8:
-        if(!SI_info->sib8)
-          SI_info->sib8 = calloc(1, sizeof(*SI_info->sib8));
-        memcpy(SI_info->sib8, typeandinfo->choice.sib8, sizeof(NR_SIB8_t));
-        nr_timer_start(&SI_info->sib8_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib9:
-        if(!SI_info->sib9)
-          SI_info->sib9 = calloc(1, sizeof(*SI_info->sib9));
-        memcpy(SI_info->sib9, typeandinfo->choice.sib9, sizeof(NR_SIB9_t));
-        nr_timer_start(&SI_info->sib9_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib10_v1610:
-        if(!SI_info->sib10)
-          SI_info->sib10 = calloc(1, sizeof(*SI_info->sib10));
-        memcpy(SI_info->sib10, typeandinfo->choice.sib10_v1610, sizeof(NR_SIB10_r16_t));
-        nr_timer_start(&SI_info->sib10_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib11_v1610:
-        if(!SI_info->sib11)
-          SI_info->sib11 = calloc(1, sizeof(*SI_info->sib11));
-        memcpy(SI_info->sib11, typeandinfo->choice.sib11_v1610, sizeof(NR_SIB11_r16_t));
-        nr_timer_start(&SI_info->sib11_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib12_v1610:
-        if(!SI_info->sib12)
-          SI_info->sib12 = calloc(1, sizeof(*SI_info->sib12));
-        memcpy(SI_info->sib12, typeandinfo->choice.sib12_v1610, sizeof(NR_SIB12_r16_t));
-        nr_timer_start(&SI_info->sib12_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib13_v1610:
-        if(!SI_info->sib13)
-          SI_info->sib13 = calloc(1, sizeof(*SI_info->sib13));
-        memcpy(SI_info->sib13, typeandinfo->choice.sib13_v1610, sizeof(NR_SIB13_r16_t));
-        nr_timer_start(&SI_info->sib13_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib14_v1610:
-        if(!SI_info->sib14)
-          SI_info->sib14 = calloc(1, sizeof(*SI_info->sib14));
-        memcpy(SI_info->sib12, typeandinfo->choice.sib14_v1610, sizeof(NR_SIB14_r16_t));
-        nr_timer_start(&SI_info->sib14_timer);
-        break;
-
-      case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib19_v1700:
-        if(!SI_info->SInfo_r17.sib19)
-          SI_info->SInfo_r17.sib19 = calloc(1, sizeof(*SI_info->SInfo_r17.sib19));
-        asn_copy(&asn_DEF_NR_SIB19_r17, (void **) &SI_info->SInfo_r17.sib19, typeandinfo->choice.sib19_v1700);
-        if (g_log->log_component[NR_RRC].level >= OAILOG_DEBUG)
-          xer_fprint(stdout, &asn_DEF_NR_SIB19_r17, (const void *)SI_info->SInfo_r17.sib19);
-        nr_timer_start(&SI_info->SInfo_r17.sib19_timer);
-        break;
-      default:
-        break;
-    }
-  }
-  VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_RRC_UE_DECODE_SI, VCD_FUNCTION_OUT);
-  return 0;
-}
-
 static void nr_rrc_handle_msg3_indication(NR_UE_RRC_INST_t *rrc, rnti_t rnti)
 {
   NR_UE_Timers_Constants_t *tac = &rrc->timers_and_constants;
@@ -742,63 +866,6 @@ static void nr_rrc_handle_msg3_indication(NR_UE_RRC_INST_t *rrc, rnti_t rnti)
   }
 }
 
-static void nr_rrc_ue_prepare_RRCSetupRequest(NR_UE_RRC_INST_t *rrc)
-{
-  LOG_D(NR_RRC, "Generation of RRCSetupRequest\n");
-  uint8_t rv[6];
-  // Get RRCConnectionRequest, fill random for now
-  // Generate random byte stream for contention resolution
-  for (int i = 0; i < 6; i++) {
-#ifdef SMBV
-    // if SMBV is configured the contention resolution needs to be fix for the connection procedure to succeed
-    rv[i] = i;
-#else
-    rv[i] = taus() & 0xff;
-#endif
-  }
-
-  uint8_t buf[1024];
-  int len = do_RRCSetupRequest(buf, sizeof(buf), rv);
-
-  nr_rlc_srb_recv_sdu(rrc->ue_id, 0, buf, len);
-}
-
-static void nr_rrc_configure_default_SI(NR_UE_RRC_SI_INFO *SI_info, NR_SIB1_t *sib1)
-{
-  struct NR_SI_SchedulingInfo *si_SchedulingInfo = sib1->si_SchedulingInfo;
-  struct NR_SI_SchedulingInfo_v1700 *si_SchedulingInfo_v1700 = NULL;
-
-  if (sib1->nonCriticalExtension && sib1->nonCriticalExtension->nonCriticalExtension
-      && sib1->nonCriticalExtension->nonCriticalExtension->nonCriticalExtension
-      && sib1->nonCriticalExtension->nonCriticalExtension->nonCriticalExtension->si_SchedulingInfo_v1700) {
-    si_SchedulingInfo_v1700 = sib1->nonCriticalExtension->nonCriticalExtension->nonCriticalExtension->si_SchedulingInfo_v1700;
-  }
-
-  if (si_SchedulingInfo) {
-    SI_info->default_otherSI_map = 0;
-    for (int i = 0; i < si_SchedulingInfo->schedulingInfoList.list.count; i++) {
-      struct NR_SchedulingInfo *schedulingInfo = si_SchedulingInfo->schedulingInfoList.list.array[i];
-      for (int j = 0; j < schedulingInfo->sib_MappingInfo.list.count; j++) {
-        struct NR_SIB_TypeInfo *sib_Type = schedulingInfo->sib_MappingInfo.list.array[j];
-        SI_info->default_otherSI_map |= 1 << sib_Type->type;
-      }
-    }
-  }
-
-  if (si_SchedulingInfo_v1700) {
-    SI_info->SInfo_r17.default_otherSI_map_r17 = 0;
-    for (int i = 0; i < si_SchedulingInfo_v1700->schedulingInfoList2_r17.list.count; i++) {
-      struct NR_SchedulingInfo2_r17 *schedulingInfo2 = si_SchedulingInfo_v1700->schedulingInfoList2_r17.list.array[i];
-      for (int j = 0; j < schedulingInfo2->sib_MappingInfo_r17.list.count; j++) {
-        struct NR_SIB_TypeInfo_v1700 *sib_TypeInfo_v1700 = schedulingInfo2->sib_MappingInfo_r17.list.array[j];
-        if (sib_TypeInfo_v1700->sibType_r17.present == NR_SIB_TypeInfo_v1700__sibType_r17_PR_type1_r17) {
-          SI_info->SInfo_r17.default_otherSI_map_r17 |= 1 << sib_TypeInfo_v1700->sibType_r17.choice.type1_r17;
-        }
-      }
-    }
-  }
-}
-
 static int8_t nr_rrc_ue_decode_NR_BCCH_DL_SCH_Message(NR_UE_RRC_INST_t *rrc,
                                                       const uint8_t gNB_index,
                                                       uint8_t *const Sdu,
@@ -833,31 +900,8 @@ static int8_t nr_rrc_ue_decode_NR_BCCH_DL_SCH_Message(NR_UE_RRC_INST_t *rrc,
   if (bcch_message->message.present == NR_BCCH_DL_SCH_MessageType_PR_c1) {
     switch (bcch_message->message.choice.c1->present) {
       case NR_BCCH_DL_SCH_MessageType__c1_PR_systemInformationBlockType1:
-        LOG_D(NR_RRC, "[UE %ld] Decoding SIB1\n", rrc->ue_id);
-        UPDATE_IE(SI_info->sib1, bcch_message->message.choice.c1->choice.systemInformationBlockType1, NR_SIB1_t);
-        if(g_log->log_component[NR_RRC].level >= OAILOG_DEBUG)
-          xer_fprint(stdout, &asn_DEF_NR_SIB1, (const void *) SI_info->sib1);
-        LOG_A(NR_RRC, "SIB1 decoded\n");
-        nr_timer_start(&SI_info->sib1_timer);
-        if (rrc->nrRrcState == RRC_STATE_IDLE_NR) {
-          rrc->ra_trigger = RRC_CONNECTION_SETUP;
-          // preparing RRC setup request payload in advance
-          nr_rrc_ue_prepare_RRCSetupRequest(rrc);
-        }
-        // configure default SI
-        nr_rrc_configure_default_SI(SI_info, SI_info->sib1);
-        // configure timers and constant
-        nr_rrc_set_sib1_timers_and_constants(&rrc->timers_and_constants, SI_info->sib1);
-
-        NR_SI_SchedulingInfo_v1700_t *si_SchedulingInfo_v1700 = NULL;
-        if (SI_info->sib1->nonCriticalExtension && SI_info->sib1->nonCriticalExtension->nonCriticalExtension
-            && SI_info->sib1->nonCriticalExtension->nonCriticalExtension->nonCriticalExtension) {
-          si_SchedulingInfo_v1700 = SI_info->sib1->nonCriticalExtension->nonCriticalExtension->nonCriticalExtension->si_SchedulingInfo_v1700;
-        }
-
-        nr_rrc_mac_config_req_sib1(rrc->ue_id, 0, SI_info->sib1->si_SchedulingInfo, si_SchedulingInfo_v1700, SI_info->sib1->servingCellConfigCommon);
+        nr_rrc_process_sib1(rrc, SI_info, bcch_message->message.choice.c1->choice.systemInformationBlockType1);
         break;
-
       case NR_BCCH_DL_SCH_MessageType__c1_PR_systemInformation:
         LOG_I(NR_RRC, "[UE %ld] Decoding SI\n", rrc->ue_id);
         NR_SystemInformation_t *si = bcch_message->message.choice.c1->choice.systemInformation;
@@ -910,40 +954,39 @@ static void nr_rrc_manage_rlc_bearers(NR_UE_RRC_INST_t *rrc,
   }
 }
 
+static void nr_rrc_process_reconfigurationWithSync(NR_UE_RRC_INST_t *rrc, NR_ReconfigurationWithSync_t *reconfigurationWithSync)
+{
+  // perform Reconfiguration with sync according to 5.3.5.5.2
+  if (!rrc->as_security_activated && !(get_softmodem_params()->phy_test || get_softmodem_params()->do_ra)) {
+    // if the AS security is not activated, perform the actions upon going to RRC_IDLE as specified in 5.3.11
+    // with the release cause 'other' upon which the procedure ends
+    NR_Release_Cause_t release_cause = OTHER;
+    nr_rrc_going_to_IDLE(rrc, release_cause, NULL);
+    return;
+  }
+
+  if (reconfigurationWithSync->spCellConfigCommon &&
+      reconfigurationWithSync->spCellConfigCommon->downlinkConfigCommon &&
+      reconfigurationWithSync->spCellConfigCommon->downlinkConfigCommon->frequencyInfoDL &&
+      reconfigurationWithSync->spCellConfigCommon->downlinkConfigCommon->frequencyInfoDL->absoluteFrequencySSB)
+    rrc->arfcn_ssb = *reconfigurationWithSync->spCellConfigCommon->downlinkConfigCommon->frequencyInfoDL->absoluteFrequencySSB;
+
+  NR_UE_Timers_Constants_t *tac = &rrc->timers_and_constants;
+  nr_timer_stop(&tac->T310);
+  int t304_value = nr_rrc_get_T304(reconfigurationWithSync->t304);
+  nr_timer_setup(&tac->T304, t304_value, 10); // 10ms step
+  nr_timer_start(&tac->T304);
+  rrc->rnti = reconfigurationWithSync->newUE_Identity;
+  // reset the MAC entity of this cell group (done at MAC in handle_reconfiguration_with_sync)
+}
+
 void nr_rrc_cellgroup_configuration(NR_UE_RRC_INST_t *rrc, NR_CellGroupConfig_t *cellGroupConfig)
 {
-  NR_UE_Timers_Constants_t *tac = &rrc->timers_and_constants;
-
   NR_SpCellConfig_t *spCellConfig = cellGroupConfig->spCellConfig;
-  if(spCellConfig != NULL) {
-    if (spCellConfig->reconfigurationWithSync != NULL) {
-      NR_ReconfigurationWithSync_t *reconfigurationWithSync = spCellConfig->reconfigurationWithSync;
-      if (reconfigurationWithSync->spCellConfigCommon &&
-          reconfigurationWithSync->spCellConfigCommon->downlinkConfigCommon &&
-          reconfigurationWithSync->spCellConfigCommon->downlinkConfigCommon->frequencyInfoDL &&
-          reconfigurationWithSync->spCellConfigCommon->downlinkConfigCommon->frequencyInfoDL->absoluteFrequencySSB)
-        rrc->arfcn_ssb = *reconfigurationWithSync->spCellConfigCommon->downlinkConfigCommon->frequencyInfoDL->absoluteFrequencySSB;
-      // perform Reconfiguration with sync according to 5.3.5.5.2
-      if (!rrc->as_security_activated && rrc->nrRrcState != RRC_STATE_IDLE_NR) {
-        // perform the actions upon going to RRC_IDLE as specified in 5.3.11
-        // with the release cause 'other' upon which the procedure ends
-        // TODO
-      }
-      nr_timer_stop(&tac->T310);
-      int t304_value = nr_rrc_get_T304(reconfigurationWithSync->t304);
-      nr_timer_setup(&tac->T304, t304_value, 10); // 10ms step
-      nr_timer_start(&tac->T304);
-      rrc->rnti = reconfigurationWithSync->newUE_Identity;
-      // resume suspended radio bearers
-      for (int i = 0; i < NR_NUM_SRB; i++) {
-        if (rrc->Srb[i] == RB_SUSPENDED)
-          rrc->Srb[i] = RB_ESTABLISHED;
-      }
-      for (int i = 1; i <= MAX_DRBS_PER_UE; i++) {
-        if (get_DRB_status(rrc, i) == RB_SUSPENDED)
-          set_DRB_status(rrc, i, RB_ESTABLISHED);
-      }
-      // TODO reset MAC
+  if(spCellConfig) {
+    if (spCellConfig->reconfigurationWithSync) {
+      LOG_I(NR_RRC, "Processing reconfigurationWithSync\n");
+      nr_rrc_process_reconfigurationWithSync(rrc, spCellConfig->reconfigurationWithSync);
     }
     nr_rrc_handle_SetupRelease_RLF_TimersAndConstants(rrc, spCellConfig->rlf_TimersAndConstants);
     if (spCellConfig->spCellConfigDedicated) {
@@ -957,11 +1000,10 @@ void nr_rrc_cellgroup_configuration(NR_UE_RRC_INST_t *rrc, NR_CellGroupConfig_t 
 
   nr_rrc_manage_rlc_bearers(rrc, cellGroupConfig);
 
-  AssertFatal(cellGroupConfig->sCellToReleaseList == NULL,
-              "Secondary serving cell release not implemented\n");
-
-  AssertFatal(cellGroupConfig->sCellToAddModList == NULL,
-              "Secondary serving cell addition not implemented\n");
+  if (cellGroupConfig->ext1)
+    AssertFatal(cellGroupConfig->ext1->reportUplinkTxDirectCurrent == NULL, "Reporting of UplinkTxDirectCurrent not implemented\n");
+  AssertFatal(cellGroupConfig->sCellToReleaseList == NULL, "Secondary serving cell release not implemented\n");
+  AssertFatal(cellGroupConfig->sCellToAddModList == NULL, "Secondary serving cell addition not implemented\n");
 }
 
 
@@ -1677,6 +1719,8 @@ static void nr_rrc_ue_process_rrcReestablishment(NR_UE_RRC_INST_t *rrc,
 
   // resetting the RA trigger state after receiving MSG4 with RRCReestablishment
   rrc->ra_trigger = RA_NOT_RUNNING;
+  // to flag 1st reconfiguration after reestablishment
+  rrc->reconfig_after_reestab = true;
 
   // submit the RRCReestablishmentComplete message to lower layers for transmission
   nr_rrc_ue_generate_rrcReestablishmentComplete(rrc, rrcReestablishment);
@@ -1717,6 +1761,17 @@ static int nr_rrc_ue_decode_dcch(NR_UE_RRC_INST_t *rrc,
 
         case NR_DL_DCCH_MessageType__c1_PR_rrcReconfiguration: {
           nr_rrc_ue_process_rrcReconfiguration(rrc, gNB_indexP, c1->choice.rrcReconfiguration);
+          if (rrc->reconfig_after_reestab) {
+            // if this is the first RRCReconfiguration message after successful completion of the RRC re-establishment procedure
+            // resume SRB2 and DRBs that are suspended
+            if (rrc->Srb[2] == RB_SUSPENDED)
+              rrc->Srb[2] = RB_ESTABLISHED;
+            for (int i = 1; i <= MAX_DRBS_PER_UE; i++) {
+              if (get_DRB_status(rrc, i) == RB_SUSPENDED)
+                set_DRB_status(rrc, i, RB_ESTABLISHED);
+            }
+            rrc->reconfig_after_reestab = false;
+          }
           nr_rrc_ue_generate_RRCReconfigurationComplete(rrc, Srb_id, c1->choice.rrcReconfiguration->rrc_TransactionIdentifier);
         } break;
 
