@@ -75,4 +75,9 @@ class Native():
 		with cls_cmd.getConnection(host) as cmd:
 			cmd.run(f'sudo {workSpacePath}/ran_build/build/{physim_test} {options} >> {workSpacePath}/{runLogFile}')
 			cmd.copyin(src=f'{workSpacePath}/{runLogFile}', tgt=f'{LOG_PATH_PHYSIM}/{runLogFile}')
-		return cls_analysis.Analysis.analyze_physim(HTML, f'{LOG_PATH_PHYSIM}/{runLogFile}', physim_test, options, threshold)
+		success, msg = cls_analysis.Analysis.analyze_physim(f'{LOG_PATH_PHYSIM}/{runLogFile}', physim_test, options, threshold)
+		if success:
+			HTML.CreateHtmlTestRowQueue(options, 'OK', [msg])
+		else:
+			HTML.CreateHtmlTestRowQueue(options, 'KO', [msg])
+		return success

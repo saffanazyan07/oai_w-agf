@@ -47,7 +47,7 @@ PHYSIM_TEST_CONDITION = {
 
 class Analysis():
 
-	def analyze_physim(HTML, log, physim_test, options, threshold):
+	def analyze_physim(log, physim_test, options, threshold):
 		search_patterns = PHYSIM_PATTERN_MAPPING.get(physim_test)
 		test_condition = PHYSIM_TEST_CONDITION.get(physim_test)
 		success = False
@@ -59,30 +59,26 @@ class Analysis():
 		except Exception as e:
 			msg = f'Error while parsing log file {log}: exception: {e}'
 			logging.error(msg)
-			HTML.CreateHtmlTestRowQueue(options, 'KO', [msg])
-			return False
+			return False, msg
 
 		if test_condition and test_condition not in log_content:
 			msg = f"Test did not succeed, '{test_condition}' not found in log file {log}."
 			logging.error(msg)
-			HTML.CreateHtmlTestRowQueue(options, 'KO', [msg])
-			return False
+			return False, msg
 
 		time1_match = re.search(search_patterns[0], log_content)
 		time2_match = re.search(search_patterns[1], log_content)
 		if not(time1_match and time2_match):
 			msg = f"Processing time not found in log file {log}."
 			logging.error(msg)
-			HTML.CreateHtmlTestRowQueue(options, 'KO', [msg])
-			return False
+			return False, msg
 
 		success = float(time2_match.group(1)) < float(threshold)
 		if success:
-			msg = f'{time1_match.group(0)}\n{time2_match.group(0)}'
-			HTML.CreateHtmlTestRowQueue(options, 'OK', [msg])
+			#  Ensures that both lines are aligned to the right
+			msg = f'<div align="right">{time1_match.group(0)}<br>{time2_match.group(0)}</div>'
 		else:
 			msg = f'{time1_match.group(0)}\nProcessing time {time2_match.group(1)} us exceeds a limit of {threshold} us'
 			logging.error(msg)
-			HTML.CreateHtmlTestRowQueue(options, 'KO', [msg])
 
-		return success
+		return success,msg
