@@ -852,7 +852,7 @@ class Containerize():
 		return success
 
 	def DeployObject(self, HTML):
-		svr = instance.eNB_serverId[instance.eNB_instance]
+		svr = self.eNB_serverId[self.eNB_instance]
 		lIpAddr, lSourcePath = self.GetCredentials(svr)
 		logging.debug('\u001B[1m Deploying OAI Object on server: ' + lIpAddr + '\u001B[0m')
 		yaml = self.yamlPath[self.eNB_instance].strip('/')
