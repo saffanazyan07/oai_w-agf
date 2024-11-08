@@ -56,9 +56,9 @@ time_management = {
 
   #set ip/port of server (for server mode, this is the address/port to bind to;
   #for client mode, this is the address/port to connect to)
-  server_ip = "127.0.0.1";
-  server_port = 7374;
-};
+  server_ip = "127.0.0.1"
+  server_port = 7374
+}
 ```
 
 If not set in the configuration file, some default is applied, depending
@@ -70,16 +70,96 @@ Here come some examples of configuration for typical use cases of OAI.
 
 ### Monolithic gNB realtime
 
+This is a very simple example. The gNB runs in `standalone` mode with
+a `realtime` time source.
+
+```
+time_management = {
+  time_source = realtime
+  mode = standalone
+}
+```
 ### Monolithic gNB "IQ samples time"
 
+For this configuration, it's the same as the previous example, but the
+time source is now `iq_samples`.
+
+```
+time_management = {
+  time_source = iq_samples
+  mode = standalone
+}
+```
 ### RF simulator CU/DU "IQ samples time"
+
+Let's suppose the CU runs on a machine with IP address 1.2.3.4 and the DU
+runs on a machine with IP address 10.11.12.13.
+
+The DU has the time source and so is the server. The CU acts as a client.
+
+Here comes the configuration for the CU.
+
+```
+time_management = {
+  mode = client
+  server_ip = "10.11.12.13"
+  server_port = 7374
+}
+```
+And here is the configuration for the DU.
+
+```
+time_management = {
+  time_source = iq_samples
+  mode = server
+  server_ip = "10.11.12.13"
+  server_port = 7374
+}
+```
 
 ### RF simulator CU/DU "realtime"
 
+Let's suppose the CU runs on a machine with IP address 1.2.3.4 and the DU
+runs on a machine with IP address 10.11.12.13.
+
+CU and DU can both run in standalone mode, with no exchange between them.
+Any one of them can also acts as a server and the other one as a client.
+
+Let's suppose for this example that the CU and the DU run in client/server
+mode. Let's set the CU as the time source and so as the server. The DU acts
+as a client.
+
+Here comes the configuration for the CU.
+
+```
+time_management = {
+  time_source = realtime
+  mode = server
+  server_ip = "1.2.3.4"
+  server_port = 7374
+}
+```
+And here is the configuration for the DU.
+
+```
+time_management = {
+  mode = client
+  server_ip = "1.2.3.4"
+  server_port = 7374
+}
+```
+
+Note that the time management module is flexible. It's possible to
+configure more complex setups. For example the time source can be a gNB
+and several UEs can be connected as client.
+
+One could also write a simple program acting as a time source and distributing
+time to every one (one or several gNB, several UEs).
+
 ## Programming API
 
-Here comes the internal API of the time manager module. The OAI API is
-described below.
+Here comes the internal API of the time manager module. The (simpler) OAI
+API is described afterwards.
 
 ### Time source
 
@@ -168,13 +248,13 @@ OAI uses the time manager through a simplified API. All the code is contained
 in time_manager.c, together with some global variables (so that there is no
 need to pass objects around, to limit risks of misuse).
 
-Each program (for example: gnb, ue, cu, du) will call the time_manager_start()
+Each program (for example: gnb, ue, cu, du) calls the time_manager_start()
 function, passing the kind of program it is. Based on this type and the
-configuration, time_manager_start() will initialize what is needed.
+configuration, time_manager_start() initializes what is needed.
 
-The function time_manager_iq_samples() is called by programs that read IQ
-samples. It is called unconditionally. It may do nothing if the configuration
-is to use realtime ticks and not IQ samples ticks.
+The function time_manager_iq_samples() is to be called by programs that
+read IQ samples. It is called unconditionally. It may do nothing if the
+configuration is to use realtime ticks and not IQ samples ticks.
 
 When the program exits, it calls timer_manager_finish() which in turns stops
 the various threads created by time_manager_start() and releases all the

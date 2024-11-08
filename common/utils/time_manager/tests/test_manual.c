@@ -55,7 +55,7 @@ void exit_function(const char *file, const char *function, const int line, const
 
 _Atomic bool test_exit;
 
-void *iq_generate_thread(void *ts)
+static void *iq_generate_thread(void *ts)
 {
   time_source_t *time_source = ts;
 
@@ -72,7 +72,7 @@ void *iq_generate_thread(void *ts)
 #define SERVER     1
 #define CLIENT     2
 
-void usage(void)
+static void usage(void)
 {
   printf("options:\n");
   printf("  -client\n");
@@ -88,13 +88,13 @@ void usage(void)
   exit(0);
 }
 
-void server_callback(void *callback_data)
+static void server_callback(void *callback_data)
 {
   printf("server_callback called (callback_data %p)\n", callback_data);
   DevAssert(callback_data == (void *)1);
 }
 
-void client_callback(void *callback_data)
+static void client_callback(void *callback_data)
 {
   printf("client_callback called (callback_data %p)\n", callback_data);
   DevAssert(callback_data == (void *)2);
@@ -103,7 +103,7 @@ void client_callback(void *callback_data)
 /* dummy sig handler to quit immediately when pressing enter
  * (we send a signal to iq_generate_thread to interrupt sleep())
  */
-void sig_handle(int n)
+static void sig_handle(int n)
 {
   /* nothing */
 }
@@ -138,7 +138,7 @@ int main(int n, char **v)
     if (time_source_type == TIME_SOURCE_IQ_SAMPLES) {
       void *ret = signal(SIGHUP, sig_handle);
       DevAssert(ret != SIG_ERR);
-      threadCreate(&iq_thread, iq_generate_thread, ts, "time source iq samples",-1, SCHED_OAI);
+      threadCreate(&iq_thread, iq_generate_thread, ts, "iq samples generator",-1, SCHED_OAI);
     }
   }
 

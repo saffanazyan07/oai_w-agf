@@ -55,9 +55,9 @@ int is_x2ap_enabled(void)
 /* end: data/functions for correct compilation/link   */
 /******************************************************/
 
-int rlc_tick_count = 0;
-int pdcp_tick_count = 0;
-int x2ap_tick_count = 0;
+static int rlc_tick_count = 0;
+static int pdcp_tick_count = 0;
+static int x2ap_tick_count = 0;
 
 void nr_rlc_ms_tick(void)
 {
@@ -75,7 +75,7 @@ void x2ap_ms_tick(void)
 }
 
 /* return 1 if ok, 0 if error */
-int standalone_realtime(void)
+static int standalone_realtime(void)
 {
   time_manager_start(TIME_MANAGER_GNB_MONOLITHIC, TIME_MANAGER_REALTIME);
 
@@ -93,7 +93,7 @@ int standalone_realtime(void)
 }
 
 /* return 1 if ok, 0 if error */
-int standalone_iq_samples(void)
+static int standalone_iq_samples(void)
 {
   time_manager_start(TIME_MANAGER_GNB_MONOLITHIC, TIME_MANAGER_IQ_SAMPLES);
 
@@ -117,7 +117,7 @@ int standalone_iq_samples(void)
 }
 
 /* return 1 if ok, 0 if error */
-int client_server(char *program_name, bool iq_samples_time_source)
+static int client_server(char *program_name, bool iq_samples_time_source)
 {
   LOG_I(UTIL, "client/server %s: launch sub-processes\n",
         iq_samples_time_source ? "iq-samples" : "realtime");
@@ -147,7 +147,7 @@ int client_server(char *program_name, bool iq_samples_time_source)
   DevAssert(client >= 0);
   if (client == 0) {
     /* run as client */
-    execl(program_name, program_name, "--time_management.mode", "client", "--time_management.server_ip", "127.0.0.1", NULL);
+    execl(program_name, program_name, "--time_management.mode", "client", NULL);
     exit(1);
   }
 
@@ -169,8 +169,9 @@ int client_server(char *program_name, bool iq_samples_time_source)
 }
 
 /* return 1 if ok, 0 if error */
-int run_sub_client_server(bool iq_samples_time_source)
+static int run_sub_client_server(bool iq_samples_time_source)
 {
+  /* second argument doesn't matter, overwritten by args of execl above */
   time_manager_start(TIME_MANAGER_GNB_MONOLITHIC, TIME_MANAGER_REALTIME);
 
   if (iq_samples_time_source) {
@@ -225,6 +226,7 @@ int main(int argc, char **argv)
     /* return value to the main test program
      * let's do as for the shell:  0 means success and 1 means error
      */
+    /* we know we are in iq-samples time source mode if the last argument is "iq_samples" */
     int success = run_sub_client_server(!strcmp(argv[argc - 1], "iq_samples")) == 1;
     return 1 - success;
   }

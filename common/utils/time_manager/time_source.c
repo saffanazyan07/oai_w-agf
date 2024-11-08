@@ -29,10 +29,13 @@
 #include "common/utils/assertions.h"
 #include "common/utils/system.h"
 
+typedef void (*callback_function_t)(void *callback_data);
+typedef void * callback_data_t;
+
 typedef struct {
   time_source_type_t type;
-  void (*callback)(void *callback_data);
-  void *callback_data;
+  volatile callback_function_t callback;
+  volatile callback_data_t callback_data;
   _Atomic bool exit;
   void (*terminate)(void *this);
   pthread_t thread_id;
@@ -129,8 +132,12 @@ static void *time_source_realtime_thread(void *ts)
       break;
 
     /* tick */
-    if (time_source->common.callback != NULL)
-      time_source->common.callback(time_source->common.callback_data);
+    lock(&time_source->common);
+    void (*callback)(void *callback_data) = time_source->common.callback;
+    void *callback_data = time_source->common.callback_data;
+    unlock(&time_source->common);
+    if (callback != NULL)
+      callback(callback_data);
 
     /* go to next millisecond */
     now = next_ms(now);
@@ -146,8 +153,6 @@ static void *time_source_iq_samples_thread(void *ts)
   while (!time_source->common.exit) {
     /* wait until we have at least 1ms of IQ samples */
     lock(&time_source->common);
-//printf("time_source_iq_samples_thread loop wait %p time_source->iq_samples_count %ld time_source->iq_samples_per_second %ld\n",
-// time_source, time_source->iq_samples_count, time_source->iq_samples_per_second); fflush(stdout);
     while (!time_source->common.exit
            && (time_source->iq_samples_per_second == 0
               || time_source->iq_samples_count < time_source->iq_samples_per_second / 1000))
@@ -158,10 +163,13 @@ static void *time_source_iq_samples_thread(void *ts)
     if (time_source->common.exit)
       break;
 
-//printf("time_source_iq_samples_thread time_source->common.callback %p\n", time_source->common.callback); fflush(stdout);
     /* tick */
-    if (time_source->common.callback != NULL)
-      time_source->common.callback(time_source->common.callback_data);
+    lock(&time_source->common);
+    void (*callback)(void *callback_data) = time_source->common.callback;
+    void *callback_data = time_source->common.callback_data;
+    unlock(&time_source->common);
+    if (callback != NULL)
+      callback(callback_data);
   }
 
   return (void *)0;
@@ -243,7 +251,6 @@ void time_source_iq_add(time_source_t *ts,
   lock(&time_source->common);
 
   time_source->iq_samples_count += iq_samples_count;
-//printf("time_source_iq_add %p count %ld (time_source->iq_samples_count %ld)\n", time_source, iq_samples_count, time_source->iq_samples_count); fflush(stdout);
 
   if (time_source->iq_samples_per_second == 0)
     time_source->iq_samples_per_second = iq_samples_per_second;

@@ -64,7 +64,6 @@ static void *time_server_thread(void *ts)
 
     /* add clients */
     for (int i = 0; i < client_count; i++) {
-//printf("adding socket_fds[%d] = %d\n", i, socket_fds[i]);
       polls[i + 2].fd = socket_fds[i];
       polls[i + 2].events = POLLIN;
     }
@@ -124,7 +123,6 @@ static void *time_server_thread(void *ts)
       DevAssert(new_socket != -1);
 
       /* add client */
-printf("new client socket %d\n", new_socket);
       client_count++;
       socket_fds = realloc(socket_fds, sizeof(int) * client_count);
       DevAssert(socket_fds != NULL);
@@ -136,7 +134,6 @@ printf("new client socket %d\n", new_socket);
 
     /* any event on a client socket is to be considered as an error */
     for (int i = 0; i < client_count; i++) {
-//printf("i %d\n", i);
       if (polls[i + 2].revents == 0)
         continue;
 

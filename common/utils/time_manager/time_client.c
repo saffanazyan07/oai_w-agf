@@ -52,7 +52,7 @@ static int connect_to_server(time_client_private_t *time_client)
   int r;
   struct pollfd fds[2];
 
-  /* try forever (or exit requested) until we success */
+  /* try forever (or exit requested) until we succeed */
   while (1) {
     sock = socket(AF_INET, SOCK_STREAM, 0);
     DevAssert(sock != -1);

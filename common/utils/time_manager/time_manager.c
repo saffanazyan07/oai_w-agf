@@ -49,7 +49,7 @@ static void (*x2ap_tick)(void) = NULL;
  */
 static void tick(void *unused)
 {
-  /* rrc_tick, pdcp_tick, rlc_tick (if they exist) */
+  /* call x2ap_tick, pdcp_tick, rlc_tick (if they exist) */
   if (pdcp_tick != NULL)
     pdcp_tick();
 
@@ -156,7 +156,6 @@ void time_manager_start(time_manager_client_t client_type,
         has_time_server = false;
         has_time_client = true;
       } else {
-printf("mother fucker\n"); fflush(stdout);
         AssertFatal(0, "bad parameter 'mode' in section 'time_management', unknown value \"%s\". Valid values are \"standalone\", \"server\" and \"client\"\n", param);
       }
     }
