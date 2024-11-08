@@ -346,11 +346,11 @@ class Containerize():
 
 	def GetCredentials(self, server_id):
 		if server_id == '0':
-			ip, path = instance.eNBIPAddress, instance.eNBSourceCodePath
+			ip, path = self.eNBIPAddress, self.eNBSourceCodePath
 		elif server_id == '1':
-			ip, path = instance.eNB1IPAddress, instance.eNB1SourceCodePath
+			ip, path = self.eNB1IPAddress, self.eNB1SourceCodePath
 		elif server_id == '2':
-			ip, path = instance.eNB2IPAddress, instance.eNB2SourceCodePath
+			ip, path = self.eNB2IPAddress, self.eNB2SourceCodePath
 		else:
 			raise ValueError(f"unknown server ID '{server_id}'")
 		if ip == '' or path == '':
