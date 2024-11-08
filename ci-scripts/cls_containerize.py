@@ -566,7 +566,7 @@ class Containerize():
 		# Check that we are on Ubuntu
 		ret = ssh.run('hostnamectl')
 		result = re.search('Ubuntu',  ret.stdout)
-		self.host = result.group(0)
+		self.host = result and result.group(0)
 		if self.host != 'Ubuntu':
 			ssh.close()
 			raise Exception('Can build proxy only on Ubuntu server')
@@ -574,7 +574,7 @@ class Containerize():
 		self.cli = 'docker'
 		self.cliBuildOptions = ''
 
-
+		self.testCase_id = HTML.testCase_id
 		oldRanCommidID = self.ranCommitID
 		oldRanRepository = self.ranRepository
 		oldRanAllowMerge = self.ranAllowMerge
@@ -583,11 +583,6 @@ class Containerize():
 		self.ranRepository = 'https://github.com/EpiSci/oai-lte-5g-multi-ue-proxy.git'
 		self.ranAllowMerge = False
 		self.ranTargetBranch = 'master'
-		# to prevent accidentally overwriting data that might be used later
-		self.ranCommitID = oldRanCommidID
-		self.ranRepository = oldRanRepository
-		self.ranAllowMerge = oldRanAllowMerge
-		self.ranTargetBranch = oldRanTargetBranch
 
 		# Let's remove any previous run artifacts if still there
 		ssh.run(f'{self.cli} image prune --force')
@@ -605,7 +600,16 @@ class Containerize():
 			if not success:
 				raise Exception("could not clone proxy repository")
 
-			ssh.run(f'{self.cli} build {self.cliBuildOptions} --target oai-lte-multi-ue-proxy --tag proxy:{tag} --file {lSourcePath}/docker/Dockerfile.ubuntu18.04 {lSourcePath} > cmake_targets/log/proxy-build.log 2>&1')
+			filename = f'build_log_{self.testCase_id}'
+			fullpath = f'{lSourcePath}/{filename}'
+
+			ssh.run(f'{self.cli} build {self.cliBuildOptions} --target oai-lte-multi-ue-proxy --tag proxy:{tag} --file {lSourcePath}/docker/Dockerfile.ubuntu18.04 {lSourcePath} > {fullpath} 2>&1')
+			ssh.run(f'zip -r -qq {fullpath}.zip {fullpath}')
+			local_file = f"{os.getcwd()}/../cmake_targets/log/{filename}.zip"
+			ssh.copyin(f'{fullpath}.zip', local_file)
+			# don't delete such that we might recover the zips
+			#ssh.run(f'rm -f {fullpath}.zip')
+
 			ssh.run(f'{self.cli} image prune --force')
 			ret = ssh.run(f'{self.cli} image inspect --format=\'Size = {{{{.Size}}}} bytes\' proxy:{tag}')
 			if ret.returncode != 0:
@@ -620,10 +624,6 @@ class Containerize():
 		# retag the build images to that we pick it up later
 		ssh.run(f'docker image tag proxy:{tag} oai-lte-multi-ue-proxy:latest')
 
-		# no merge: is a push to develop, tag the image so we can push it to the registry
-		if not self.ranAllowMerge:
-			ssh.run('docker image tag proxy:{tag} proxy:develop')
-
 		# we assume that the host on which this is built will also run the proxy. The proxy
 		# currently requires the following command, and the docker-compose up mechanism of
 		# the CI does not allow to run arbitrary commands. Note that the following actually
@@ -631,22 +631,11 @@ class Containerize():
 		logging.warning('the following command belongs to deployment, but no mechanism exists to exec it there!')
 		ssh.run('sudo ifconfig lo: 127.0.0.2 netmask 255.0.0.0 up')
 
-		# Analyzing the logs
-		if buildProxy:
-			self.testCase_id = HTML.testCase_id
-			rdir = f'proxy_build_log_{self.testCase_id}'
-			absdir = f'{lSourcePath}/cmake_targets/{rdir}'
-			ssh.run(f'mkdir -p {absdir}')
-			ssh.run(f'mv log/* {absdir}')
-			if (os.path.isfile('f./{rdir}.zip')):
-				os.remove(f'./{rdir}.zip')
-			if (os.path.isdir(f'./{rdir}')):
-				shutil.rmtree(f'./{rdir}')
-			ssh.run(f'zip -r -qq {absdir}.zip {absdir}')
-			filename = f'build_log_{self.testCase_id}.zip'
-			ssh.copyin(f'{absdir}', filename)
-			# don't delete such that we might recover the zips
-			#ssh.run(f'rm -f build_log_{self.testCase_id}.zip')
+		# to prevent accidentally overwriting data that might be used later
+		self.ranCommitID = oldRanCommidID
+		self.ranRepository = oldRanRepository
+		self.ranAllowMerge = oldRanAllowMerge
+		self.ranTargetBranch = oldRanTargetBranch
 
 		# we do not analyze the logs (we assume the proxy builds fine at this stage),
 		# but need to have the following information to correctly display the HTML
