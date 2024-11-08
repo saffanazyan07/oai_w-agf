@@ -63,6 +63,11 @@
 // Global var to limit the rework of the dirty legacy code
 ldpc_interface_t ldpc_interface_segment;
 int num_threads_prepare_max = 0;
+char *user_device = NULL;
+char *enc_read_device = NULL;
+char *enc_write_device = NULL;
+char *dec_read_device = NULL;
+char *dec_write_device = NULL;
 
 /*!
  * \typedef args_fpga_decode_prepare_t
@@ -72,7 +77,7 @@ int num_threads_prepare_max = 0;
 typedef struct args_fpga_decode_prepare_s {
   nrLDPC_TB_decoding_parameters_t *TB_params; /*!< transport blocks parameters */
 
-  int8_t *multi_indata; /*!< pointer to the head of the block destination array that is then passed to the FPGA decoding */
+  uint8_t *multi_indata; /*!< pointer to the head of the block destination array that is then passed to the FPGA decoding */
   int no_iteration_ldpc; /*!< pointer to the number of iteration set by this function */
   uint32_t r_first; /*!< index of the first block to be prepared within this function */
   uint32_t r_span; /*!< number of blocks to be prepared within this function */
@@ -98,7 +103,12 @@ int32_t nrLDPC_coding_init(void)
   char *encoder_shlibversion = NULL;
   paramdef_t LoaderParams[] = {
     {"num_threads_prepare", NULL, 0, .iptr = &num_threads_prepare_max, .defintval = 0, TYPE_INT, 0, NULL},
-    {"encoder_shlibversion", NULL, 0, .strptr = &encoder_shlibversion, .defstrval = "", TYPE_STRING, 0, NULL}
+    {"encoder_shlibversion", NULL, 0, .strptr = &encoder_shlibversion, .defstrval = "", TYPE_STRING, 0, NULL},
+    {"user_device", NULL, 0, .strptr = &user_device, .defstrval = DEVICE_NAME_DEFAULT_USER, TYPE_STRING, 0, NULL},
+    {"enc_read_device", NULL, 0, .strptr = &enc_read_device, .defstrval = DEVICE_NAME_DEFAULT_ENC_READ, TYPE_STRING, 0, NULL},
+    {"enc_write_device", NULL, 0, .strptr = &enc_write_device, .defstrval = DEVICE_NAME_DEFAULT_ENC_WRITE, TYPE_STRING, 0, NULL},
+    {"dec_read_device", NULL, 0, .strptr = &dec_read_device, .defstrval = DEVICE_NAME_DEFAULT_DEC_READ, TYPE_STRING, 0, NULL},
+    {"dec_write_device", NULL, 0, .strptr = &dec_write_device, .defstrval = DEVICE_NAME_DEFAULT_DEC_WRITE, TYPE_STRING, 0, NULL}
   };
   config_get(config_get_if(), LoaderParams, sizeofArray(LoaderParams), "nrLDPC_coding_xdma");
   AssertFatal(num_threads_prepare_max != 0, "nrLDPC_coding_xdma.num_threads_prepare was not provided");
@@ -141,8 +151,8 @@ int decoder_xdma(nrLDPC_TB_decoding_parameters_t *TB_params,
   int K_bits_F = Kr - TB_params->F;
 
   // FPGA parameter preprocessing
-  static int8_t multi_indata[27000 * 25]; // FPGA input data
-  static int8_t multi_outdata[1100 * 25]; // FPGA output data
+  static uint8_t multi_indata[27000 * 25]; // FPGA input data
+  static uint8_t multi_outdata[1100 * 25]; // FPGA output data
 
   int bg_len = TB_params->BG == 1 ? 22 : 10;
 
@@ -165,6 +175,12 @@ int decoder_xdma(nrLDPC_TB_decoding_parameters_t *TB_params,
   dec_conf.max_schedule = 0;
   dec_conf.SetIdx = 12;
   dec_conf.nRows = (dec_conf.BG == 1) ? 46 : 42;
+
+  dec_conf.user_device = user_device;
+  dec_conf.enc_read_device = enc_read_device;
+  dec_conf.enc_write_device = enc_write_device;
+  dec_conf.dec_read_device = dec_read_device;
+  dec_conf.dec_write_device = dec_write_device;
 
   int out_CBoffset = dec_conf.Zc * bg_len;
   if ((out_CBoffset & 0x7F) == 0)
@@ -258,9 +274,8 @@ int decoder_xdma(nrLDPC_TB_decoding_parameters_t *TB_params,
   //  Xilinx FPGA LDPC decoding function -> nrLDPC_decoder_FPGA_PYM()
   //==================================================================
   start_meas(&TB_params->segments[0].ts_ldpc_decode);
-  nrLDPC_decoder_FPGA_PYM((int8_t *)&multi_indata[0], (int8_t *)&multi_outdata[0], dec_conf);
+  nrLDPC_decoder_FPGA_PYM(&multi_indata[0], &multi_outdata[0], dec_conf);
   // printf("Xilinx FPGA -> CB = %d\n", harq_process->C);
-  // nrLDPC_decoder_FPGA_PYM((int8_t *)&temp_multi_indata[0], (int8_t *)&multi_outdata[0], dec_conf);
   stop_meas(&TB_params->segments[0].ts_ldpc_decode);
 
   *TB_params->processedSegments = 0;
@@ -269,7 +284,7 @@ int decoder_xdma(nrLDPC_TB_decoding_parameters_t *TB_params,
     // --------------------- copy FPGA output ---------------------
     // ------------------------------------------------------------
     nrLDPC_segment_decoding_parameters_t *segment_params = &TB_params->segments[r];
-    if (check_crc((uint8_t *)multi_outdata, length_dec, crc_type)) {
+    if (check_crc(multi_outdata, length_dec, crc_type)) {
 #ifdef DEBUG_CRC
       LOG_I(PHY, "Segment %d CRC OK\n", r);
 #endif
@@ -281,7 +296,7 @@ int decoder_xdma(nrLDPC_TB_decoding_parameters_t *TB_params,
       no_iteration_ldpc = TB_params->max_ldpc_iterations + 1;
     }
     for (int i = 0; i < out_CBoffset; i++) {
-      segment_params->c[i] = (uint8_t)multi_outdata[i + r * out_CBoffset];
+      segment_params->c[i] = multi_outdata[i + r * out_CBoffset];
     }
     segment_params->decodeSuccess = (no_iteration_ldpc <= TB_params->max_ldpc_iterations);
     if (segment_params->decodeSuccess) {
@@ -322,7 +337,7 @@ void nr_ulsch_FPGA_decoding_prepare_blocks(void *args)
 
   short *ulsch_llr = segment_params->llr;
 
-  int8_t *multi_indata = arguments->multi_indata;
+  uint8_t *multi_indata = arguments->multi_indata;
   int no_iteration_ldpc = arguments->no_iteration_ldpc;
   uint32_t r_first = arguments->r_first;
   uint32_t r_span = arguments->r_span;
@@ -402,7 +417,7 @@ void nr_ulsch_FPGA_decoding_prepare_blocks(void *args)
         simde_mm_xor_si128(simde_mm_packs_epi16(pv[2 * ((kc * Z) >> 4)], pv[2 * ((kc * Z) >> 4) + 1]),
                            simde_mm_cmpeq_epi32(ones,
                                                 ones)); // Perform NOT operation and write the result to temp_multi_indata[j]
-    int8_t *tmp_p = (int8_t *)&tmp;
+    uint8_t *tmp_p = (uint8_t *)&tmp;
     for (int i = 0, j = ((kc * Z) & 0xfffffff0); j < kc * Z; i++, j++) {
       multi_indata[r * input_CBoffset + j] = tmp_p[i];
     }

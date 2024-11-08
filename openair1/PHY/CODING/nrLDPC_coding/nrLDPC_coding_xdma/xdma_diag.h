@@ -44,25 +44,6 @@
 extern "C" {
 #endif
 
-// #define _BSD_SOURCE
-// #define _XOPEN_SOURCE 500
-// #include "../../LDPC/LDPC_api.h"
-
-// #include "dma_utils.c"
-
-/*static struct option const long_opts[] = {
-  {"device", required_argument, NULL, 'd'},
-  {"address", required_argument, NULL, 'a'},
-  {"size", required_argument, NULL, 's'},
-  {"offset", required_argument, NULL, 'o'},
-  {"count", required_argument, NULL, 'c'},
-  {"data infile", required_argument, NULL, 'f'},
-  {"data outfile", required_argument, NULL, 'w'},
-  {"help", no_argument, NULL, 'h'},
-  {"verbose", no_argument, NULL, 'v'},
-  {0, 0, 0, 0}
-};*/
-
 typedef struct {
   unsigned char max_schedule; // max_schedule = 0;
   unsigned char mb; // mb = 32;
@@ -88,6 +69,10 @@ typedef struct {
   unsigned char kb_1;
 } EncIPConf;
 
+typedef struct {
+  char *user_device, *enc_write_device, *enc_read_device, *dec_write_device, *dec_read_device;
+} devices_t;
+
 /* ltoh: little to host */
 /* htol: little to host */
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -105,10 +90,6 @@ typedef struct {
 #define MAP_SIZE (32 * 1024UL)
 #define MAP_MASK (MAP_SIZE - 1)
 
-#define DEVICE_NAME_DEFAULT_ENC_READ "/dev/xdma0_c2h_1"
-#define DEVICE_NAME_DEFAULT_ENC_WRITE "/dev/xdma0_h2c_1"
-#define DEVICE_NAME_DEFAULT_DEC_READ "/dev/xdma0_c2h_0"
-#define DEVICE_NAME_DEFAULT_DEC_WRITE "/dev/xdma0_h2c_0"
 #define SIZE_DEFAULT (32)
 #define COUNT_DEFAULT (1)
 
@@ -128,9 +109,9 @@ int test_dma_enc_read(char *EncOut, EncIPConf Confparam);
 int test_dma_enc_write(char *data, EncIPConf Confparam);
 int test_dma_dec_read(char *DecOut, DecIPConf Confparam);
 int test_dma_dec_write(char *data, DecIPConf Confparam);
-void test_dma_init();
+void test_dma_init(devices_t devices);
 void test_dma_shutdown();
-void dma_reset();
+void dma_reset(devices_t devices);
 
 #ifdef __cplusplus
 }
