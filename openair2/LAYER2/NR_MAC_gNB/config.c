@@ -384,17 +384,25 @@ static void config_common(gNB_MAC_INST *nrmac,
   cfg->prach_config.prach_sequence_length.tl.tag = NFAPI_NR_CONFIG_PRACH_SEQUENCE_LENGTH_TAG;
   cfg->num_tlv++;
 
+  cfg->prach_config.prach_ConfigurationIndex.value = rach_ConfigCommon->rach_ConfigGeneric.prach_ConfigurationIndex;
+  cfg->prach_config.prach_ConfigurationIndex.tl.tag = NFAPI_NR_CONFIG_PRACH_CONFIG_INDEX_TAG;
+  cfg->num_tlv++;
+
   if (rach_ConfigCommon->msg1_SubcarrierSpacing)
     cfg->prach_config.prach_sub_c_spacing.value = *rach_ConfigCommon->msg1_SubcarrierSpacing;
-  else
-    cfg->prach_config.prach_sub_c_spacing.value = frequencyInfoDL->scs_SpecificCarrierList.list.array[0]->subcarrierSpacing;
+  else {
+    // If absent, use SCS as derived from the prach-ConfigurationIndex (for 839)
+    int config_index = rach_ConfigCommon->rach_ConfigGeneric.prach_ConfigurationIndex;
+    int frame_type = get_frame_type(band, frequencyInfoUL->scs_SpecificCarrierList.list.array[0]->subcarrierSpacing);
+    const int64_t *prach_config_info_p = get_prach_config_info(frequency_range, config_index, frame_type);
+    int format = prach_config_info_p[0];
+    cfg->prach_config.prach_sub_c_spacing.value = get_delta_f_RA_long(format);
+  }
+
   cfg->prach_config.prach_sub_c_spacing.tl.tag = NFAPI_NR_CONFIG_PRACH_SUB_C_SPACING_TAG;
   cfg->num_tlv++;
   cfg->prach_config.restricted_set_config.value = rach_ConfigCommon->restrictedSetConfig;
   cfg->prach_config.restricted_set_config.tl.tag = NFAPI_NR_CONFIG_RESTRICTED_SET_CONFIG_TAG;
-  cfg->num_tlv++;
-  cfg->prach_config.prach_ConfigurationIndex.value = rach_ConfigCommon->rach_ConfigGeneric.prach_ConfigurationIndex;
-  cfg->prach_config.prach_ConfigurationIndex.tl.tag = NFAPI_NR_CONFIG_PRACH_CONFIG_INDEX_TAG;
   cfg->num_tlv++;
 
   switch (rach_ConfigCommon->rach_ConfigGeneric.msg1_FDM) {
@@ -414,10 +422,6 @@ static void config_common(gNB_MAC_INST *nrmac,
       AssertFatal(1 == 0, "msg1 FDM identifier %ld undefined (0,1,2,3) \n", rach_ConfigCommon->rach_ConfigGeneric.msg1_FDM);
   }
   cfg->prach_config.num_prach_fd_occasions.tl.tag = NFAPI_NR_CONFIG_NUM_PRACH_FD_OCCASIONS_TAG;
-  cfg->num_tlv++;
-
-  cfg->prach_config.prach_ConfigurationIndex.value = rach_ConfigCommon->rach_ConfigGeneric.prach_ConfigurationIndex;
-  cfg->prach_config.prach_ConfigurationIndex.tl.tag = NFAPI_NR_CONFIG_PRACH_CONFIG_INDEX_TAG;
   cfg->num_tlv++;
 
   cfg->prach_config.num_prach_fd_occasions_list = (nfapi_nr_num_prach_fd_occasions_t *)malloc(
