@@ -100,6 +100,7 @@
 #include "openair2/E1AP/e1ap.h"
 #include "cucp_cuup_if.h"
 #include "lib/f1ap_interface_management.h"
+#include "E1AP/lib/e1ap_bearer_context_management.h"
 
 #include "BIT_STRING.h"
 #include "assertions.h"
@@ -2604,6 +2605,7 @@ void *rrc_gnb_task(void *args_p) {
 
       case E1AP_BEARER_CONTEXT_SETUP_RESP:
         rrc_gNB_process_e1_bearer_context_setup_resp(&E1AP_BEARER_CONTEXT_SETUP_RESP(msg_p), instance);
+        free_e1ap_context_setup_response(&E1AP_BEARER_CONTEXT_SETUP_RESP(msg_p));
         break;
 
       case E1AP_BEARER_CONTEXT_MODIFICATION_RESP:
