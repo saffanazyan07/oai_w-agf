@@ -10,6 +10,16 @@ extern "C" {
 #include <sys/types.h>
 #include <netdb.h>
 
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <netinet/if_ether.h>
+#include <linux/if_ether.h>
+#include <linux/if_packet.h>
+#include <net/if.h>
+//#include <cJSON.h>
+#include <unistd.h>
+#include <netinet/in.h>
+
 #include "common/platform_types.h"
 #include <openair3/UTILS/conversions.h>
 #include "common/utils/LOG/log.h"
@@ -21,8 +31,28 @@ extern "C" {
 #include <openair2/LAYER2/nr_rlc/nr_rlc_oai_api.h>
 #include "openair2/SDAP/nr_sdap/nr_sdap.h"
 #include "sim.h"
+#include <pthread.h>
+#include <stdio.h>
+#include <math.h>
 
 #pragma pack(1)
+
+#define PDCP_HASH_TABLE_SIZE  1 << 24
+uint8_t pdcp[PDCP_HASH_TABLE_SIZE][3];
+#define UE_HASH_TABLE_SIZE  1 << 24
+ue_id_t UE_CPE[UE_HASH_TABLE_SIZE];
+
+void initialize_pdcp_array() {
+  for (int i = 0; i < PDCP_HASH_TABLE_SIZE; i++) {
+    if (i == (PDCP_HASH_TABLE_SIZE - 1)){
+      printf("pdcp finish\n");
+    }
+    pdcp[i][0] = 0x80;
+    pdcp[i][1] = 0x00;
+    pdcp[i][2] = 0x00;
+  }
+}
+
 
 typedef struct Gtpv1uMsgHeader {
   uint8_t PN:1;
@@ -207,6 +237,187 @@ instance_t legacyInstanceMapping=0;
     return GTPNOK;                                                             \
   }
   
+#define ARP_HASH_TABLE_SIZE  1 << 24
+#define ARP_HASK_TABLE_INDEX_MASK (ARP_HASH_TABLE_SIZE - 1)
+
+struct device_arp_table_entry {
+  uint8_t device_mac_addr[6];
+  uint32_t device_ip;
+};
+
+unsigned int hash_arp(uint32_t device_ip);
+
+int device_arp_table_insert(uint8_t device_mac_addr[6], uint32_t device_ip);
+struct device_arp_table_entry* device_arp_table_get_entry_by_ul_ip(uint32_t hash);
+
+static struct device_arp_table_entry *arp_hash_table[ARP_HASH_TABLE_SIZE];
+
+int device_arp_table_insert(uint8_t device_mac_addr[6], uint32_t device_ip)
+{
+  uint32_t table_idx = ARP_HASK_TABLE_INDEX_MASK;
+  struct device_arp_table_entry *entry;
+  table_idx = hash_arp(device_ip);
+
+  entry = device_arp_table_get_entry_by_ul_ip(table_idx);
+
+  if (entry) {
+    memcpy(entry->device_mac_addr, device_mac_addr, 6);
+    entry->device_ip = device_ip;
+
+    arp_hash_table[table_idx] = entry;
+    return 0;
+  }
+
+  entry = (struct device_arp_table_entry *)malloc(sizeof(struct device_arp_table_entry));
+  if (entry == NULL){
+    printf("error when allocate space\n");
+  }
+
+  memcpy(entry->device_mac_addr, device_mac_addr, 6);
+  entry->device_ip = device_ip;
+
+  arp_hash_table[table_idx] = entry;
+
+  return 0;
+}
+
+struct device_arp_table_entry* device_arp_table_get_entry_by_ul_ip(uint32_t hash)
+{
+  struct device_arp_table_entry *cp;
+
+  cp = arp_hash_table[hash];
+  if (cp) {
+    return cp;
+  }
+
+  return 0;
+}
+
+unsigned int hash_arp(uint32_t device_ip){
+  unsigned int hash = 0;
+    // for (int i = 0; i < 6; i++){
+    //  hash += device_mac_addr[i];
+    //  hash *= 5;
+    // }
+    //printf("IP:%u\n", device_ip);
+  hash = device_ip % 1000000;
+    //printf("first:%u\n", hash);
+  return hash;
+}
+
+#define Device_HASH_TABLE_SIZE  1 << 24
+#define Device_HASK_TABLE_INDEX_MASK (Device_HASH_TABLE_SIZE - 1)
+
+struct device_table_entry {
+  uint8_t device_mac_addr[6];
+  uint32_t cpe_ip;
+  uint32_t device_ip;
+};
+
+unsigned int hash_mac(uint8_t device_mac_addr[6]);
+
+int device_table_insert(uint8_t device_mac_addr[6], uint32_t cpe_ip, uint32_t device_ip);
+struct device_table_entry* device_table_get_entry_by_ul_mac(uint32_t hash);
+static struct device_table_entry *device_hash_table[Device_HASH_TABLE_SIZE];
+
+int device_table_insert(uint8_t device_mac_addr[6], uint32_t cpe_ip, uint32_t device_ip)
+{
+  uint32_t table_idx = Device_HASK_TABLE_INDEX_MASK;
+  struct device_table_entry *entry;
+  table_idx = hash_mac(device_mac_addr);
+  entry = device_table_get_entry_by_ul_mac(table_idx);
+
+  if (entry) {
+    memcpy(entry->device_mac_addr, device_mac_addr, 6);
+    entry->cpe_ip = cpe_ip;
+    entry->device_ip = device_ip;
+
+    device_hash_table[table_idx] = entry;
+    return 0;
+  }
+  entry = (struct device_table_entry *)malloc(sizeof(struct device_table_entry));
+  if (entry == NULL){
+    printf("error when allocate space\n");
+  }
+  memcpy(entry->device_mac_addr, device_mac_addr, 6);
+  entry->cpe_ip = cpe_ip;
+  entry->device_ip = device_ip;
+
+  device_hash_table[table_idx] = entry;
+  if (entry == NULL)
+    printf("error when insert device info\n");
+
+  return 0;
+}
+
+struct device_table_entry* device_table_get_entry_by_ul_mac(uint32_t hash)
+{
+  struct device_table_entry *cp;
+
+  cp = device_hash_table[hash];
+  if (cp) {
+    return cp;
+  }
+  return 0;
+}
+
+unsigned int hash_mac(uint8_t device_mac_addr[6]){
+  unsigned int hash = 0;
+  for (int i = 0; i < 6; i++){
+    hash += device_mac_addr[i];
+    hash *= 5;
+  }
+  return hash;
+}
+
+void dump_data(uint8_t *data, int len)
+{
+  int i;
+  int j;
+  int k;
+  for(i=0;i<len;i+=16) {
+    printf("%8.8x ", i);
+    k = len - i;
+    if (k > 16)
+      k = 16;
+    k += i;
+    for(j=i; j<(i+16); j++) {
+      if (j < k)
+        printf("%2.2x ", data[j] );
+      else
+        printf("   ");
+    }
+    printf("  ");
+    for(j=i; j<k; j++) {
+      printf("%c", isprint(data[j]) ? data[j] : '.' );
+    }
+    printf("\n");
+  }
+}
+
+#define BUFFER_SIZE 65536
+int rawsockfd;
+struct sockaddr_ll sll;
+static int createrawsocket(){
+  rawsockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+  if (rawsockfd == -1) {
+    perror("socket");
+    return -1;
+  }
+
+  // Bind to a specific network interface
+  memset(&sll, 0, sizeof(sll));
+  sll.sll_family = AF_PACKET;
+  sll.sll_protocol = htons(ETH_P_ALL);
+  sll.sll_ifindex = if_nametoindex("rename2");
+  if (bind(rawsockfd, (struct sockaddr *)&sll, sizeof(sll)) == -1) {
+    perror("bind");
+    close(rawsockfd);
+    return -1;
+  }
+  return 0;
+}
+
 #define HDR_MAX 256 // 256 is supposed to be larger than any gtp header
 static int gtpv1uCreateAndSendMsg(int h,
                                   uint32_t peerIp,
@@ -286,11 +497,46 @@ static int gtpv1uCreateAndSendMsg(int h,
   return  !GTPNOK;
 }
 
+#define SRC_MAC "\xac\x4d\x54\x47\x73\x27" // Your source MAC address
+#define DST_MAC "\x78\x2b\xcb\x4a\x1a\xa6" // Your destination MAC address
+int temp_instance;
+
+struct gre_header {
+  uint16_t res2:4;
+  uint16_t s:1;
+  uint16_t k:1;
+  uint16_t res1:1;
+  uint16_t c:1;
+  uint16_t ver:3;
+  uint16_t res3:5;
+  uint16_t proto;
+};
+
+unsigned short checksum5(unsigned short *buf, int nwords) {
+    int sum;
+    for(sum=0; nwords>0; nwords--)
+        sum += *buf++;
+    sum = (sum >> 16) + (sum & 0xffff);
+    sum += (sum >> 16);
+    return ~sum;
+}
+
+//ue_id_t temp_ue_id;
+//int temp_bearer_id;
 static void gtpv1uSend(instance_t instance, gtpv1u_tunnel_data_req_t *req, bool seqNumFlag, bool npduNumFlag) {
   uint8_t *buffer=req->buffer+req->offset;
   size_t length=req->length;
+  
+  dump_data(buffer, length);
+	
   ue_id_t ue_id=req->ue_id;
   int  bearer_id=req->bearer_id;
+  
+	
+	
+	
+	
+	
   pthread_mutex_lock(&globGtp.gtp_lock);
   getInstRetVoid(compatInst(instance));
   getUeRetVoid(inst, ue_id);
@@ -315,7 +561,102 @@ static void gtpv1uSend(instance_t instance, gtpv1u_tunnel_data_req_t *req, bool 
   // copy to release the mutex
   gtpv1u_bearer_t tmp=ptr2->second;
   pthread_mutex_unlock(&globGtp.gtp_lock);
+  if (buffer[0] == 0x45){ //divide IPv6
+    //printf("haha\n");
+    struct ip *ip_hdr = (struct ip*)(buffer);
+    uint32_t ip_addr = ip_hdr->ip_src.s_addr;
+    uint32_t temp = ip_addr % 1000000;
+    UE_CPE[temp] = ue_id;
+    if (buffer[22] == 0x65 && buffer[23] == 0x58){ //Confirm GRE packet
+      if ((buffer[59] == 0x44 && buffer[61] == 0x43) || (buffer[36] == 0x08 && buffer[37] == 0x06 && buffer[65] == 0x01)){ //DHCP & ARP to IND Box
+        unsigned char packet[1024];
+        memset(packet, 0, 1024);
 
+        // Ethernet header
+        struct ether_header *eth_header = (struct ether_header *)packet;
+        memcpy(eth_header->ether_dhost, DST_MAC, ETH_ALEN);
+        memcpy(eth_header->ether_shost, SRC_MAC, ETH_ALEN);
+        eth_header->ether_type = htons(ETH_P_IP);
+
+        memcpy(packet + sizeof(struct ether_header), buffer, length);
+
+        int packet_len = sizeof(struct ether_header) + length;
+
+        if (sendto(rawsockfd, packet, packet_len, 0, (struct sockaddr*)&sll, sizeof(sll)) == -1) {
+          perror("sendto");
+          close(rawsockfd);
+          exit(EXIT_FAILURE);
+        }
+      }
+      else if (buffer[54] == 0xc0 && buffer[55] == 0xa8 && buffer[56] == 0x01 && buffer[57] != 0x01){
+        struct device_table_entry *entry;
+        unsigned char *packet = buffer;
+        struct iphdr *ip_hdr_gre = (struct iphdr *)(packet);
+        ip_hdr_gre->check = 0;
+        //struct iphdr *ip_hdr = (struct iphdr *)(packet + sizeof(struct iphdr) + sizeof(struct gre_header) + sizeof(struct ether_header));
+        struct ether_header *eth_hdr = (struct ether_header *)(packet + sizeof(struct iphdr) + sizeof(struct gre_header));
+        uint32_t hash = hash_mac(eth_hdr->ether_dhost);
+        //packet += sizeof(struct ether_header);
+        //len -= sizeof(struct ether_header);
+
+        //uint32_t temp2 = ip_dst_addr % 1000000;
+        entry = device_table_get_entry_by_ul_mac(hash);
+        if (entry == 0)
+          printf("device info not found\n");
+        ip_hdr_gre->saddr = inet_addr("10.60.0.99");;
+        ip_hdr_gre->daddr = entry->cpe_ip;
+        ip_hdr_gre->check = checksum5((unsigned short *)ip_hdr_gre, sizeof(struct iphdr) / 2);
+        uint32_t temp3 = entry->cpe_ip % 1000000;
+        length += 3;
+        //printf("temp: %u\n", temp);
+        size_t prepend_length = sizeof(pdcp[temp3]);
+        memmove(packet + prepend_length, packet, length);
+        memcpy(packet, pdcp[temp3], prepend_length);
+        pdcp[temp3][2]++;
+        if (pdcp[temp3][2] == 0) {
+          pdcp[temp3][1]++;
+        }
+        //dump_data(packet, len);              
+        auto instChk=globGtp.instances.find(compatInst(compatInst(temp_instance)));
+        if (instChk == globGtp.instances.end()) {                        
+          LOG_E(GTPU,"try to get a gtp-u not existing output\n");     
+          pthread_mutex_unlock(&globGtp.gtp_lock);
+          //printf("fuck\n");                                                            
+        }
+        else{
+          //printf("get instance\n");
+          if (&instChk->second){
+            gtpEndPoint * inst=&instChk->second;
+            auto ptrUe=inst->ue2te_mapping.find(UE_CPE[temp3]);                                                                    
+            if ( ptrUe==inst->ue2te_mapping.end() ) {                          
+              pthread_mutex_unlock(&globGtp.gtp_lock);
+              //printf("fuck2\n");                                                                                   
+            }
+            //printf("ue id\n");
+            //getUeRetVoid(inst, 15729); //ue_id
+            auto ptr2=ptrUe->second.bearers.find(1); //bearer_id
+            tmp=ptr2->second;
+            //printf("get bearer id\n");
+            gtpv1uCreateAndSendMsg(compatInst(temp_instance),
+                                 tmp.outgoing_ip_addr,
+                                 tmp.outgoing_port,
+                                 GTP_GPDU,
+                                 tmp.teid_outgoing,
+                                 packet,
+                                 length, 
+                                 seqNumFlag,
+                                 npduNumFlag, 
+                                 0, 
+                                 0, 
+                                 NO_MORE_EXT_HDRS, 
+                                 NULL, 
+                                 0);
+          }
+            //printf("finish\n");
+        }
+      }
+    }
+    else{
   if (tmp.outgoing_qfi != -1) {
     Gtpv1uExtHeaderT ext = { 0 };
     ext.ExtHeaderLen = 1; // in quad bytes  EXT_HDR_LNTH_OCTET_UNITS
@@ -340,9 +681,24 @@ static void gtpv1uSend(instance_t instance, gtpv1u_tunnel_data_req_t *req, bool 
                            PDU_SESSION_CONTAINER,
                            (uint8_t *)&ext,
                            sizeof(ext));
-  } else {
-    gtpv1uCreateAndSendMsg(
-        compatInst(instance), tmp.outgoing_ip_addr, tmp.outgoing_port, GTP_GPDU, tmp.teid_outgoing, buffer, length, seqNumFlag, npduNumFlag, tmp.seqNum, tmp.npduNum, NO_MORE_EXT_HDRS, NULL, 0);
+  } 
+  else {
+    gtpv1uCreateAndSendMsg(compatInst(instance), 
+	    		   tmp.outgoing_ip_addr, 
+	    		   tmp.outgoing_port, 
+	    		   GTP_GPDU, 
+	    		   tmp.teid_outgoing, 
+	    		   buffer, 
+	    		   length, 
+	    		   seqNumFlag, 
+	    		   npduNumFlag, 
+	    		   tmp.seqNum, 
+	                   tmp.npduNum, 
+	                   NO_MORE_EXT_HDRS, 
+	    		   NULL, 
+	    		   0);
+  	}
+     }
   }
 }
 
@@ -510,22 +866,292 @@ static  int udpServerSocket(openAddr_s addr) {
 
   freeaddrinfo(servinfo); // all done with this structure
 
+  if (strlen(addr.destinationHost)>1) {
+    struct addrinfo hints;
+    memset(&hints,0,sizeof(hints));
+    hints.ai_family=AF_UNSPEC;
+    hints.ai_socktype=SOCK_DGRAM;
+    hints.ai_protocol=0;
+    hints.ai_flags=AI_PASSIVE|AI_ADDRCONFIG;
+    struct addrinfo *res=0;
+    int err=getaddrinfo(addr.destinationHost,addr.destinationService,&hints,&res);
+
+    if (err==0) {
+      for(p = res; p != NULL; p = p->ai_next) {
+        if ((err=connect(sockfd,  p->ai_addr, p->ai_addrlen))==0)
+          break;
+      }
+    }
+
+    if (err)
+      LOG_E(GTPU,"Can't filter remote host: %s, %s\n", addr.destinationHost,addr.destinationService);
+  }
+	
   int sendbuff = 1000*1000*10;
   AssertFatal(0==setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sendbuff, sizeof(sendbuff)),"");
   LOG_D(GTPU,"[%d] Created listener for paquets to: %s:%s, send buffer size: %d\n", sockfd, addr.originHost, addr.originService,sendbuff);
   return sockfd;
 }
 
+void remove_whitespace(char *str) {
+    int len = strlen(str);
+    int j = 0;
+
+    for (int i = 0; i < len; i++) {
+        if (str[i] != ' ' && str[i] != '\t' && str[i] != '\n' && str[i] != '\r') {
+            str[j++] = str[i];
+        }
+    }
+    str[j] = '\0'; // ²K¥[¦r²Å¦ê?§ô²Å
+}
+
+void extract_json_value(char *json, const char *key, void *dest) {
+    char *start = strstr(json, key);
+    if (start != NULL) {
+        start += strlen(key) + 1; // Move to the start of the value
+        sscanf(start, "%[^,\n}]", (char *)dest);
+    }
+}
+
+static int
+device_info_process(char *json_data)
+{
+  //struct device_table_entry *entry;
+  //uint8_t device_mac_addr[6];
+
+  //char *json_string = "{\"device_mac_addr\": [\"08\", \"00\", \"27\", \"24\", \"92\", \"CA\"], \"cpe_ip\": 16792586, \"device_ip\": 167880896}";
+  printf("JSON string:%s", json_data);
+  //printf("JSON string:%s", json_string);
+  remove_whitespace(json_data);
+  printf("JSON string:%s", json_data);
+  //char cleaned_data[256];
+  //strcpy(cleaned_data, json_data);
+  //remove_whitespace(cleaned_data);
+  // const char *mac_addr_start = strstr(json_data, "device_mac_addr: [");
+  // if (mac_addr_start == NULL) {
+  //   printf("Error: \"device_mac_addr\" not found in JSON data!\n");
+  //   return -1;
+  // }
+  // const char *mac_addr_values = mac_addr_start + strlen("device_mac_addr: [");
+  // char *token;
+  // for (int i = 0; i < 6; i++) {
+  //   token = strtok((i == 0) ? (char *)mac_addr_values : NULL, ", ");
+  //   if (token == NULL) {
+  //     printf("Error: Unexpected end of JSON data!\n");
+  //     return -1;
+  //   }
+  //   entry->device_mac_addr[i] = strtol(token, NULL, 16);
+  // }
+  // const char *cpe_ip_start = strstr(json_data, "\"cpe_ip\": ");
+  // const char *device_ip_start = strstr(json_data, "\"device_ip\": ");
+  // if (cpe_ip_start == NULL || device_ip_start == NULL) {
+  //   printf("Error: \"cpe_ip\" or \"device_ip\" not found in JSON data!\n");
+  //   return -1;
+  // }
+
+    // ´£¨ú "cpe_ip" ©M "device_ip" ªº­È¦}???¾ã?
+  // entry->cpe_ip = atoi(cpe_ip_start + strlen("\"cpe_ip\": "));
+  // entry->device_ip = atoi(device_ip_start + strlen("\"device_ip\": "));
+  printf("ok1\n");
+  uint8_t mac_addr[6];
+  uint32_t cpe_ip;
+  uint32_t device_ip;
+  //extract_json_value(json_data, "\"device_mac_addr\":[", mac_addr);
+
+    // Extract CPE IP
+  //extract_json_value(json_data, "\"cpe_ip\":", &cpe_ip);
+
+    // Extract device IP
+  //extract_json_value(json_data, "\"device_ip\":", &device_ip);
+
+  sscanf(json_data, "{\"device_mac_addr\":[\"%2hhx\", \"%2hhx\", \"%2hhx\", \"%2hhx\", \"%2hhx\", \"%2hhx\"], \"cpe_ip\": %u, \"device_ip\": %u}",
+         &mac_addr[0], &mac_addr[1], &mac_addr[2], &mac_addr[3], &mac_addr[4], &mac_addr[5], &cpe_ip, &device_ip);
+  printf("ok2\n");
+  // ÌÛ«Ø??ªí?¥Ø
+  //struct device_table_entry entry;
+  // for (int i = 0; i < 6; ++i) {
+  //   entry->device_mac_addr[i] = mac_addr[i];
+  // }
+  //memcpy(entry->device_mac_addr, mac_addr, 6);
+  //entry->cpe_ip = cpe_ip;
+  //entry->device_ip = device_ip;
+  printf("ok3\n");
+  // ¥´¦L??ªí?¥Ø«H®§
+  printf("Device MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n", mac_addr[0], mac_addr[1],
+           mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+  printf("CPE IP: %u\n", cpe_ip);
+  printf("Device IP: %u\n", device_ip);
+  //sscanf(json_data, "{\"device_mac_addr\":[\"%hhx\",\"%hhx\",\"%hhx\",\"%hhx\",\"%hhx\",\"%hhx\"]",
+  //          &entry->device_mac_addr[0], &entry->device_mac_addr[1], &entry->device_mac_addr[2],
+  //          &entry->device_mac_addr[3], &entry->device_mac_addr[4], &entry->device_mac_addr[5]);
+  
+  
+  //sscanf(json_data, "\"cpe_ip\":%u", &entry->cpe_ip);
+
+  
+  //sscanf(json_data, "\"device_ip\":%u", &entry->device_ip);
+
+  //printf("cpe ip: %u\n", &entry->cpe_ip);
+  //printf("device ip: %u\n", &entry->device_ip);
+  //printf("he0\n");
+  device_table_insert(mac_addr, cpe_ip, device_ip);
+  //printf("he1\n");
+  device_arp_table_insert(mac_addr, device_ip);
+  // cJSON *json = cJSON_Parse(json_data);
+  // if (json == NULL) {
+  //   printf("Error parsing JSON: %s\n", cJSON_GetErrorPtr());
+  // }
+
+  // cJSON *mac_addr = cJSON_GetObjectItem(json, "device_mac_addr");
+  // cJSON *cpe_ip = cJSON_GetObjectItem(json, "cpe_ip");
+  // cJSON *device_ip = cJSON_GetObjectItem(json, "device_ip");
+  // //printf("cpe ip: %u\n", (uint32_t)cpe_ip->valueint);
+
+  // if (mac_addr != NULL && mac_addr->type == cJSON_Array && cJSON_GetArraySize(mac_addr) == 6 &&
+  //   cpe_ip != NULL && cpe_ip->type == cJSON_Number &&
+  //   device_ip != NULL && device_ip->type == cJSON_Number) {
+
+  //   for (int i = 0; i < 6; i++) {
+  //     device_mac_addr[i] = (uint8_t)strtol(cJSON_GetArrayItem(mac_addr, i)->valuestring, NULL, 16);
+  //   }
+
+  //   printf("he0\n");
+  //   device_table_insert(device_mac_addr, (uint32_t)cpe_ip->valueint, (uint32_t)device_ip->valueint);
+  //   printf("he1\n");
+  //   device_arp_table_insert(device_mac_addr, (uint32_t)device_ip->valueint);
+  // }
+  // else {
+  //   printf("Error: JSON format is not correct.\n");
+  // }
+
+  // cJSON_Delete(json);
+
+  return -1;
+}
+
+void *loop1(void *arg) {
+  unsigned char buffer[BUFFER_SIZE];
+  while (1) {
+    int len = recv(rawsockfd, buffer, BUFFER_SIZE, 0);
+    if (len == -1) {
+      perror("recv");
+      continue;
+    }
+    else{
+      printf("packet from server\n");
+      //dump_data(buffer, len);
+    }
+struct ether_header *eth_header = (struct ether_header *)buffer;
+    if (ntohs(eth_header->ether_type) == ETHERTYPE_IP) {
+      //printf("IPv4 packet\n");
+      struct ip *ip_hdr = (struct ip*)(buffer + sizeof(struct ether_header));
+      uint32_t ip_addr = ip_hdr->ip_dst.s_addr;
+      if (ip_hdr->ip_p == IPPROTO_GRE) {
+        //printf("GRE packet\n");
+        uint32_t subnet = 0x0A3C0063;
+        uint32_t mask = 0xFFFFFFFF;
+        uint32_t ip_src_addr = ip_hdr->ip_src.s_addr;
+        uint32_t ip_dst_addr = ip_hdr->ip_dst.s_addr;
+        //printf("ip: %u\n", ip_src_addr);
+        gtpEndPoint * inst;
+        gtpv1u_bearer_t tmp;
+        if (ip_src_addr == 1660959754){ //IP=10.60.0.99
+          //printf("is DHCP ack\n");
+          unsigned char *packet = buffer;
+          packet += sizeof(struct ether_header);
+          len -= sizeof(struct ether_header);
+          len += 3;
+          uint32_t temp = ip_dst_addr % 1000000;
+          //printf("temp: %u\n", temp);
+          size_t prepend_length = sizeof(pdcp[temp]);
+          memmove(packet + prepend_length, packet, len);
+          memcpy(packet, pdcp[temp], prepend_length);
+          pdcp[temp][2]++;
+          if (pdcp[temp][2] == 0) {
+            pdcp[temp][1]++;
+          }
+          //dump_data(packet, len);              
+          auto instChk=globGtp.instances.find(compatInst(compatInst(temp_instance)));
+          if (instChk == globGtp.instances.end()) {                        
+            LOG_E(GTPU,"try to get a gtp-u not existing output\n");     
+            pthread_mutex_unlock(&globGtp.gtp_lock);
+            //printf("fuck\n");                
+            return NULL;                                              
+          }
+          else{
+            //printf("get instance\n");
+            if (&instChk->second){
+              gtpEndPoint * inst=&instChk->second;
+              auto ptrUe=inst->ue2te_mapping.find(UE_CPE[temp]);                                                                    
+              if ( ptrUe==inst->ue2te_mapping.end() ) {                          
+                pthread_mutex_unlock(&globGtp.gtp_lock);
+                //printf("fuck2\n");                        
+                return NULL;                                                             
+              }
+              //printf("ue id\n");
+              //getUeRetVoid(inst, 15729); //ue_id
+              auto ptr2=ptrUe->second.bearers.find(1); //bearer_id
+              tmp=ptr2->second;
+              //printf("get bearer id\n");
+              gtpv1uCreateAndSendMsg(compatInst(temp_instance),
+                                 tmp.outgoing_ip_addr,
+                                 tmp.outgoing_port,
+                                 GTP_GPDU,
+                                 tmp.teid_outgoing,
+                                 packet,
+                                 len, 
+                                 0, 
+                                 0, 
+                                 0, 
+                                 0, 
+                                 NO_MORE_EXT_HDRS, 
+                                 NULL, 
+                                 0);
+            }
+            //printf("finish\n");
+          }                                                        
+        }
+      }
+      else if (ip_hdr->ip_p == IPPROTO_UDP){ //process UDP packet
+        struct udphdr *udp_hdr = (struct udphdr*)(buffer + sizeof(struct ether_header) + sizeof(struct ip));
+        //process Device Info
+        if (ntohs(udp_hdr->dest) == 5555){
+          size_t json_offset = sizeof(struct ether_header) + sizeof(struct ip) + sizeof(struct udphdr);
+          //size_t udp_packet_len = ntohs(udp_hdr->len);
+          //size_t json_len = udp_packet_len - sizeof(struct udphdr);
+          char *json_data = (char *)buffer + json_offset;
+          printf("Device info get\n");
+          device_info_process(json_data);
+        }
+      }
+    }
+  }
+  return NULL;
+}
+	  
 instance_t gtpv1Init(openAddr_t context) {
   pthread_mutex_lock(&globGtp.gtp_lock);
+  char cu_ip[] = "192.168.60.8";
+  int result1 = strncmp(context.originHost, cu_ip, 14);
   int id=udpServerSocket(context);
 
   if (id>=0) {
     itti_subscribe_event_fd(TASK_GTPV1_U, id);
   } else
     LOG_E(GTPU,"can't create GTP-U instance\n");
-
+  
+   if(result1 == 0){
+    createrawsocket();
+    initialize_pdcp_array();
+    printf("suitable\n");
+    temp_instance = id;
+    pthread_t tid1;
+    if (pthread_create(&tid1, NULL, loop1, NULL) != 0) {
+      perror("pthread_create");
+    }
+  }
   pthread_mutex_unlock(&globGtp.gtp_lock);
+	
   LOG_I(GTPU, "Created gtpu instance id: %d\n", id);
   return id;
 }
@@ -741,7 +1367,7 @@ int gtpv1u_create_ngu_tunnel(const instance_t instance,
     create_tunnel_resp->gnb_NGu_teid[i]=teid;
     memcpy(create_tunnel_resp->gnb_addr.buffer,addr,sizeof(addr));
     create_tunnel_resp->gnb_addr.length= sizeof(addr);
-    create_tunnel_resp->pdusession_id[i] = create_tunnel_req->pdusession_id[i];
+    //create_tunnel_resp->pdusession_id[i] = create_tunnel_req->pdusession_id[i];
   }
 
   return !GTPNOK;
@@ -749,6 +1375,8 @@ int gtpv1u_create_ngu_tunnel(const instance_t instance,
 
 int gtpv1u_update_ue_id(const instance_t instanceP, ue_id_t old_ue_id, ue_id_t new_ue_id)
 {
+  LOG_D(GTPU, "[%ld] Update tunnels from UEid %lx to UEid %lx\n", instanceP, prior_ue_id, create_tunnel_req_pP->ue_id);
+  
   pthread_mutex_lock(&globGtp.gtp_lock);
 
   auto inst = &globGtp.instances[compatInst(instanceP)];
@@ -771,7 +1399,7 @@ int gtpv1u_update_ue_id(const instance_t instanceP, ue_id_t old_ue_id, ue_id_t n
 
   pthread_mutex_unlock(&globGtp.gtp_lock);
 
-  LOG_I(GTPU, "[%ld] Updated tunnels from UEid %lx to UEid %lx\n", instanceP, old_ue_id, new_ue_id);
+  //LOG_I(GTPU, "[%ld] Updated tunnels from UEid %lx to UEid %lx\n", instanceP, old_ue_id, new_ue_id);
   return !GTPNOK;
 }
 
